@@ -1,0 +1,25 @@
+{
+  "name": "infinite-node-application",
+  "private": true,
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "node",
+    "koa",
+    "server"
+  ],
+  "author": {
+    "name": "Maleesha Gimshan",
+    "url": "https://github.com/maleeshagimshan98"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "koa": "^2.15.2",
+    "yup": "^1.4.0"
+  }
+}
