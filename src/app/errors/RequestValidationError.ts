@@ -3,10 +3,10 @@
  */
 
 class RequestValidationError extends Error {
-  constructor(message, options) {
-    super(message, options)
-    this.name = "RequestValidationError"
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'RequestValidationError';
   }
 }
 
-export  {RequestValidationError}
+export { RequestValidationError };
