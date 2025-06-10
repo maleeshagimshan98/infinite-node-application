@@ -2,11 +2,11 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import koa from "koa";
+import express from "express";
 import { IService } from "../services/IService";
 
 class InfiniteNodeApplication {
-  private _server: koa;
+  private _server: express.Application;
   private _app = {
     services: {},
     routes: {},
@@ -21,7 +21,7 @@ class InfiniteNodeApplication {
    */
   constructor() {
     this._config = this._getConfigFile("../config/config.js")
-    this._server = new koa()
+    this._server = express()
   }
 
   /**
