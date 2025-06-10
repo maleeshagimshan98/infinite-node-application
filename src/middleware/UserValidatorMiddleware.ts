@@ -1,15 +1,15 @@
 import type { NextFunction, Response } from 'express';
-import type { AuthenticatedRequest } from '../../../../../Solution365/SmartLink_Vendor_Portal/server/src/utils/request/authenticated-request';
-import APIResponseUtils from '../../../../../Solution365/SmartLink_Vendor_Portal/server/src/utils/api-response/api-response-utils';
-import { LoginRecord } from '../../../../../Solution365/SmartLink_Vendor_Portal/server/src/models/login-record.model';
-import { User } from '../../../../../Solution365/SmartLink_Vendor_Portal/server/src/models/user.model';
+import type { AuthenticatedRequest } from '../app/utils/request/authenticated-request';
+import APIResponseUtils from '../app/utils/api-response/api-response-utils';
+import { LoginRecord } from '../models/login-record.model';
+import { User } from '../models/user.model';
 
 export const UserValidatorMiddleware = (): ((
-  req: AuthenticatedRequest,
+  req: AuthenticatedRequest<User>,
   res: Response,
   next: NextFunction,
 ) => Promise<void>) => {
-  return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  return async (req: AuthenticatedRequest<User>, res: Response, next: NextFunction): Promise<void> => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
       const apiResponse = APIResponseUtils.noAuthorizationHeaderFoundResponse();
