@@ -1,5 +1,5 @@
 /**
- *
+ * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
 class ErrorLoggingError extends Error {
