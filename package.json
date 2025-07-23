@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "start": "node dist/index.js",
-    "dev": "ts-node-dev src/index.ts",
+    "dev": "ts-node-dev ./index.ts",
     "test": "jest",
     "lint": "eslint src --ext .js,.ts",
     "lint:fix": "eslint src --ext .js,.ts --fix",
@@ -33,7 +33,7 @@
     "helmet": "^8.1.0",
     "http-errors": "~1.6.3",
     "mongoose": "^8.14.0",
-    "morgan": "~1.9.1"
+    "morgan": "^1.10.1"
   },
   "devDependencies": {
     "@babel/core": "^7.21.8",
@@ -42,6 +42,7 @@
     "@eslint/js": "^9.21.0",
     "@faker-js/faker": "^9.7.0",
     "@types/cookie-parser": "^1.4.8",
+    "@types/cors": "^2.8.19",
     "@types/debug": "^4.1.12",
     "@types/jest": "^29.5.14",
     "@types/mongoose": "^5.11.96",
