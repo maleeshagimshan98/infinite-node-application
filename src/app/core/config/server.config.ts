@@ -8,7 +8,7 @@ export interface ServerConfig {
   };
 }
 
-export function serverConfig(): ServerConfig {
+export const serverConfig = (): ServerConfig => {
   return {
     ssl: process.env.SSL_ENABLED === 'true',
     sslOptions: {
@@ -16,4 +16,4 @@ export function serverConfig(): ServerConfig {
       cert: process.env.SSL_CERT_PATH ? fs.readFileSync(process.env.SSL_CERT_PATH) : null,
     },
   };
-}
+};
