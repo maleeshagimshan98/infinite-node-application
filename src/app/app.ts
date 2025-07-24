@@ -13,6 +13,10 @@ import { config } from './core/config/config';
 import { coreMiddleware } from './core/core.middleware';
 // import type { IService } from '../services/IService';
 import { InfiniteNodeError } from './errors/InfiniteNodeError';
+import { serviceLoaders } from './core/services/services.loader';
+import { container } from './core/services/service.container';
+import type { AwilixContainer } from 'awilix';
+import type { ServiceConfig } from './core/config/service/services.config';
 const debugLog = debug('server:server');
 
 /**
@@ -26,19 +30,20 @@ class InfiniteNodeApplication {
    * @type {Application} express_server - The Express application instance
    */
   private express_server: Application;
+  private container: AwilixContainer;
+  private _defferedServices: Record<string, unknown> = {};
   private _app = {
     services: {},
     routes: {},
     middleware: {},
   };
-  private _serviceLoaders = {};
-  private _defferedServices = {}; //... {notification : ['socket', 'db]}
 
   /**
    *
    */
   constructor(routes: Router) {
     dotenv.config();
+    this.container = container;
     this.express_server = this.initExpressServer(config);
     this.initCoreMiddleware();
     //... Routes
@@ -74,7 +79,52 @@ class InfiniteNodeApplication {
     }
   }
 
-  _initializeDIContainer(): void {}
+  /**
+   * Initialize deffered services
+   *
+   * @returns {void}
+   * @throws {InfiniteNodeError} If the service loader is not found or not a function
+   */
+  initDefferedServices(): void {
+    let serviceName: keyof ServiceConfig;
+
+    //... Register deffered services
+    for (const serviceName in this._defferedServices) {
+      const options = this._defferedServices[serviceName];
+      const serviceLoader = serviceLoaders[serviceName];
+      if (!serviceLoader) {
+        throw new InfiniteNodeError(`Service loader for ${serviceName} not found`);
+      }
+      if (typeof serviceLoader !== 'function') {
+        throw new InfiniteNodeError(`Service ${serviceName} must be a function`);
+      }
+      serviceLoader(this.container, options);
+    }
+  }
+
+  /**
+   *
+   */
+  private initializeCoreServices(): void {
+    const serviceConfig: ServiceConfig = config.services;
+    let serviceName: keyof ServiceConfig;
+    for (serviceName in serviceConfig) {
+      const options = serviceConfig[serviceName];
+      const serviceLoader = serviceLoaders[serviceName];
+      if (!serviceLoader) {
+        throw new InfiniteNodeError(`Service loader for ${serviceName} not found`);
+      }
+      if (typeof serviceLoader !== 'function') {
+        throw new InfiniteNodeError(`Service ${serviceName} must be a function`);
+      }
+      if (options.deffered) {
+        this._defferedServices[serviceName] = options;
+        continue; // Skip deffered services for now
+      }
+      //... registering the service in DI container
+      serviceLoader(this.container, options);
+    }
+  }
 
   // /**
   //  *
@@ -88,28 +138,6 @@ class InfiniteNodeApplication {
   //     throw new Error(`Service is not defined`); //... TODO - change the error message
   //   }
   //   this._app.services[serviceName] = service;
-  // }
-
-  // /**
-  //  *
-  //  */
-  // _initializeServices(): void {
-  //   const serviceLoaders = this._serviceLoaders;
-  //   for (const loader in serviceLoaders) {
-  //     if (typeof serviceLoaders[loader] !== 'function') {
-  //       throw new Error(`ServiceLoader must be a function`); //... TODO - change the error message
-  //     }
-  //     //... deffered service
-  //     if (this._config.hasOwnProperty(loader) && this._config[loader].deffered) {
-  //       //... set deffered services
-  //       //... continue
-  //     }
-  //     const service = serviceLoaders[loader]('di_container', this._config[loader]); //... TODO - pass paramters - DICOntainer, config
-  //     if (typeof service === 'function') {
-  //       //... TODO - has dependant services before instantiation
-  //     }
-  //     this._setService(loader, service);
-  //   }
   // }
 
   /**
