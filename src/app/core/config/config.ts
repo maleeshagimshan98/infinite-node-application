@@ -7,9 +7,8 @@ import { serverConfig } from './server.config';
 import { middlewareConfig } from './middleware.config';
 import type { IAppConfig } from './app.config';
 import { appConfig } from './app.config';
-import type { DatabaseConfig } from './database.config';
-import { databaseConfig } from './database.config';
-import { serviceConfig } from './services.config';
+import type { ServiceConfig } from './service/services.config';
+import { serviceConfig } from './service/services.config';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -18,9 +17,8 @@ export interface INodeApplicationConfig {
   global_middleware: typeof middlewareConfig;
   app: IAppConfig;
   jwt: unknown;
-  db: DatabaseConfig;
   logging: Record<string, unknown>;
-  services: typeof serviceConfig;
+  services: ServiceConfig;
 }
 
 export const config: INodeApplicationConfig = {
@@ -31,7 +29,6 @@ export const config: INodeApplicationConfig = {
     secret: process.env.JWT_SECRET || 'your_jwt_secret',
     expiresIn: process.env.JWT_EXPIRES_IN || '1h',
   },
-  db: databaseConfig(),
   logging: {},
-  services: serviceConfig,
+  services: serviceConfig(),
 };
