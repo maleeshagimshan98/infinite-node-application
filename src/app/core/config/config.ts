@@ -12,14 +12,14 @@ import { serviceConfig } from './service/services.config';
 import dotenv from 'dotenv';
 dotenv.config();
 
-export interface INodeApplicationConfig {
+export type INodeApplicationConfig = {
   server: ServerConfig;
   global_middleware: typeof middlewareConfig;
   app: IAppConfig;
   jwt: unknown;
   logging: Record<string, unknown>;
   services: ServiceConfig;
-}
+};
 
 export const config: INodeApplicationConfig = {
   server: serverConfig(),
