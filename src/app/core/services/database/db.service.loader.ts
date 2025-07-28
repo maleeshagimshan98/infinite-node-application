@@ -17,6 +17,7 @@ export const dbServiceLoader = (container: AwilixContainer, dbConfig: IDatabaseC
       container.register({
         dbClient: asFunction(() => client).singleton(),
       });
+      return;
     }
     if (dbConfig.driver === 'mongodb') {
       const client = new mongodb.MongoClient(dbConfig.mongodb.uri);
@@ -24,6 +25,7 @@ export const dbServiceLoader = (container: AwilixContainer, dbConfig: IDatabaseC
       container.register({
         dbClient: asFunction(() => client).singleton(),
       });
+      return;
     }
     throw new InfiniteNodeError(`DB driver "${dbConfig.driver}" is not supported.`);
   } catch (error: unknown) {
