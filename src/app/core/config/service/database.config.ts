@@ -5,10 +5,10 @@
 import type { IServiceConfig } from './core.service.config';
 
 export interface DatabaseConfigMySQL {
-  uri: string;
-  username: string;
+  host: string;
+  user: string;
   password: string;
-  name: string;
+  database: string;
 }
 
 export interface DatabaseConfigMongoDB {
@@ -32,10 +32,10 @@ export const databaseConfig = (): IDatabaseConfig => {
     driver: process.env.DB_DRIVER || 'mysql',
     deffered: false,
     mysql: {
-      uri: process.env.MYSQL_DATABASE_SERVER_URI || 'mysql://localhost:3306/infinite_node',
-      username: process.env.MYSQL_DATABASE_USERNAME || 'root',
-      password: process.env.MYSQL_DATABASE_PASSWORD || 'password',
-      name: process.env.MYSQL_DATABASE_NAME || 'infinite_node',
+      host: process.env.MYSQL_DATABASE_SERVER_HOST || 'localhost',
+      user: process.env.MYSQL_DATABASE_USERNAME || 'root',
+      password: process.env.MYSQL_DATABASE_PASSWORD || '',
+      database: process.env.MYSQL_DATABASE_NAME || 'infinite_node',
     },
     mongodb: {
       uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/infinite_node',
