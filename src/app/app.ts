@@ -13,6 +13,7 @@ import { config } from './core/config/config';
 import { coreMiddleware } from './core/core.middleware';
 // import type { IService } from '../services/IService';
 import { InfiniteNodeError } from './errors/InfiniteNodeError';
+import type { ServiceLoaders } from './core/services/services.loader';
 import { serviceLoaders } from './core/services/services.loader';
 import { container } from './core/services/service.container';
 import type { AwilixContainer } from 'awilix';
@@ -31,7 +32,7 @@ class InfiniteNodeApplication {
    */
   private express_server: Application;
   private container: AwilixContainer;
-  private _defferedServices: Record<string, unknown> = {};
+  private _defferedServices: Array<keyof ServiceLoaders> = [];
   private _app = {
     services: {},
     routes: {},
@@ -42,10 +43,14 @@ class InfiniteNodeApplication {
    *
    */
   constructor(routes: Router) {
+    console.log(chalk.cyan.bold('\n========== Infinite Node Application ==========\n'));
     dotenv.config();
     this.container = container;
     this.express_server = this.initExpressServer(config);
+    console.log(chalk.green(`initializing the core middleware \n`));
     this.initCoreMiddleware();
+    console.log(chalk.green(`initializing the core services \n`));
+    this.initializeCoreServices();
     //... Routes
     this.express_server.use(config.app.apiUrlPrefix, routes);
   }
@@ -80,17 +85,39 @@ class InfiniteNodeApplication {
   }
 
   /**
+   * Register a service in the DI container
+   *
+   * @param {keyof IServiceLoaders} serviceName - The name of the service
+   * @param {function} serviceLoader - The service loader function
+   * @param {object} options - The configuration options for the service
+   * @returns {void}
+   * @throws {InfiniteNodeError} If the service loader is not found or not a function
+   */
+  private registerService<K extends keyof ServiceLoaders>(
+    serviceName: K,
+    serviceLoader: ServiceLoaders[K],
+    options: ServiceConfig[K],
+  ): void {
+    if (!serviceLoader) {
+      throw new InfiniteNodeError(`Service loader for ${serviceName} not found`);
+    }
+    if (typeof serviceLoader !== 'function') {
+      throw new InfiniteNodeError(`Service ${serviceName} must be a function`);
+    }
+    //... registering the service in DI container
+    serviceLoader(this.container, options);
+    console.log(chalk.green(`-- Service ${serviceName} registered successfully`));
+  }
+
+  /**
    * Initialize deffered services
    *
    * @returns {void}
    * @throws {InfiniteNodeError} If the service loader is not found or not a function
    */
   initDefferedServices(): void {
-    let serviceName: keyof ServiceConfig;
-
-    //... Register deffered services
-    for (const serviceName in this._defferedServices) {
-      const options = this._defferedServices[serviceName];
+    this._defferedServices.forEach((serviceName) => {
+      const options = config.services[serviceName];
       const serviceLoader = serviceLoaders[serviceName];
       if (!serviceLoader) {
         throw new InfiniteNodeError(`Service loader for ${serviceName} not found`);
@@ -98,8 +125,10 @@ class InfiniteNodeApplication {
       if (typeof serviceLoader !== 'function') {
         throw new InfiniteNodeError(`Service ${serviceName} must be a function`);
       }
-      serviceLoader(this.container, options);
-    }
+      //... registering the service in DI container
+      this.registerService(serviceName, serviceLoader, options);
+    });
+    this._defferedServices = []; // Clear deffered services after initialization
   }
 
   /**
@@ -107,10 +136,9 @@ class InfiniteNodeApplication {
    */
   private initializeCoreServices(): void {
     const serviceConfig: ServiceConfig = config.services;
-    let serviceName: keyof ServiceConfig;
-    for (serviceName in serviceConfig) {
+    for (const serviceName of Object.keys(serviceConfig) as Array<keyof ServiceLoaders>) {
       const options = serviceConfig[serviceName];
-      const serviceLoader = serviceLoaders[serviceName];
+      const serviceLoader: ServiceLoaders[typeof serviceName] = serviceLoaders[serviceName];
       if (!serviceLoader) {
         throw new InfiniteNodeError(`Service loader for ${serviceName} not found`);
       }
@@ -118,11 +146,12 @@ class InfiniteNodeApplication {
         throw new InfiniteNodeError(`Service ${serviceName} must be a function`);
       }
       if (options.deffered) {
-        this._defferedServices[serviceName] = options;
+        this._defferedServices.push(serviceName);
         continue; // Skip deffered services for now
       }
       //... registering the service in DI container
-      serviceLoader(this.container, options);
+      this.registerService(serviceName, serviceLoader, options);
+      this.initDefferedServices();
     }
   }
 
@@ -171,8 +200,7 @@ class InfiniteNodeApplication {
     const addr = server.address();
     const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr?.port}`;
     debugLog(`Listening on ${bind}`);
-    console.log(chalk.cyan.bold('\n========== Express.js ==========\n'));
-    console.log(chalk.green(`Server running on: ${chalk.underline(bind)}\n`));
+    console.log(chalk.green(`\n Server running on: ${chalk.underline(bind)}\n`));
     console.log(chalk.cyan.bold('=================================\n'));
   }
 
@@ -191,7 +219,7 @@ class InfiniteNodeApplication {
     this.httpServer.listen(config.app.port);
     this.httpServer.on('error', (error: NodeJS.ErrnoException) => this.onError(error, config.app.port));
     this.httpServer.on('listening', () => this.onListening(this.httpServer as http.Server));
-    this.express_server.listen();
+    // this.express_server.listen(); TODO - CHECK
   }
 }
 
