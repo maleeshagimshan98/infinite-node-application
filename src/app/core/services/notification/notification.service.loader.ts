@@ -5,7 +5,7 @@
 import type { AwilixContainer } from 'awilix';
 import { asFunction } from 'awilix';
 import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
-import type { INotificationConfig } from '../../config/service/notofication.config';
+import type { INotificationConfig } from '../../config/service/notification.config';
 
 export const notificationServiceLoader = (container: AwilixContainer, options: INotificationConfig): void => {
   try {

@@ -7,7 +7,7 @@ import { databaseConfig, type IDatabaseConfig } from './database.config';
 import type { IEmailConfig } from './email.config';
 import { emailConfig } from './email.config';
 import { loggingConfig, type ILoggingConfig } from './logging.config';
-import { notificationConfig, type INotificationConfig } from './notofication.config';
+import { notificationConfig, type INotificationConfig } from './notification.config';
 import type { ISocketConfig } from './socket.config';
 import { socketConfig } from './socket.config';
 import type { IStorageConfig } from './storage.config';
