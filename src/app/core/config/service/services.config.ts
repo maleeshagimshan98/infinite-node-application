@@ -6,39 +6,29 @@ import { cacheConfig, type ICacheConfig } from './cache.config';
 import { databaseConfig, type IDatabaseConfig } from './database.config';
 import type { IEmailConfig } from './email.config';
 import { emailConfig } from './email.config';
+import { loggingConfig, type ILoggingConfig } from './logging.config';
+import { notificationConfig, type INotificationConfig } from './notofication.config';
+import type { ISocketConfig } from './socket.config';
+import { socketConfig } from './socket.config';
 import type { IStorageConfig } from './storage.config';
 import { storageConfig } from './storage.config';
 
-export interface ServiceConfig {
+export type ServiceConfig = {
   cache: ICacheConfig;
   db: IDatabaseConfig;
-  socket: Record<string, unknown>;
+  socket: ISocketConfig;
   storage: IStorageConfig;
   email: IEmailConfig;
-  notification: {
-    email: {
-      enabled: boolean;
-    };
-    sms: {
-      enabled: boolean;
-    };
-  };
-  logging: Record<string, unknown>;
-}
+  notification: INotificationConfig;
+  logging: ILoggingConfig;
+};
 
 export const serviceConfig = (): ServiceConfig => ({
   cache: cacheConfig(),
   db: databaseConfig(),
-  socket: {},
+  socket: socketConfig(),
   storage: storageConfig(),
   email: emailConfig(),
-  notification: {
-    email: {
-      enabled: process.env.NOTIFICATION_EMAIL_ENABLED === 'true',
-    },
-    sms: {
-      enabled: process.env.NOTIFICATION_SMS_ENABLED === 'true',
-    },
-  },
-  logging: {},
+  notification: notificationConfig(),
+  logging: loggingConfig(),
 });
