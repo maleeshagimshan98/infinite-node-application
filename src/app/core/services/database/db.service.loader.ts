@@ -3,7 +3,7 @@
  */
 
 import mysql from 'mysql';
-import mongodb from 'mongodb';
+import { MongoClient } from 'mongodb';
 import type { IDatabaseConfig } from '../../config/service/database.config';
 import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
 import { asFunction, type AwilixContainer } from 'awilix';
@@ -20,7 +20,7 @@ export const dbServiceLoader = (container: AwilixContainer, dbConfig: IDatabaseC
       return;
     }
     if (dbConfig.driver === 'mongodb') {
-      const client = new mongodb.MongoClient(dbConfig.mongodb.uri);
+      const client = new MongoClient(dbConfig.mongodb.uri);
       client.on('error', (err) => console.log('MongoDB Client Error', err));
       container.register({
         dbClient: asFunction(() => client).singleton(),
