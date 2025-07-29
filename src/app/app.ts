@@ -31,6 +31,7 @@ class InfiniteNodeApplication {
    * @type {http.Server} httpServer - The HTTP server instance
    */
   private httpServer: http.Server;
+
   /**
    * @type {Application} express_server - The Express application instance
    */
@@ -135,8 +136,8 @@ class InfiniteNodeApplication {
    * @returns {void}
    * @throws {InfiniteNodeError} If the service loader is not found or not a function
    */
-  initDefferedServices(): void {
-    this._defferedServices.forEach(async (serviceName) => {
+  async initDefferedServices(): Promise<void> {
+    for (const serviceName of this._defferedServices) {
       const options = config.services[serviceName];
       const serviceLoader = serviceLoaders[serviceName];
       if (!serviceLoader) {
@@ -145,9 +146,8 @@ class InfiniteNodeApplication {
       if (typeof serviceLoader !== 'function') {
         throw new InfiniteNodeError(`Service ${serviceName} must be a function`);
       }
-      //... registering the service in DI container
       await this.registerService(serviceName, serviceLoader, options);
-    });
+    }
     this._defferedServices = []; // Clear deffered services after initialization
   }
 
@@ -171,8 +171,8 @@ class InfiniteNodeApplication {
       }
       //... registering the service in DI container
       await this.registerService(serviceName, serviceLoader, options);
-      this.initDefferedServices();
     }
+    await this.initDefferedServices();
   }
 
   // /**
