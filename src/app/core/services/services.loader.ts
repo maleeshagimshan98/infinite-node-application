@@ -1,5 +1,6 @@
 import { cacheServiceLoader } from './cache/cache.service.loader';
 import { dbServiceLoader } from './database/db.service.loader';
+import { mongooseServiceLoader } from './mongoose/mongoose.service.loader';
 import { storageServiceLoader } from './storage/storage.service.loader';
 import { emailServiceLoader } from './email/email.service.loader';
 import { socketsServiceLoader } from './socket/sockets.service.loader';
@@ -15,6 +16,7 @@ export type ServiceLoaders = {
 export const serviceLoaders: ServiceLoaders = {
   cache: cacheServiceLoader,
   db: dbServiceLoader,
+  mongoose: mongooseServiceLoader,
   socket: socketsServiceLoader,
   storage: storageServiceLoader,
   email: emailServiceLoader,
