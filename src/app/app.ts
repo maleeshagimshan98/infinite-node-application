@@ -126,12 +126,12 @@ class InfiniteNodeApplication {
       throw new InfiniteNodeError(`Service ${serviceName} must be a function`);
     }
     //... registering the service in DI container
-    await serviceLoader(this.container, options);
+    await serviceLoader(serviceName, this.container, options);
     console.log(chalk.green(`-- Service ${serviceName} registered successfully`));
   }
 
   /**
-   * Initialize deffered services
+   * Initialize deferred services
    *
    * @returns {void}
    * @throws {InfiniteNodeError} If the service loader is not found or not a function
@@ -165,7 +165,7 @@ class InfiniteNodeApplication {
       if (typeof serviceLoader !== 'function') {
         throw new InfiniteNodeError(`Service ${serviceName} must be a function`);
       }
-      if (options.deffered) {
+      if (options.deferred) {
         this._defferedServices.push(serviceName);
         continue; // Skip deffered services for now
       }
