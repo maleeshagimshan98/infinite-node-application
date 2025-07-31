@@ -10,7 +10,11 @@ import type { AwilixContainer } from 'awilix/lib/container';
 import type { ServiceConfig } from '../config/service/services.config';
 
 export type ServiceLoaders = {
-  [PropertyKey in keyof ServiceConfig]: (container: AwilixContainer, config: ServiceConfig[PropertyKey]) => void;
+  [PropertyKey in keyof ServiceConfig]: (
+    name: string,
+    container: AwilixContainer,
+    config: ServiceConfig[PropertyKey],
+  ) => void;
 };
 
 export const serviceLoaders: ServiceLoaders = {
