@@ -6,25 +6,22 @@ import mysql from 'mysql';
 import { MongoClient } from 'mongodb';
 import type { IDatabaseConfig } from '../../config/service/database.config';
 import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
-import { asFunction, type AwilixContainer } from 'awilix';
+import { type AwilixContainer } from 'awilix';
+import { registerService } from '../service.container';
 
-export const dbServiceLoader = (container: AwilixContainer, dbConfig: IDatabaseConfig): void => {
+export const dbServiceLoader = (name: string, container: AwilixContainer, dbConfig: IDatabaseConfig): void => {
   try {
     if (dbConfig.driver === 'mysql') {
       const client = mysql.createConnection(dbConfig.mysql);
       client.on('error', (err) => console.log('MySQL Client Error', err));
+      registerService(name, container, dbConfig, client);
       //... Handle errors
-      container.register({
-        dbClient: asFunction(() => client).singleton(),
-      });
       return;
     }
     if (dbConfig.driver === 'mongodb') {
       const client = new MongoClient(dbConfig.mongodb.uri);
       client.on('error', (err) => console.log('MongoDB Client Error', err));
-      container.register({
-        dbClient: asFunction(() => client).singleton(),
-      });
+      registerService(name, container, dbConfig, client);
       return;
     }
     throw new InfiniteNodeError(`DB driver "${dbConfig.driver}" is not supported.`);

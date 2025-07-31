@@ -6,7 +6,11 @@ import { asValue, type AwilixContainer } from 'awilix';
 import mongoose from 'mongoose';
 import type { IMongooseConfig } from '../../config/service/mongoose.config';
 
-export const mongooseServiceLoader = async (container: AwilixContainer, config: IMongooseConfig): Promise<void> => {
+export const mongooseServiceLoader = async (
+  name: string,
+  container: AwilixContainer,
+  config: IMongooseConfig,
+): Promise<void> => {
   try {
     await mongoose.connect(config.uri, config.options);
     // console.log(`MongoDB connected successfully: ${config.uri}`);
@@ -15,6 +19,6 @@ export const mongooseServiceLoader = async (container: AwilixContainer, config: 
   }
 
   container.register({
-    mongoose: asValue(mongoose),
+    [name]: asValue(mongoose),
   });
 };

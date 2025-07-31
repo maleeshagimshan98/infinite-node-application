@@ -5,9 +5,14 @@
 import { createClient } from 'redis';
 import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
 import type { ICacheConfig } from '../../config/service/cache.config';
-import { asFunction, type AwilixContainer } from 'awilix';
+import { type AwilixContainer } from 'awilix';
+import { registerService } from '../service.container';
 
-export const cacheServiceLoader = async (container: AwilixContainer, config: ICacheConfig): Promise<void> => {
+export const cacheServiceLoader = async (
+  name: string,
+  container: AwilixContainer,
+  config: ICacheConfig,
+): Promise<void> => {
   try {
     if (config.driver === 'redis') {
       const client = createClient();
@@ -15,9 +20,7 @@ export const cacheServiceLoader = async (container: AwilixContainer, config: ICa
         .on('error', (err) => console.log('Redis Client Error', err))
         .connect()
         .then(() => {
-          container.register({
-            cache: asFunction(() => client).singleton(),
-          });
+          registerService(name, container, config, client);
         });
     } else {
       throw new InfiniteNodeError(`Cache driver "${config.driver}" is not supported.`);
