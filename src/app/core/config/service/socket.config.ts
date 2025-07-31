@@ -9,6 +9,7 @@ export interface ISocketConfig extends IServiceConfig {
 }
 
 export const socketConfig = (): ISocketConfig => ({
-  deffered: true,
+  singleton: true,
+  deferred: true,
   test: 'test',
 });

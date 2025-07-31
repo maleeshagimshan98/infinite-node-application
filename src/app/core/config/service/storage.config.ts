@@ -13,7 +13,8 @@ export interface IStorageConfig extends IServiceConfig {
 
 export const storageConfig = (): IStorageConfig => ({
   driver: process.env.STORAGE_DRIVER || 'fileSystem',
-  deffered: true,
+  singleton: false,
+  deferred: true,
   fileSystem: {
     rootPath: process.env.STORAGE_ROOT_PATH || '/var/infinite_node/storage',
   },

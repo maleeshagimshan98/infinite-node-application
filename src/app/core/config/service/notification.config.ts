@@ -9,6 +9,7 @@ export interface INotificationConfig extends IServiceConfig {
 }
 
 export const notificationConfig = (): INotificationConfig => ({
-  deffered: true,
+  singleton: true,
+  deferred: true,
   test: '',
 });

@@ -17,7 +17,8 @@ export interface IEmailConfig extends IServiceConfig {
 
 export const emailConfig = (): IEmailConfig => ({
   driver: process.env.EMAIL_DRIVER || 'smtp',
-  deffered: true,
+  singleton: false,
+  deferred: true,
   smtp: {
     host: process.env.EMAIL_SMTP_HOST || 'localhost',
     port: process.env.EMAIL_SMTP_PORT || '587',

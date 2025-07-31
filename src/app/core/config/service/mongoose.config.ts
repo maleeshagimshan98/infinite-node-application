@@ -11,7 +11,8 @@ export interface IMongooseConfig extends IServiceConfig {
 }
 
 export const mongooseConfig = (): IMongooseConfig => ({
-  deffered: true,
+  singleton: true,
+  deferred: true,
   uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/infinite-node',
   //   options: {
   //     // useNewUrlParser: true,

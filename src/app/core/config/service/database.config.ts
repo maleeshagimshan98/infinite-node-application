@@ -30,7 +30,8 @@ export interface IDatabaseConfig extends IServiceConfig {
 export const databaseConfig = (): IDatabaseConfig => {
   return {
     driver: process.env.DB_DRIVER || 'mysql',
-    deffered: false,
+    singleton: true,
+    deferred: false,
     mysql: {
       host: process.env.MYSQL_DATABASE_SERVER_HOST || 'localhost',
       user: process.env.MYSQL_DATABASE_USERNAME || 'root',

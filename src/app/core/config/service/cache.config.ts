@@ -16,7 +16,8 @@ export interface ICacheConfig extends IServiceConfig {
 export const cacheConfig = (): ICacheConfig => {
   return {
     driver: process.env.CACHE_DRIVER || 'redis',
-    deffered: true,
+    singleton: true,
+    deferred: false,
     redis: {
       url: process.env.CACHE_SERVER_URL || 'redis://127.0.0.1:6379',
       ttl: process.env.CACHE_TTL || '3600',
