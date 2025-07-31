@@ -31,10 +31,10 @@ export class ServiceError extends Error {
    */
   public data: Record<string, unknown> = {};
 
-  constructor(message: string, type: ServiceErrorType, data: Record<string, unknown>) {
+  constructor(message: string, type: ServiceErrorType, data?: Record<string, unknown>) {
     super(message);
     this.name = 'ServiceException';
     this.type = type;
-    this.data = data;
+    this.data = data || {};
   }
 }
