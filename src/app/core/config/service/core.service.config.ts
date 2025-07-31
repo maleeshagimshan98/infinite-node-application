@@ -3,5 +3,6 @@
  */
 
 export interface IServiceConfig {
-  deffered: boolean;
+  singleton: boolean;
+  deferred: boolean;
 }
