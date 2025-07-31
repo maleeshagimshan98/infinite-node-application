@@ -7,6 +7,7 @@ import type { APIResponse } from '../app/utils/api-response/api-response';
 import { Paginator } from '../app/utils/pagination/paginator';
 import { PaginationException } from '../app/utils/pagination/pagination-exception';
 import ApiResponseUtils from '../app/utils/api-response/api-response-utils';
+import { ServiceError } from '../services/base/ServiceError';
 
 class BaseController {
   protected logErrors(exception: unknown): void {
@@ -22,6 +23,35 @@ class BaseController {
     return true;
   }
 
+  /**
+   * Generates an API response based on the type of service exception.
+   *
+   * @param {ServiceError} serviceException The service exception to handle.
+   * @returns {APIResponse} The corresponding API response.
+   */
+  protected getServiceErrorResponse(serviceException: ServiceError): APIResponse {
+    if (serviceException.type === 'USER_PERMISSION_ERROR') {
+      return ApiResponseUtils.userNotPermittedError(serviceException.message);
+    }
+    if (serviceException.type === 'MODEL_NOT_FOUND') {
+      return ApiResponseUtils.resourceNotFoundErrorResponse(
+        serviceException.data.resource as string,
+        serviceException.data.searchKey as string,
+        serviceException.data.searchValue as string,
+      );
+    }
+    if (serviceException.type === 'UNKNOWN_ERROR') {
+      return ApiResponseUtils.apiErrorResponse(500, serviceException.message);
+    }
+    return ApiResponseUtils.apiErrorResponse(500, 'An unknown error occurred.');
+  }
+
+  /**
+   * Wraps a callback in a try-catch block to handle exceptions.
+   *
+   * @param {() => Promise<APIResponse>} callback
+   * @returns {Promise<APIResponse>}
+   */
   protected async catchExceptionsWrapper(callback: () => Promise<APIResponse>): Promise<APIResponse> {
     try {
       return await callback();
@@ -30,11 +60,23 @@ class BaseController {
         this.logErrors(e);
         return ApiResponseUtils.apiErrorResponse(400, e.message);
       }
+      if (e instanceof ServiceError) {
+        this.logErrors(e);
+        return this.getServiceErrorResponse(e);
+      }
       this.logErrors(e);
       return ApiResponseUtils.getServerErrorAPIResponse();
     }
   }
 
+  /**
+   * Creates a paginator for the given request and total result count.
+   *
+   * @param {Request} request The Express request object.
+   * @param {number} totalResultCount The total number of results available.
+   * @returns {Paginator} A Paginator instance.
+   * @throws {PaginationException}
+   */
   public getPaginator(request: Request, totalResultCount: number): Paginator {
     if (!request.query.page) {
       throw new PaginationException('Please specify the page number to return the results.');
