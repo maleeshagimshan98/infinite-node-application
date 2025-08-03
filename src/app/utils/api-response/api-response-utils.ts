@@ -1,7 +1,3 @@
-/**
- * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
- */
-
 import type { ValidationError } from 'express-validator';
 import { ErrorResponseMessages } from '../error-response-messages';
 import type { Paginator } from '../pagination/paginator';
@@ -85,8 +81,8 @@ const requestValidationFailResponse = (validationErrors: ValidationError[]): API
   return apiErrorResponse(400, ErrorResponseMessages.REQUEST_VALIDATION_ERROR(), validationErrors);
 };
 
-const resourceNotFoundErrorResponse = (resource: string, searchKey: string, searchValue: string): APIResponse => {
-  return apiErrorResponse(404, ErrorResponseMessages.NOT_FOUND_ERROR(resource, searchKey, searchValue));
+const resourceNotFoundErrorResponse = (message: string): APIResponse => {
+  return apiErrorResponse(404, message);
 };
 
 const userNotFoundError = (userType: string, userId: number): APIResponse => {

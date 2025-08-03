@@ -1,10 +1,11 @@
 import type { Request, Response } from 'express';
 import { BaseController } from '../BaseController';
+import { matchedData } from 'express-validator';
 import { User } from '../../models/user/user.model';
 import ApiResponseUtils from '../../app/utils/api-response/api-response-utils';
-import { CustomerGroup } from '../../models/user/customer-group.model';
-import { matchedData } from 'express-validator';
 import argon2 from 'argon2';
+import { CustomerGroup } from '../../models/user/customer-group.model';
+import { ErrorResponseMessages } from '../../app/utils/error-response-messages';
 
 class SignupController extends BaseController {
   constructor() {
@@ -50,7 +51,9 @@ class SignupController extends BaseController {
     const user = await User.findOne({ 'profile.email': verifyCred.email }).exec();
     if (!user) {
       return ApiResponseUtils.createResponse(
-        ApiResponseUtils.resourceNotFoundErrorResponse('User', 'email', verifyCred.email),
+        ApiResponseUtils.resourceNotFoundErrorResponse(
+          ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', verifyCred.email),
+        ),
         res,
       );
     }

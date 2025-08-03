@@ -34,11 +34,7 @@ class BaseController {
       return ApiResponseUtils.userNotPermittedError(serviceException.message);
     }
     if (serviceException.type === 'MODEL_NOT_FOUND') {
-      return ApiResponseUtils.resourceNotFoundErrorResponse(
-        serviceException.data.resource as string,
-        serviceException.data.searchKey as string,
-        serviceException.data.searchValue as string,
-      );
+      return ApiResponseUtils.resourceNotFoundErrorResponse(serviceException.message);
     }
     if (serviceException.type === 'UNKNOWN_ERROR') {
       return ApiResponseUtils.apiErrorResponse(500, serviceException.message);

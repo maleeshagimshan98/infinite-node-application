@@ -3,11 +3,12 @@ import { BaseController } from '../BaseController';
 import ApiResponseUtils from '../../app/utils/api-response/api-response-utils';
 import { User } from '../../models/user/user.model';
 import { PasswordResetCodesModel } from '../../models/auth/password-reset-code.model';
+import { matchedData } from 'express-validator';
 import type { ILoginRecord } from '../../models/auth/login-record.model';
 import { LoginRecord } from '../../models/auth/login-record.model';
 import type { HydratedDocument } from 'mongoose';
-import { matchedData } from 'express-validator';
 import argon2 from 'argon2';
+import { ErrorResponseMessages } from '../../app/utils/error-response-messages';
 
 class AccountRecoveryController extends BaseController {
   constructor() {
@@ -28,7 +29,7 @@ class AccountRecoveryController extends BaseController {
     const user = await User.findOne({ 'profile.email': email });
     if (!user) {
       return ApiResponseUtils.createResponse(
-        ApiResponseUtils.resourceNotFoundErrorResponse('User', 'email', email),
+        ApiResponseUtils.resourceNotFoundErrorResponse(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email)),
         res,
       );
     }
@@ -59,9 +60,11 @@ class AccountRecoveryController extends BaseController {
     if (!passwordResetCode) {
       return ApiResponseUtils.createResponse(
         ApiResponseUtils.resourceNotFoundErrorResponse(
-          'Password reset code',
-          'verification_code',
-          resetPasswordCred.verification_code,
+          ErrorResponseMessages.NOT_FOUND_ERROR(
+            'Password reset code',
+            'verification_code',
+            resetPasswordCred.verification_code,
+          ),
         ),
         res,
       );
@@ -70,7 +73,9 @@ class AccountRecoveryController extends BaseController {
 
     if (!user) {
       return ApiResponseUtils.createResponse(
-        ApiResponseUtils.resourceNotFoundErrorResponse('Customer', 'email', resetPasswordCred.email),
+        ApiResponseUtils.resourceNotFoundErrorResponse(
+          ErrorResponseMessages.NOT_FOUND_ERROR('Customer', 'email', resetPasswordCred.email),
+        ),
         res,
       );
     }
