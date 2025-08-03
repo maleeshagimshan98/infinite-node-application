@@ -13,14 +13,18 @@ export const dbServiceLoader = (name: string, container: AwilixContainer, dbConf
   try {
     if (dbConfig.driver === 'mysql') {
       const client = mysql.createConnection(dbConfig.mysql);
-      client.on('error', (err) => console.log('MySQL Client Error', err));
+      client.on('error', (err) => {
+        throw new Error('MySQL Client Error', err);
+      });
       registerService(name, container, dbConfig, client);
       //... Handle errors
       return;
     }
     if (dbConfig.driver === 'mongodb') {
       const client = new MongoClient(dbConfig.mongodb.uri);
-      client.on('error', (err) => console.log('MongoDB Client Error', err));
+      client.on('error', (err) => {
+        throw new Error('MongoDB Client Error', err);
+      });
       registerService(name, container, dbConfig, client);
       return;
     }
