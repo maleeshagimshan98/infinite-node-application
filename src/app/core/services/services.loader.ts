@@ -25,5 +25,5 @@ export const serviceLoaders: ServiceLoaders = {
   storage: storageServiceLoader,
   email: emailServiceLoader,
   notification: notificationServiceLoader,
-  logging: loggingServiceLoader,
+  logger: loggingServiceLoader,
 };

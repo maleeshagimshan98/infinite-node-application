@@ -22,7 +22,7 @@ export type ServiceConfig = {
   storage: IStorageConfig;
   email: IEmailConfig;
   notification: INotificationConfig;
-  logging: ILoggingConfig;
+  logger: ILoggingConfig;
 };
 
 export const serviceConfig = (): ServiceConfig => ({
@@ -33,5 +33,5 @@ export const serviceConfig = (): ServiceConfig => ({
   storage: storageConfig(),
   email: emailConfig(),
   notification: notificationConfig(),
-  logging: loggingConfig(),
+  logger: loggingConfig(),
 });
