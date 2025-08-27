@@ -37,6 +37,6 @@
     /* 💡 Compilation Settings */
     "noEmit": false /* Don't output compiled files (useful for linting) */
   },
-  "include": ["src/**/*.ts",],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "build"]
 }
