@@ -19,6 +19,7 @@ import { container } from './core/services/service.container';
 import { asValue, type AwilixContainer } from 'awilix';
 import type { ServiceConfig } from './core/config/service/services.config';
 import { scopePerRequest } from 'awilix-express';
+import type { Logger } from 'winston';
 const debugLog = debug('server:server');
 
 /**
@@ -52,6 +53,28 @@ class InfiniteNodeApplication {
     middleware: {},
   };
 
+  private consoleNotice(): void {
+    console.log(
+      chalk.cyan.bold('\n========== Infinite Node Application - v1.0.0 ==========\n') +
+        '\n' +
+        chalk.green('© 2025 ') +
+        chalk.cyan('Maleesha Gimshan') +
+        '\n \n' +
+        chalk.blue('GitHub: ') +
+        chalk.underline('https://github.com/maleeshagimshan98') +
+        '\n' +
+        chalk.blue('Repository: ') +
+        chalk.underline('https://github.com/maleeshagimshan98/infinite-node-application') +
+        '\n' +
+        chalk.yellow('Buy Me a Coffee: ') +
+        chalk.underline('https://www.buymeacoffee.com/maleeshagimshan') +
+        '\n' +
+        chalk.magenta('Licensed under the MIT License: ') +
+        chalk.underline('https://opensource.org/licenses/MIT') +
+        '\n',
+    );
+  }
+
   /**
    *
    */
@@ -67,13 +90,25 @@ class InfiniteNodeApplication {
       httpServer: asValue(this.httpServer),
       expressServer: asValue(this.express_server),
     });
-    console.log(chalk.cyan.bold('\n========== Infinite Node Application ==========\n'));
-    console.log(chalk.green(`initializing the core middleware \n`));
-    this.initCoreMiddleware();
-    console.log(chalk.green(`initializing the core services \n`));
-    this.initializeCoreServices();
-    this.express_server.use(scopePerRequest(this.container));
-    this.express_server.use(config.app.apiUrlPrefix, routes);
+    this.consoleNotice();
+    this.initializeCoreServices()
+      .then(async () => {
+        await this.initCoreMiddleware();
+        this.express_server.use(scopePerRequest(this.container));
+        this.express_server.use(config.app.apiUrlPrefix, routes);
+        const addr = this.httpServer.address();
+        const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr?.port}`;
+        console.log(chalk.green(`\n Server running on: ${chalk.underline(bind)}\n`));
+        console.log(chalk.cyan.bold('=================================\n'));
+      })
+      .catch((error) => {
+        const logger = this.container.resolve<Logger>('logger');
+        if (logger && typeof logger.error === 'function') {
+          logger.error('Error during application initialization', { error });
+        }
+        console.error(chalk.red('Error during application initialization:'), error);
+        process.exit(1);
+      });
   }
 
   /**
@@ -91,15 +126,18 @@ class InfiniteNodeApplication {
   /**
    * Initialize the core middleware
    *
-   * @returns {void}
+   * @returns {Promise<void>}
    * @throws {InfiniteNodeError} If the middleware is not a function
    */
-  initCoreMiddleware(): void {
-    const coreMiddlewareStack = coreMiddleware();
+  async initCoreMiddleware(): Promise<void> {
+    const coreMiddlewareStack = await coreMiddleware(this.container);
+    console.log(chalk.green(`\n \n initializing the core middleware \n`));
     for (const middleware in coreMiddlewareStack) {
       if (typeof coreMiddlewareStack[middleware] === 'function') {
         this.express_server.use(coreMiddlewareStack[middleware]());
+        console.log(chalk.green(`-- ${middleware} initialized successfully`));
       } else {
+        console.log(chalk.red(`Error initializing core middleware ${middleware}`));
         throw new InfiniteNodeError(`Core Middleware ${middleware} must be a function`);
       }
     }
@@ -152,10 +190,21 @@ class InfiniteNodeApplication {
   }
 
   /**
+   * Initialize core services
    *
+   * This method iterates through all service configurations defined in the application config.
+   * For each service, it checks if a corresponding service loader exists and is a function.
+   * If the service is marked as deferred (options.deferred), it adds the service to the deferred services list
+   * for later initialization and skips immediate registration.
+   * Otherwise, it registers the service immediately in the dependency injection container.
+   * After processing all services, it initializes any deferred services.
+   *
+   * @returns {Promise<void>} Resolves when all core and deferred services are initialized.
+   * @throws {InfiniteNodeError} If a service loader is missing or not a function.
    */
   private async initializeCoreServices(): Promise<void> {
     const serviceConfig: ServiceConfig = config.services;
+    console.log(chalk.green(`initializing the core services \n`));
     for (const serviceName of Object.keys(serviceConfig) as Array<keyof ServiceLoaders>) {
       const options = serviceConfig[serviceName];
       const serviceLoader: ServiceLoaders[typeof serviceName] = serviceLoaders[serviceName];
@@ -175,20 +224,6 @@ class InfiniteNodeApplication {
     await this.initDefferedServices();
   }
 
-  // /**
-  //  *
-  //  * @param {string} serviceName
-  //  * @param {mixed} service
-  //  * @returns {void}
-  //  * @throws {Error}
-  //  */
-  // _setService(serviceName: string, service: IService): void {
-  //   if (!this._app.services.hasOwnProperty(serviceName)) {
-  //     throw new Error(`Service is not defined`); //... TODO - change the error message
-  //   }
-  //   this._app.services[serviceName] = service;
-  // }
-
   /**
    * Event listener for HTTP server "error" event.
    */
@@ -198,6 +233,11 @@ class InfiniteNodeApplication {
     }
 
     const bind = typeof port === 'string' ? 'Pipe ' + port : 'Port ' + port;
+    // Log the error using winston logger resolved from the container
+    const logger = this.container.resolve<Logger>('logger');
+    if (logger && typeof logger.error === 'function') {
+      logger.error(`Server error on ${bind}: ${error.message}`, { error });
+    }
 
     switch (error.code) {
       case 'EACCES':
@@ -220,8 +260,6 @@ class InfiniteNodeApplication {
     const addr = server.address();
     const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr?.port}`;
     debugLog(`Listening on ${bind}`);
-    console.log(chalk.green(`\n Server running on: ${chalk.underline(bind)}\n`));
-    console.log(chalk.cyan.bold('=================================\n'));
   }
 
   /**
