@@ -12,11 +12,11 @@ import { registerService } from '../service.container';
 export const loggingServiceLoader = (name: string, container: AwilixContainer, options: ILoggingConfig): void => {
   try {
     const winstonTransport = new winston.transports.DailyRotateFile({
-      filename: './logs/application-%DATE%.log',
-      datePattern: 'YYYY-MM-DD',
-      zippedArchive: true,
-      maxSize: '20m',
-      maxFiles: '14d',
+      filename: options.winston.fileName,
+      datePattern: options.winston.datePattern,
+      zippedArchive: options.winston.zippedArchive,
+      maxSize: options.winston.maxSize,
+      maxFiles: options.winston.maxFiles,
       level: options.winston.level || 'info',
       format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
     });
