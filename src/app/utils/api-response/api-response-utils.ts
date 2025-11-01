@@ -8,6 +8,9 @@ import type { Response } from 'express';
 const transformApiResponseData = (
   data: Record<string, unknown>[] | Record<string, unknown> | unknown,
 ): APIResponseData => {
+  if (data === null || data === undefined) {
+    return [];
+  }
   if (Array.isArray(data)) {
     if (data.length <= 0) {
       return [];
