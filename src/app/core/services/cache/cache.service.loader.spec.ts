@@ -19,18 +19,18 @@ describe('cacheServiceLoader', () => {
     jest.clearAllMocks();
   });
 
-  it('should register Redis client when driver is "redis"', () => {
+  it('should register Redis client when driver is "redis"', async () => {
     const mockClient = { on: jest.fn() };
     (createClient as jest.Mock).mockReturnValue(mockClient);
 
     const config: ICacheConfig = {
+      singleton: true,
+      deferred: true,
       driver: 'redis',
       redis: { url: 'redis://localhost:6379', ttl: '3600', connectionTimeout: '5000' },
-      deffered: true,
     } as ICacheConfig;
 
-    cacheServiceLoader(mockContainer, config);
-
+    await cacheServiceLoader('cache', mockContainer, config);
     expect(createClient).toHaveBeenCalledWith(config.redis);
     expect(mockClient.on).toHaveBeenCalledWith('error', expect.any(Function));
     expect(mockRegister).toHaveBeenCalledWith({
@@ -38,7 +38,7 @@ describe('cacheServiceLoader', () => {
     });
   });
 
-  it('should handle Redis client error event', () => {
+  it('should handle Redis client error event', async () => {
     const mockClient = { on: jest.fn((event, cb) => event === 'error' && cb(new Error('fail'))) };
     (createClient as jest.Mock).mockReturnValue(mockClient);
     const logSpy = jest.spyOn(console, 'log').mockImplementation();
@@ -46,10 +46,11 @@ describe('cacheServiceLoader', () => {
     const config: ICacheConfig = {
       driver: 'redis',
       redis: { url: 'redis://localhost:6379', ttl: '3600', connectionTimeout: '5000' },
-      deffered: true,
+      deferred: true,
+      singleton: true,
     } as ICacheConfig;
 
-    cacheServiceLoader(mockContainer, config);
+    await cacheServiceLoader('cache', mockContainer, config);
 
     expect(logSpy).toHaveBeenCalledWith('Redis Client Error', expect.any(Error));
     logSpy.mockRestore();
@@ -59,11 +60,12 @@ describe('cacheServiceLoader', () => {
     const config: ICacheConfig = {
       driver: 'memory',
       redis: { url: '', ttl: '', connectionTimeout: '' },
-      deffered: true,
+      deferred: true,
+      singleton: true,
     } as ICacheConfig;
 
-    expect(() => cacheServiceLoader(mockContainer, config)).toThrow(InfiniteNodeError);
-    expect(() => cacheServiceLoader(mockContainer, config)).toThrow(/not supported/);
+    expect(() => cacheServiceLoader('cache', mockContainer, config)).toThrow(InfiniteNodeError);
+    expect(() => cacheServiceLoader('cache', mockContainer, config)).toThrow(/not supported/);
   });
 
   it('should throw InfiniteNodeError on Redis client creation failure', () => {
@@ -74,11 +76,11 @@ describe('cacheServiceLoader', () => {
     const config: ICacheConfig = {
       driver: 'redis',
       redis: { url: 'redis://localhost:6379', ttl: '3600', connectionTimeout: '5000' },
-      deffered: true,
+      deferred: true,
     } as ICacheConfig;
 
-    expect(() => cacheServiceLoader(mockContainer, config)).toThrow(InfiniteNodeError);
-    expect(() => cacheServiceLoader(mockContainer, config)).toThrow(/Failed to load CacheService/);
+    expect(() => cacheServiceLoader('cache', mockContainer, config)).toThrow(InfiniteNodeError);
+    expect(() => cacheServiceLoader('cache', mockContainer, config)).toThrow(/Failed to load CacheService/);
   });
 
   it('should create and register a real Redis client and perform basic operations', async () => {
@@ -86,11 +88,11 @@ describe('cacheServiceLoader', () => {
     const config: ICacheConfig = {
       driver: 'redis',
       redis: { url: 'redis://localhost:6379', ttl: '3600', connectionTimeout: '5000' },
-      deffered: true,
+      deferred: true,
     } as ICacheConfig;
 
     const container: AwilixContainer = createContainer();
-    await cacheServiceLoader(container, config);
+    await cacheServiceLoader('cache', container, config);
     const client = container.resolve('cache');
 
     // Test Redis client operations

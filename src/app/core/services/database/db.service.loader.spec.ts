@@ -16,7 +16,8 @@ describe('integration', () => {
   it('should create and register a real MySQL client and perform basic operations', async () => {
     const config: IDatabaseConfig = {
       driver: 'mysql',
-      deffered: false,
+      singleton: true,
+      deferred: false,
       mysql: {
         host: 'localhost',
         user: 'root',
@@ -29,7 +30,7 @@ describe('integration', () => {
       },
     };
 
-    dbServiceLoader(container, config);
+    dbServiceLoader('db', container, config);
     const client: mysql.Connection = container.resolve('dbClient');
     expect(client).toBeDefined();
     await client.connect();
@@ -49,7 +50,8 @@ describe('integration', () => {
   it('should create and register a real MongoDB client and perform basic operations', async () => {
     const config: IDatabaseConfig = {
       driver: 'mongodb',
-      deffered: false,
+      singleton: true,
+      deferred: false,
       mysql: { host: '', user: '', password: '', database: '' },
       mongodb: {
         uri: 'mongodb://localhost:27017/infinite-node-application',
@@ -57,7 +59,7 @@ describe('integration', () => {
       },
     };
 
-    dbServiceLoader(container, config);
+    dbServiceLoader('db', container, config);
     const client = container.resolve('dbClient');
     expect(client).toBeDefined();
     // Connect to MongoDB
