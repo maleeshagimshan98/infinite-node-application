@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+*.yaml
+*.yml
+coverage
+*.min.js
+*.bundle.js
+*.log
+*.lock
