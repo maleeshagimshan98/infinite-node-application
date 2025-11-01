@@ -1,7 +1,3 @@
-/**
- * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
- */
-
 import type { Paginator } from '../pagination/paginator';
 
 export type APIResponseData = Record<string, unknown>[];
