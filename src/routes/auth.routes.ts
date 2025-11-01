@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { RequestValidatorMiddleware } from '../middleware/RequestValidatorMiddleware';
-import { loginCredentailValidator } from '../app/utils/validators/login-credential.validator';
-import { forgotPasswordValidator } from '../app/utils/validators/forgot-password.validator';
-import { resetPasswordValidator } from '../app/utils/validators/reset-password.validator';
-import { userValidator } from '../app/utils/validators/user.validator';
+import { loginCredentailValidator } from '../validators/auth/login-credential.validator';
+import { forgotPasswordValidator } from '../validators/auth/forgot-password.validator';
+import { resetPasswordValidator } from '../validators/auth/reset-password.validator';
+import { userValidator } from '../validators/user/user.validator';
 import LoginController from '../controllers/auth/LoginController';
 import SignupController from '../controllers/auth/SignupController';
 import AccountRecoveryController from '../controllers/auth/AccountRecoveryController';
