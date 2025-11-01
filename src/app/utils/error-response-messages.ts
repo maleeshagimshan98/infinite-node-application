@@ -1,7 +1,3 @@
-/**
- * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
- */
-
 class ErrorResponseMessages {
   private static _SERVER_ERROR: string =
     'The server encountered an unexpected error while processing your request. Please try again later.';
@@ -38,6 +34,10 @@ class ErrorResponseMessages {
     } else {
       return this._NOT_FOUND_ERROR;
     }
+  }
+
+  public static RESOURCE_ALREADY_EXISTS_ERROR(resource: string = '', key: string = '', value: string = ''): string {
+    return `The ${resource} with the ${key} equal to ${value} already exists.`;
   }
 }
 
