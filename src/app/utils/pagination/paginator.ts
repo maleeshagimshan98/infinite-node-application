@@ -1,7 +1,3 @@
-/**
- * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
- */
-
 import { PaginationException } from './pagination-exception';
 class Paginator {
   private total: number = 0;
