@@ -9,8 +9,6 @@ import type { IAppConfig } from './app.config';
 import { appConfig } from './app.config';
 import type { ServiceConfig } from './service/services.config';
 import { serviceConfig } from './service/services.config';
-import dotenv from 'dotenv';
-dotenv.config();
 
 export type INodeApplicationConfig = {
   server: ServerConfig;
@@ -21,14 +19,16 @@ export type INodeApplicationConfig = {
   services: ServiceConfig;
 };
 
-export const config: INodeApplicationConfig = {
-  server: serverConfig(),
-  global_middleware: middlewareConfig,
-  app: appConfig(),
-  jwt: {
-    secret: process.env.JWT_SECRET || 'your_jwt_secret',
-    expiresIn: process.env.JWT_EXPIRES_IN || '1h',
-  },
-  logging: {},
-  services: serviceConfig(),
+export const configLoader: () => INodeApplicationConfig = () => {
+  return {
+    server: serverConfig(),
+    global_middleware: middlewareConfig,
+    app: appConfig(),
+    jwt: {
+      secret: process.env.JWT_SECRET || 'your_jwt_secret',
+      expiresIn: process.env.JWT_EXPIRES_IN || '1h',
+    },
+    logging: {},
+    services: serviceConfig(),
+  };
 };
