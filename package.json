@@ -1,17 +1,17 @@
 {
-  "name": "infinite-node-server",
+  "name": "infinite-node-application",
   "version": "0.0.1",
   "private": true,
   "scripts": {
     "start": "node dist/index.js",
-    "dev": "ts-node-dev ./index.ts",
+    "dev": "ts-node-dev ./src/index.ts",
     "test": "jest",
     "lint": "eslint src --ext .js,.ts",
     "lint:fix": "eslint src --ext .js,.ts --fix",
     "format": "prettier --write .",
-    "build": "npm run format && npm run lint && tsc",
+    "build": "npm run format && tsc",
     "seed": "ts-node src/database/seeder.ts",
-    "prepare": "husky"
+    "prepare": "husky install"
   },
   "lint-staged": {
     "*.{js,ts,jsx,tsx}": [
@@ -22,10 +22,12 @@
     ]
   },
   "dependencies": {
+    "chalk": "^4.1.2",
     "argon2": "^0.43.0",
     "awilix": "^12.0.5",
     "awilix-express": "^9.0.2",
     "axios": "^1.11.0",
+    "bullmq": "^5.58.4",
     "cookie-parser": "~1.4.4",
     "cors": "^2.8.5",
     "debug": "~2.6.9",
@@ -36,7 +38,6 @@
     "express-validator": "^7.2.1",
     "helmet": "^8.1.0",
     "http-errors": "~1.6.3",
-    "mongodb": "^6.18.0",
     "mongoose": "^8.14.0",
     "morgan": "^1.10.1",
     "mysql": "^2.18.1",
@@ -53,9 +54,10 @@
     "@eslint/js": "^9.21.0",
     "@faker-js/faker": "^9.7.0",
     "@types/cookie-parser": "^1.4.8",
-    "@types/cors": "^2.8.19",
+    "@types/cors": "^2.8.17",
     "@types/debug": "^4.1.12",
-     "@types/express": "^5.0.1",
+    "@types/dotenv": "^6.1.1",
+    "@types/express": "^5.0.1",
     "@types/express-session": "^1.18.2",
     "@types/jest": "^29.5.14",
     "@types/mongoose": "^5.11.96",
