@@ -9,7 +9,11 @@ import winston from 'winston';
 import 'winston-daily-rotate-file';
 import { registerService } from '../service.container';
 
-export const loggingServiceLoader = (name: string, container: AwilixContainer, options: ILoggingConfig): void => {
+export const loggingServiceLoader = async (
+  name: string,
+  container: AwilixContainer,
+  options: ILoggingConfig,
+): Promise<void> => {
   try {
     const winstonTransport = new winston.transports.DailyRotateFile({
       filename: options.winston.fileName,

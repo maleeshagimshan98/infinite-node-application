@@ -7,7 +7,11 @@ import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
 import type { IEmailConfig } from '../../config/service/email.config';
 import { registerService } from '../service.container';
 
-export const emailServiceLoader = (name: string, container: AwilixContainer, options: IEmailConfig): void => {
+export const emailServiceLoader = async (
+  name: string,
+  container: AwilixContainer,
+  options: IEmailConfig,
+): Promise<void> => {
   try {
     // Assuming EmailService is defined and imported correctly
     const emailService = 'new EmailService()';

@@ -9,7 +9,11 @@ import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
 import { type AwilixContainer } from 'awilix';
 import { registerService } from '../service.container';
 
-export const dbServiceLoader = (name: string, container: AwilixContainer, dbConfig: IDatabaseConfig): void => {
+export const dbServiceLoader = async (
+  name: string,
+  container: AwilixContainer,
+  dbConfig: IDatabaseConfig,
+): Promise<void> => {
   try {
     if (dbConfig.driver === 'mysql') {
       const client = mysql.createConnection(dbConfig.mysql);
@@ -21,7 +25,7 @@ export const dbServiceLoader = (name: string, container: AwilixContainer, dbConf
       return;
     }
     if (dbConfig.driver === 'mongodb') {
-      const client = new MongoClient(dbConfig.mongodb.uri);
+      const client = await new MongoClient(dbConfig.mongodb.uri).connect();
       client.on('error', (err) => {
         throw new Error('MongoDB Client Error', err);
       });

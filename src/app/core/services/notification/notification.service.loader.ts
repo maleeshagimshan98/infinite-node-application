@@ -7,11 +7,11 @@ import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
 import type { INotificationConfig } from '../../config/service/notification.config';
 import { registerService } from '../service.container';
 
-export const notificationServiceLoader = (
+export const notificationServiceLoader = async (
   name: string,
   container: AwilixContainer,
   options: INotificationConfig,
-): void => {
+): Promise<void> => {
   try {
     // Assuming NotificationService is defined and imported correctly
     const notificationService = 'new NotificationService()';

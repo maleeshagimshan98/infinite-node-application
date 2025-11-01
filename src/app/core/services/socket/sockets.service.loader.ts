@@ -8,7 +8,11 @@ import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
 import { registerService } from '../service.container';
 import type { ISocketConfig } from '../../config/service/socket.config';
 
-export const socketsServiceLoader = (name: string, container: AwilixContainer, options: ISocketConfig): void => {
+export const socketsServiceLoader = async (
+  name: string,
+  container: AwilixContainer,
+  options: ISocketConfig,
+): Promise<void> => {
   try {
     const socketsService = new Server(container.resolve('httpServer'));
     registerService(name, container, options, socketsService);

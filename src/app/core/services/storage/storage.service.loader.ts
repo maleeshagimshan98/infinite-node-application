@@ -7,7 +7,11 @@ import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
 import { registerService } from '../service.container';
 import type { IStorageConfig } from '../../config/service/storage.config';
 
-export const storageServiceLoader = (name: string, container: AwilixContainer, options: IStorageConfig): void => {
+export const storageServiceLoader = async (
+  name: string,
+  container: AwilixContainer,
+  options: IStorageConfig,
+): Promise<void> => {
   try {
     // Assuming StorageService is defined and imported correctly
     const storageService = 'new StorageService()';
