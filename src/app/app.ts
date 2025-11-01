@@ -9,7 +9,7 @@ import http from 'http';
 import debug from 'debug';
 import chalk from 'chalk';
 import type { INodeApplicationConfig } from './core/config/config';
-import { config } from './core/config/config';
+import { configLoader } from './core/config/config';
 import { coreMiddleware } from './core/core.middleware';
 // import type { IService } from '../services/IService';
 import { InfiniteNodeError } from './errors/InfiniteNodeError';
@@ -20,7 +20,15 @@ import { asValue, type AwilixContainer } from 'awilix';
 import type { ServiceConfig } from './core/config/service/services.config';
 import { scopePerRequest } from 'awilix-express';
 import type { Logger } from 'winston';
+import path from 'path';
+
 const debugLog = debug('server:server');
+process.env.NODE_ENV = process.env.NODE_ENV || 'development';
+dotenv.config({
+  path: path.resolve(__dirname, `../../.env.${process.env.NODE_ENV}`),
+});
+
+const config: INodeApplicationConfig = configLoader();
 
 /**
  * InfiniteNodeApplication class
@@ -79,36 +87,42 @@ class InfiniteNodeApplication {
    *
    */
   constructor(routes: Router) {
-    dotenv.config();
-    this.container = container;
-    this.express_server = this.initExpressServer(config);
-    if (!this.express_server) {
-      throw new InfiniteNodeError(`Server instance is not found`);
-    }
-    this.httpServer = http.createServer(this.express_server);
-    this.container.register({
-      httpServer: asValue(this.httpServer),
-      expressServer: asValue(this.express_server),
-    });
-    this.consoleNotice();
-    this.initializeCoreServices()
-      .then(async () => {
-        await this.initCoreMiddleware();
-        this.express_server.use(scopePerRequest(this.container));
-        this.express_server.use(config.app.apiUrlPrefix, routes);
-        const addr = this.httpServer.address();
-        const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr?.port}`;
-        console.log(chalk.green(`\n Server running on: ${chalk.underline(bind)}\n`));
-        console.log(chalk.cyan.bold('=================================\n'));
-      })
-      .catch((error) => {
-        const logger = this.container.resolve<Logger>('logger');
-        if (logger && typeof logger.error === 'function') {
-          logger.error('Error during application initialization', { error });
-        }
-        console.error(chalk.red('Error during application initialization:'), error);
-        process.exit(1);
+    try {
+      this.container = container;
+      this.express_server = this.initExpressServer(config);
+      if (!this.express_server) {
+        throw new InfiniteNodeError(`Server instance is not found`);
+      }
+      this.httpServer = http.createServer(this.express_server);
+      this.container.register({
+        httpServer: asValue(this.httpServer),
+        expressServer: asValue(this.express_server),
       });
+      this.consoleNotice();
+      this.initializeCoreServices()
+        .then(async () => {
+          await this.initCoreMiddleware();
+          this.express_server.use(scopePerRequest(this.container));
+          this.express_server.use(config.app.apiUrlPrefix, routes);
+          const addr = this.httpServer.address();
+          const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr?.port}`;
+          console.log(chalk.magenta(`\nApplication name - ${config.app.name}`));
+          console.log(chalk.magenta(`Server Url - ${config.app.baseUrl}`));
+          console.log(chalk.magenta(`Server running on: ${chalk.underline(bind)}\n`));
+          console.log(chalk.cyan.bold('=================================\n'));
+        })
+        .catch((error) => {
+          const logger = this.container.resolve<Logger>('logger');
+          if (logger && typeof logger.error === 'function') {
+            logger.error('Error during application initialization', { error });
+          }
+          console.error(chalk.red('Error during application initialization:'), error);
+          process.exit(1);
+        });
+    } catch (error) {
+      console.error(chalk.red('Fatal error during application startup:'), error);
+      process.exit(1);
+    }
   }
 
   /**
@@ -234,9 +248,14 @@ class InfiniteNodeApplication {
 
     const bind = typeof port === 'string' ? 'Pipe ' + port : 'Port ' + port;
     // Log the error using winston logger resolved from the container
-    const logger = this.container.resolve<Logger>('logger');
-    if (logger && typeof logger.error === 'function') {
-      logger.error(`Server error on ${bind}: ${error.message}`, { error });
+    try {
+      const logger = this.container.resolve<Logger>('logger');
+      if (logger && typeof logger.error === 'function') {
+        logger.error(`Server error on ${bind}: ${error.message}`, { error });
+      }
+    } catch (e) {
+      console.error(`Logger not available to log error: ${(e as Error).message}`, { e });
+      process.exit(1);
     }
 
     switch (error.code) {
