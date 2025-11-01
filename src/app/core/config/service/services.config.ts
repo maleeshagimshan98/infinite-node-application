@@ -9,6 +9,8 @@ import { emailConfig } from './email.config';
 import { loggingConfig, type ILoggingConfig } from './logging.config';
 import { mongooseConfig, type IMongooseConfig } from './mongoose.config';
 import { notificationConfig, type INotificationConfig } from './notification.config';
+import type { IQueueConfig } from './queue.config';
+import { queueConfig } from './queue.config';
 import type { ISocketConfig } from './socket.config';
 import { socketConfig } from './socket.config';
 import type { IStorageConfig } from './storage.config';
@@ -17,6 +19,7 @@ import { storageConfig } from './storage.config';
 export type ServiceConfig = {
   cache: ICacheConfig;
   db: IDatabaseConfig;
+  queue: IQueueConfig;
   mongoose: IMongooseConfig;
   socket: ISocketConfig;
   storage: IStorageConfig;
@@ -28,6 +31,7 @@ export type ServiceConfig = {
 export const serviceConfig = (): ServiceConfig => ({
   cache: cacheConfig(),
   db: databaseConfig(),
+  queue: queueConfig(),
   mongoose: mongooseConfig(),
   socket: socketConfig(),
   storage: storageConfig(),
