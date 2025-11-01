@@ -8,18 +8,20 @@ import { notificationServiceLoader } from './notification/notification.service.l
 import { loggingServiceLoader } from './logging/logging.service.loader';
 import type { AwilixContainer } from 'awilix/lib/container';
 import type { ServiceConfig } from '../config/service/services.config';
+import { queueServiceLoader } from './queue/queue.service.loader';
 
 export type ServiceLoaders = {
   [PropertyKey in keyof ServiceConfig]: (
     name: string,
     container: AwilixContainer,
     config: ServiceConfig[PropertyKey],
-  ) => void;
+  ) => Promise<void>;
 };
 
 export const serviceLoaders: ServiceLoaders = {
   cache: cacheServiceLoader,
   db: dbServiceLoader,
+  queue: queueServiceLoader,
   mongoose: mongooseServiceLoader,
   socket: socketsServiceLoader,
   storage: storageServiceLoader,
