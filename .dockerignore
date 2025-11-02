@@ -1,0 +1,36 @@
+# Node
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs
+/dist
+/build
+
+# VCS
+.git
+.gitignore
+
+# IDE/editor
+.vscode
+.idea
+.DS_Store
+
+# Tests and coverage
+coverage
+jest-cache
+jest-tmp
+
+# Env files (optional): comment out if you want to bake them in (not recommended)
+.env
+.env.*
+
+# Local logs
+logs
+*.log
+
+# Docker
+Dockerfile*
+.dockerignore
