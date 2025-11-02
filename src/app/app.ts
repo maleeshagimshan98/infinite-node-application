@@ -103,6 +103,12 @@ class InfiniteNodeApplication {
         .then(async () => {
           await this.initCoreMiddleware();
           this.express_server.use(scopePerRequest(this.container));
+
+          // Basic health endpoint for readiness/liveness probes and quick checks
+          this.express_server.get('/health', (_req, res) => {
+            res.status(200).send('OK');
+          });
+
           this.express_server.use(config.app.apiUrlPrefix, routes);
           const addr = this.httpServer.address();
           const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr?.port}`;
