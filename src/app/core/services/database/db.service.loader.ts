@@ -17,7 +17,7 @@ export const dbServiceLoader = async (
   try {
     if (dbConfig.driver === 'mysql') {
       const client = mysql.createConnection(dbConfig.mysql);
-      client.on('error', (err) => {
+      client.on('error', (err: Error) => {
         throw new Error('MySQL Client Error', err);
       });
       registerService(name, container, dbConfig, client);
@@ -26,7 +26,7 @@ export const dbServiceLoader = async (
     }
     if (dbConfig.driver === 'mongodb') {
       const client = await new MongoClient(dbConfig.mongodb.uri).connect();
-      client.on('error', (err) => {
+      client.on('error', (err: Error) => {
         throw new Error('MongoDB Client Error', err);
       });
       registerService(name, container, dbConfig, client);
