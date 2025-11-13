@@ -21,6 +21,7 @@ import type { ServiceConfig } from './core/config/service/services.config';
 import { scopePerRequest } from 'awilix-express';
 import type { Logger } from 'winston';
 import path from 'path';
+import type net from 'net';
 
 const debugLog = debug('server:server');
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
@@ -103,12 +104,6 @@ class InfiniteNodeApplication {
         .then(async () => {
           await this.initCoreMiddleware();
           this.express_server.use(scopePerRequest(this.container));
-
-          // Basic health endpoint for readiness/liveness probes and quick checks
-          this.express_server.get('/health', (_req, res) => {
-            res.status(200).send('OK');
-          });
-
           this.express_server.use(config.app.apiUrlPrefix, routes);
           const addr = this.httpServer.address();
           const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr?.port}`;
@@ -118,7 +113,7 @@ class InfiniteNodeApplication {
           console.log(chalk.cyan.bold('=================================\n'));
         })
         .catch((error) => {
-          const logger = this.container.resolve<Logger>('logger');
+          const logger = this.container.resolve<Logger>('logger', { allowUnregistered: true });
           if (logger && typeof logger.error === 'function') {
             logger.error('Error during application initialization', { error });
           }
@@ -246,8 +241,13 @@ class InfiniteNodeApplication {
 
   /**
    * Event listener for HTTP server "error" event.
+   *
+   * @param {NodeJS.ErrnoException} error
+   * @param {string | number} port
+   * @return {void}
+   * @throws {NodeJS.ErrnoException} Throws the error if it's not related to listen syscall
    */
-  private onError(error: NodeJS.ErrnoException, port: string | number): void {
+  private onListenError(error: NodeJS.ErrnoException, port: string | number): void {
     if (error.syscall !== 'listen') {
       throw error;
     }
@@ -255,11 +255,11 @@ class InfiniteNodeApplication {
     const bind = typeof port === 'string' ? 'Pipe ' + port : 'Port ' + port;
     // Log the error using winston logger resolved from the container
     try {
-      const logger = this.container.resolve<Logger>('logger');
+      const logger = this.container.resolve<Logger>('logger', { allowUnregistered: true });
       if (logger && typeof logger.error === 'function') {
         logger.error(`Server error on ${bind}: ${error.message}`, { error });
       }
-    } catch (e) {
+    } catch (e: unknown) {
       console.error(`Logger not available to log error: ${(e as Error).message}`, { e });
       process.exit(1);
     }
@@ -279,6 +279,40 @@ class InfiniteNodeApplication {
   }
 
   /**
+   * Event listener for HTTP server "clientError" event.
+   *
+   * This handler is invoked by Node's HTTP server when a low–level client-side
+   * error occurs before Express routing logic runs. These errors typically stem
+   * from malformed HTTP requests (e.g. invalid headers, premature socket close,
+   * parser failures like `HPE_INVALID_METHOD`, `HPE_INVALID_CONSTANT`), protocol
+   * violations, or abrupt client disconnects producing conditions such as
+   * `ECONNRESET`.
+   *
+   * Why it exists:
+   *  - Such failures do not pass through Express middleware; without this handler
+   *    they would either be silent or produce an unstructured stack trace.
+   *  - We log them for visibility (via the DI-resolved Winston logger when available)
+   *    and proactively terminate the socket with a minimal 400 Bad Request response
+   *    to avoid lingering half-open connections and resource leakage.
+   *
+   * @param {Error} error  The low-level error emitted by the HTTP parser / socket layer.
+   * @param {net.Socket} socket  The raw network socket associated with the offending client.
+   * @return {void}
+   */
+  private onClientError(error: Error, socket: net.Socket): void {
+    try {
+      const logger = this.container.resolve<Logger>('logger', { allowUnregistered: true });
+      if (logger && typeof logger.error === 'function') {
+        logger.error(`Client error: ${error.message}`, { error });
+      }
+    } catch (e: unknown) {
+      console.error(`Logger not available to log error: ${(e as Error).message}`, { e });
+    }
+    console.error('Client error:', error);
+    socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
+  }
+
+  /**
    * Event listener for HTTP server "listening" event.
    */
   private onListening(server: http.Server): void {
@@ -295,7 +329,8 @@ class InfiniteNodeApplication {
    */
   listen(): void {
     this.httpServer.listen(config.app.port);
-    this.httpServer.on('error', (error: NodeJS.ErrnoException) => this.onError(error, config.app.port));
+    this.httpServer.on('error', (error: NodeJS.ErrnoException) => this.onListenError(error, config.app.port));
+    this.httpServer.on('clientError', (error: Error, socket: net.Socket) => this.onClientError(error, socket));
     this.httpServer.on('listening', () => this.onListening(this.httpServer as http.Server));
     // this.express_server.listen(); TODO - CHECK
   }
