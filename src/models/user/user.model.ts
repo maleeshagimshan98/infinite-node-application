@@ -4,23 +4,39 @@ import { AddressSchema } from './address.model';
 
 type UserStatus = 'pending_verification' | 'active' | 'suspended';
 
-export interface IUser {
+export interface INewUser {
   profile: {
-    name: string;
+    fisrt_name?: string;
+    last_name?: string;
     email: string;
-    address: IAddress[];
-    phone: string;
-    profile_img: string;
+    address?: IAddress[];
+    phone?: string;
+    profile_img?: string;
   };
   password: string;
   status: UserStatus;
   cg_id: string;
 }
 
-export const UserSchema = new Schema<IUser>(
+export interface IUser {
+  profile: {
+    fisrt_name: string;
+    last_name: string;
+    email: string;
+    address: IAddress[];
+    phone?: string;
+    profile_img?: string;
+  };
+  password: string;
+  status: UserStatus;
+  cg_id: string;
+}
+
+export const UserSchema = new Schema<INewUser>(
   {
     profile: {
-      name: { type: String, required: true },
+      first_name: { type: String, required: true },
+      last_name: { type: String, required: true },
       email: { type: String, required: true },
       address: { type: Array, of: AddressSchema, required: true },
       phone: { type: String, required: true },
