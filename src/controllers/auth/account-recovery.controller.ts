@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { BaseController } from '../BaseController';
+import { BaseController } from '../base.controller';
 import ApiResponseUtils from '../../app/utils/api-response/api-response-utils';
 import { User } from '../../models/user/user.model';
 import { PasswordResetCodesModel } from '../../models/auth/password-reset-code.model';
