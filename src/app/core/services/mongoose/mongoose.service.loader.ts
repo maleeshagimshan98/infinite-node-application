@@ -2,23 +2,29 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import { asValue, type AwilixContainer } from 'awilix';
-import mongoose from 'mongoose';
-import type { IMongooseConfig } from '../../config/service/mongoose.config';
+import type { AwilixContainer } from 'awilix';
+import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
+import { registerService } from '../service.container';
+import { type IMongooseConfig } from '../../config/service/mongoose.config';
+import { MongooseService } from './mongoose.service';
+import type { Mongoose } from 'mongoose';
 
 export const mongooseServiceLoader = async (
-  name: string,
   container: AwilixContainer,
   config: IMongooseConfig,
-): Promise<void> => {
+): Promise<MongooseService> => {
   try {
-    await mongoose.connect(config.uri, config.options);
-    // console.log(`MongoDB connected successfully: ${config.uri}`);
+    const mongooseService = new MongooseService();
+    await mongooseService.init(container, config);
+    const client = mongooseService.service() as Mongoose | undefined;
+    if (!client || typeof client.connection !== 'object') {
+      throw new InfiniteNodeError('Mongoose client is not properly initialized.');
+    }
+    registerService(config.serviceName, 'singleton', client);
+    return mongooseService;
   } catch (error: unknown) {
-    console.error(`MongoDB connection error: ${error instanceof Error ? error.message : error}`);
+    throw new InfiniteNodeError(
+      `Failed to load MongooseService: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    );
   }
-
-  container.register({
-    [name]: asValue(mongoose),
-  });
 };
