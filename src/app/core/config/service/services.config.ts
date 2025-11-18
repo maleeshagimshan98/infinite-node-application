@@ -2,35 +2,38 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import { cacheConfig, type ICacheConfig } from './cache.config';
-import { databaseConfig, type IDatabaseConfig } from './database.config';
+import { redisConfig, type IRedisConfig } from './redis.config';
+import { mongodbConfig, type IMongoDBConfig } from './mongodb.config';
+import { mysqlConfig, type IMySQLConfig } from './mysql.config';
 import type { IEmailConfig } from './email.config';
 import { emailConfig } from './email.config';
-import { loggingConfig, type ILoggingConfig } from './logging.config';
+import { loggingConfig, type ILoggingConfig } from './winston.config';
 import { mongooseConfig, type IMongooseConfig } from './mongoose.config';
 import { notificationConfig, type INotificationConfig } from './notification.config';
 import type { IQueueConfig } from './queue.config';
 import { queueConfig } from './queue.config';
 import type { ISocketConfig } from './socket.config';
 import { socketConfig } from './socket.config';
-import type { IStorageConfig } from './storage.config';
-import { storageConfig } from './storage.config';
+import type { IFileSystemStorageConfig } from './local-file-storage.config';
+import { storageConfig } from './local-file-storage.config';
 
 export type ServiceConfig = {
-  cache: ICacheConfig;
-  db: IDatabaseConfig;
+  redis: IRedisConfig;
+  mongodb: IMongoDBConfig;
+  mysql: IMySQLConfig;
   queue: IQueueConfig;
   mongoose: IMongooseConfig;
   socket: ISocketConfig;
-  storage: IStorageConfig;
+  storage: IFileSystemStorageConfig;
   email: IEmailConfig;
   notification: INotificationConfig;
   logger: ILoggingConfig;
 };
 
 export const serviceConfig = (): ServiceConfig => ({
-  cache: cacheConfig(),
-  db: databaseConfig(),
+  redis: redisConfig(),
+  mongodb: mongodbConfig(),
+  mysql: mysqlConfig(),
   queue: queueConfig(),
   mongoose: mongooseConfig(),
   socket: socketConfig(),
