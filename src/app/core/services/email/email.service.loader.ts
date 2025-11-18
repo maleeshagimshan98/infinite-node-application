@@ -4,18 +4,20 @@
 
 import type { AwilixContainer } from 'awilix';
 import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
-import type { IEmailConfig } from '../../config/service/email.config';
 import { registerService } from '../service.container';
+import type { IEmailConfig } from '../../config/service/email.config';
+import { EmailService } from './email.service';
 
-export const emailServiceLoader = async (
-  name: string,
-  container: AwilixContainer,
-  options: IEmailConfig,
-): Promise<void> => {
+export const emailServiceLoader = async (container: AwilixContainer, config: IEmailConfig): Promise<EmailService> => {
   try {
-    // Assuming EmailService is defined and imported correctly
-    const emailService = 'new EmailService()';
-    registerService(name, container, options, emailService);
+    const emailService: EmailService = new EmailService();
+    await emailService.init(container, config);
+    const client = emailService.service();
+    if (!client || !(client instanceof Object)) {
+      throw new InfiniteNodeError('Email client is not properly initialized.');
+    }
+    registerService(config.serviceName, 'singleton', client);
+    return emailService;
   } catch (error: unknown) {
     throw new InfiniteNodeError(
       `Failed to load EmailService: ${error instanceof Error ? error.message : 'Unknown error'}`,
