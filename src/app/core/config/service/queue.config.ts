@@ -6,7 +6,7 @@ import type { IServiceConfig } from './core.service.config';
 
 export interface IQueueConfig extends IServiceConfig {
   queueName: string;
-  config: {
+  params: {
     port: number;
     host: string;
     username: string;
@@ -15,13 +15,14 @@ export interface IQueueConfig extends IServiceConfig {
 }
 
 export const queueConfig = (): IQueueConfig => ({
+  serviceName: 'queue',
   singleton: true,
   deferred: true,
   queueName: process.env.QUEUE_NAME || 'inf_node_app_default_queue',
-  config: {
-    port: 6379,
-    host: process.env.CACHE_SERVER_HOST || 'localhost',
-    username: process.env.CACHE_SERVER_USERNAME || '',
-    password: process.env.CACHE_SERVER_PASSWORD || '',
+  params: {
+    port: Number(process.env.REDIS_SERVER_PORT ?? '6379'),
+    host: process.env.REDIS_SERVER_HOST || 'localhost',
+    username: process.env.REDIS_SERVER_USERNAME || '',
+    password: process.env.REDIS_SERVER_PASSWORD || '',
   },
 });
