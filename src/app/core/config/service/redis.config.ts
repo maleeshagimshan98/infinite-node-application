@@ -4,9 +4,8 @@
 
 import type { IServiceConfig } from './core.service.config';
 
-export interface ICacheConfig extends IServiceConfig {
-  driver: string;
-  redis: {
+export interface IRedisConfig extends IServiceConfig {
+  params: {
     url: string;
     ttl: string;
     connectionTimeout: string;
@@ -74,12 +73,12 @@ export interface ICacheConfig extends IServiceConfig {
   };
 }
 
-export const cacheConfig = (): ICacheConfig => {
-  const config: ICacheConfig = {
-    driver: process.env.CACHE_DRIVER || 'redis',
+export const redisConfig = (): IRedisConfig => {
+  const config: IRedisConfig = {
+    serviceName: 'redis',
     singleton: true,
     deferred: false,
-    redis: {
+    params: {
       url: process.env.CACHE_SERVER_URL || 'redis://127.0.0.1:6379',
       ttl: process.env.CACHE_TTL || '3600',
       // socket: {
