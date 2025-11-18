@@ -1,4 +1,4 @@
-import { dbServiceLoader } from './db.service.loader';
+import { dbServiceLoader } from '../db.service.loader';
 import type { IDatabaseConfig } from '../../config/service/database.config';
 import type { AwilixContainer } from 'awilix';
 import { createContainer } from 'awilix';
