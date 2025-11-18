@@ -26,6 +26,7 @@ export interface ILoggingConfig extends IServiceConfig {
 
 export const loggingConfig = (): ILoggingConfig => {
   return {
+    serviceName: 'logger',
     singleton: true,
     deferred: true,
     winston: {
