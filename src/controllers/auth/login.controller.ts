@@ -65,7 +65,6 @@ class LoginController extends BaseController {
 
       return res.status(200).json({
         id: user._id.toString(),
-        profile: user.profile,
         status: user.status,
       });
     } catch (error) {
@@ -121,7 +120,6 @@ class LoginController extends BaseController {
       res.setHeader('Authorization', `Bearer ${token}`);
       const apiResponse = APIResponseUtils.apiOkResponse(201, false, null, 'Logged in successfully', {
         id: user._id.toString(),
-        profile: user.profile,
         status: user.status,
         token, // remove this and fix the token issue in front end
       });

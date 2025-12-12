@@ -38,7 +38,6 @@ class SignupController extends BaseController {
     return ApiResponseUtils.createResponse(
       ApiResponseUtils.apiOkResponse(201, false, null, 'User registered successfully', {
         id: newUser._id.toString(),
-        profile: newUser.profile,
         status: newUser.status,
       }),
       res,
