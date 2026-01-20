@@ -22,6 +22,7 @@ export const emailConfig = (): IEmailConfig => {
     serviceName: 'email',
     singleton: true,
     deferred: false,
+    optional: process.env.EMAIL_SERVICE_OPTIONAL === 'true',
     params: {
       host: process.env.EMAIL_SMTP_HOST || 'localhost',
       port: Number(process.env.EMAIL_SMTP_PORT) || 587,

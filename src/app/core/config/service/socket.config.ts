@@ -18,6 +18,7 @@ export const socketConfig = (): ISocketConfig => ({
   serviceName: 'socket',
   singleton: true,
   deferred: true,
+  optional: process.env.SOCKET_SERVICE_OPTIONAL === 'true',
   params: {
     path: process.env.SOCKET_PATH || '/socket.io',
     cors: {

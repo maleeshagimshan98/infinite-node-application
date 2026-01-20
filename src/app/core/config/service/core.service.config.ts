@@ -6,4 +6,5 @@ export interface IServiceConfig {
   serviceName: string;
   singleton: boolean;
   deferred: boolean;
+  optional?: boolean;
 }

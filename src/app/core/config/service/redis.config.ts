@@ -78,6 +78,7 @@ export const redisConfig = (): IRedisConfig => {
     serviceName: 'redis',
     singleton: true,
     deferred: false,
+    optional: process.env.REDIS_SERVICE_OPTIONAL === 'true',
     params: {
       url: process.env.CACHE_SERVER_URL || 'redis://127.0.0.1:6379',
       ttl: process.env.CACHE_TTL || '3600',

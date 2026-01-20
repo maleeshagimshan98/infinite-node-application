@@ -18,6 +18,7 @@ export const queueConfig = (): IQueueConfig => ({
   serviceName: 'queue',
   singleton: true,
   deferred: true,
+  optional: process.env.QUEUE_SERVICE_OPTIONAL === 'true',
   queueName: process.env.QUEUE_NAME || 'inf_node_app_default_queue',
   params: {
     port: Number(process.env.REDIS_SERVER_PORT ?? '6379'),

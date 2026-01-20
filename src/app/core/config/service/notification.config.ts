@@ -15,6 +15,7 @@ export const notificationConfig = (): INotificationConfig => ({
   serviceName: 'notification',
   singleton: true,
   deferred: true,
+  optional: process.env.NOTIFICATION_SERVICE_OPTIONAL === 'true',
   params: {
     driver: 'inmemory',
   },
