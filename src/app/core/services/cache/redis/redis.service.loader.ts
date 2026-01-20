@@ -20,6 +20,9 @@ export const redisServiceLoader = async (container: AwilixContainer, config: IRe
     registerService(config.serviceName, 'singleton', client);
     return redisService;
   } catch (error: unknown) {
+    if (error instanceof InfiniteNodeError) {
+      throw error;
+    }
     throw new InfiniteNodeError(
       `Failed to load RedisService: ${error instanceof Error ? error.message : 'Unknown error'}`,
     );

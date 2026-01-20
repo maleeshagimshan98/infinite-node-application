@@ -23,6 +23,9 @@ export const socketsServiceLoader = async (
     registerService(config.serviceName, 'singleton', client);
     return svc;
   } catch (error: unknown) {
+    if (error instanceof InfiniteNodeError) {
+      throw error;
+    }
     throw new InfiniteNodeError(
       `Failed to load SocketsService: ${error instanceof Error ? error.message : 'Unknown error'}`,
     );

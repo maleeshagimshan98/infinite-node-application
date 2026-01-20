@@ -20,6 +20,9 @@ export const mysqlServiceLoader = async (container: AwilixContainer, config: IMy
     registerService(config.serviceName, 'singleton', client);
     return mysqlService;
   } catch (error: unknown) {
+    if (error instanceof InfiniteNodeError) {
+      throw error;
+    }
     throw new InfiniteNodeError(
       `Failed to load MySQLService: ${error instanceof Error ? error.message : 'Unknown error'}`,
     );

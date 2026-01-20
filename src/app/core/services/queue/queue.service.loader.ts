@@ -16,6 +16,9 @@ export const queueServiceLoader = async (container: AwilixContainer, config: IQu
     registerService(config.serviceName, 'singleton', client);
     return queueService;
   } catch (error: unknown) {
+    if (error instanceof InfiniteNodeError) {
+      throw error;
+    }
     throw new InfiniteNodeError(
       `Failed to load QueueService: ${error instanceof Error ? error.message : 'Unknown error'}`,
     );

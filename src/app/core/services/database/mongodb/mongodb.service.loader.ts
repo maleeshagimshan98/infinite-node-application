@@ -23,6 +23,9 @@ export const mongoDbServiceLoader = async (
     }
     return dbService;
   } catch (error: unknown) {
+    if (error instanceof InfiniteNodeError) {
+      throw error;
+    }
     throw new InfiniteNodeError(
       `Failed to load DatabaseService: ${error instanceof Error ? error.message : 'Unknown error'}`,
     );

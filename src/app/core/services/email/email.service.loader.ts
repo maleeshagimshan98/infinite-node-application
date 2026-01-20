@@ -13,12 +13,15 @@ export const emailServiceLoader = async (container: AwilixContainer, config: IEm
     const emailService: EmailService = new EmailService();
     await emailService.init(container, config);
     const client = emailService.service();
-    if (!client || !(client instanceof Object)) {
+    if (config.optional !== true && (!client || !(client instanceof Object))) {
       throw new InfiniteNodeError('Email client is not properly initialized.');
     }
     registerService(config.serviceName, 'singleton', client);
     return emailService;
   } catch (error: unknown) {
+    if (error instanceof InfiniteNodeError) {
+      throw error;
+    }
     throw new InfiniteNodeError(
       `Failed to load EmailService: ${error instanceof Error ? error.message : 'Unknown error'}`,
     );

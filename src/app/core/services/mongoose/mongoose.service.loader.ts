@@ -23,6 +23,9 @@ export const mongooseServiceLoader = async (
     registerService(config.serviceName, 'singleton', client);
     return mongooseService;
   } catch (error: unknown) {
+    if (error instanceof InfiniteNodeError) {
+      throw error;
+    }
     throw new InfiniteNodeError(
       `Failed to load MongooseService: ${error instanceof Error ? error.message : 'Unknown error'}`,
     );

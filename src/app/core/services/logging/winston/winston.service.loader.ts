@@ -23,6 +23,9 @@ export const winstonServiceLoader = async (
     registerService(config.serviceName, 'singleton', client);
     return winstonService;
   } catch (error: unknown) {
+    if (error instanceof InfiniteNodeError) {
+      throw error;
+    }
     throw new InfiniteNodeError(
       `Failed to load LoggingService: ${error instanceof Error ? error.message : 'Unknown error'}`,
     );

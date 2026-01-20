@@ -17,12 +17,15 @@ export const notificationServiceLoader = async (
     const notificationService = new NotificationService();
     await notificationService.init(container, config);
     const client = notificationService.service() as EventEmitter | undefined;
-    if (!client || typeof client.emit !== 'function') {
+    if (!config.optional && (!client || typeof client.emit !== 'function')) {
       throw new InfiniteNodeError('Notification client is not properly initialized.');
     }
     registerService(config.serviceName, 'singleton', client);
     return notificationService;
   } catch (error: unknown) {
+    if (error instanceof InfiniteNodeError) {
+      throw error;
+    }
     throw new InfiniteNodeError(
       `Failed to load NotificationService: ${error instanceof Error ? error.message : 'Unknown error'}`,
     );

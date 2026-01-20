@@ -23,6 +23,9 @@ export const localFileStorageServiceLoader = async (
     registerService(config.serviceName, 'singleton', client);
     return storageService;
   } catch (error: unknown) {
+    if (error instanceof InfiniteNodeError) {
+      throw error;
+    }
     throw new InfiniteNodeError(
       `Failed to load StorageService: ${error instanceof Error ? error.message : 'Unknown error'}`,
     );
