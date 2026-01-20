@@ -7,7 +7,7 @@ import type { ICoreService } from '../../core.service';
 import type { IMongoDBConfig } from '../../../config/service/mongodb.config';
 import type { AwilixContainer } from 'awilix';
 
-export class MongoDBService implements ICoreService<IMongoDBConfig> {
+export class MongoDBService implements ICoreService<MongoClient, IMongoDBConfig> {
   private client: MongoClient | undefined;
   constructor() {}
 

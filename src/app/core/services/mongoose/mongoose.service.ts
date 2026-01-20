@@ -4,7 +4,7 @@ import type { IMongooseConfig } from '../../config/service/mongoose.config';
 import mongoose, { type Mongoose } from 'mongoose';
 import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
 
-export class MongooseService implements ICoreService<IMongooseConfig> {
+export class MongooseService implements ICoreService<Mongoose, IMongooseConfig> {
   private client: Mongoose | undefined;
 
   constructor() {}

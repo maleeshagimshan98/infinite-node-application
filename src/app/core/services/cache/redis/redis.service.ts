@@ -8,7 +8,7 @@ import type { ICoreService } from '../../core.service';
 import type { IRedisConfig } from '../../../config/service/redis.config';
 import type { AwilixContainer } from 'awilix';
 
-export class RedisService implements ICoreService<IRedisConfig> {
+export class RedisService implements ICoreService<RedisClientType, IRedisConfig> {
   private client: RedisClientType | undefined;
   constructor() {}
 

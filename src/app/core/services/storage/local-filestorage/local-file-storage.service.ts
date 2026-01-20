@@ -4,7 +4,7 @@ import type { IFileSystemStorageConfig } from '../../../config/service/local-fil
 import { InfiniteNodeError } from '../../../../errors/InfiniteNodeError';
 import { LocalFileStorageClient } from './local-file-storage-client';
 
-export class LocalFileStorageService implements ICoreService<IFileSystemStorageConfig> {
+export class LocalFileStorageService implements ICoreService<LocalFileStorageClient, IFileSystemStorageConfig> {
   private client: LocalFileStorageClient | undefined;
 
   constructor() {}

@@ -8,7 +8,7 @@ import type { IMySQLConfig } from '../../../config/service/mysql.config';
 import type { Pool } from 'mysql';
 import { createPool } from 'mysql';
 
-export class MySQLService implements ICoreService<IMySQLConfig> {
+export class MySQLService implements ICoreService<Pool, IMySQLConfig> {
   private pool: Pool | undefined;
 
   constructor() {}

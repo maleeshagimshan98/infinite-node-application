@@ -1,8 +1,7 @@
 import type { AwilixContainer } from 'awilix';
 import type { IServiceConfig } from '../config/service/core.service.config';
-
-export interface ICoreService<T extends IServiceConfig = IServiceConfig> {
-  init: (container: AwilixContainer, config: T) => Promise<void>;
-  service: () => unknown;
+export interface ICoreService<T, K extends IServiceConfig = IServiceConfig> {
+  init: (container: AwilixContainer, config: K) => Promise<void>;
+  service: () => T | undefined;
   shutdown: () => Promise<void>;
 }

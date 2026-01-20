@@ -9,7 +9,7 @@ import { Server, type ServerOptions } from 'socket.io';
 import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
 import type { Server as HttpServer } from 'http';
 
-export class SocketsService implements ICoreService<ISocketConfig> {
+export class SocketsService implements ICoreService<Server, ISocketConfig> {
   private client: Server | undefined;
 
   constructor() {}

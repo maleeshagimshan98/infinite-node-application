@@ -6,7 +6,7 @@ import type { AwilixContainer } from 'awilix';
 import type { ICoreService } from '../core.service';
 import type { IEmailConfig } from '../../config/service/email.config';
 
-export class EmailService implements ICoreService<IEmailConfig> {
+export class EmailService implements ICoreService<unknown, IEmailConfig> {
   private client: unknown | undefined;
   constructor() {}
 

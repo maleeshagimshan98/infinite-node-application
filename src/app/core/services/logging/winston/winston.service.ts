@@ -8,7 +8,7 @@ import type { AwilixContainer } from 'awilix';
 import winston from 'winston';
 import 'winston-daily-rotate-file';
 
-export class LoggingService implements ICoreService<ILoggingConfig> {
+export class LoggingService implements ICoreService<winston.Logger, ILoggingConfig> {
   private logger: winston.Logger | undefined;
   constructor() {}
 
