@@ -1,10 +1,13 @@
-import type { Request } from 'express';
+import type { AwilixContainer } from 'awilix';
+import { container } from '../../app/core/services/service.container';
 import { PaginationException } from '../../app/utils/pagination/pagination-exception';
 import { Paginator } from '../../app/utils/pagination/paginator';
 
 export class BaseService {
+  protected container: AwilixContainer;
+
   constructor() {
-    // Initialization code if needed
+    this.container = container;
   }
 
   /**
@@ -15,33 +18,31 @@ export class BaseService {
    * @returns {Paginator}
    * @throws {PaginationException} - If pagination parameters are invalid
    */
-  public getPaginator(request: Request, totalResultCount: number): Paginator {
-    if (!request.query.page) {
+  public getPaginator(page: number, limit: number, totalResultCount: number): Paginator {
+    if (!page) {
       throw new PaginationException('Please specify the page number to return the results.');
     }
 
-    if (isNaN(Number(request.query.page))) {
+    if (isNaN(Number(page))) {
       throw new PaginationException('Page number must be a number.');
     }
 
-    if (Number(request.query.page) <= 0) {
+    if (Number(page) <= 0) {
       throw new PaginationException('Page number must be a number higher than 0.');
     }
 
-    if (!request.query.limit) {
+    if (!limit) {
       throw new PaginationException('Please specify the number of results per page to return the results.');
     }
 
-    if (isNaN(Number(request.query.limit))) {
+    if (isNaN(Number(limit))) {
       throw new PaginationException('Limit must be a number.');
     }
 
-    if (Number(request.query.limit) <= 0) {
+    if (Number(limit) <= 0) {
       throw new PaginationException('Limit must be a number higher than 0.');
     }
 
-    const page = Number(request.query.page);
-    const limit = Number(request.query.limit);
     const paginator = new Paginator(page, totalResultCount, limit);
     return paginator;
   }
