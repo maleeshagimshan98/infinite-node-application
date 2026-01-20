@@ -20,11 +20,14 @@ import type { NotificationService } from './notification/notification.service';
 import type { QueueService } from './queue/queue.service';
 import type { SocketsService } from './socket/sockets.service';
 import type { LocalFileStorageService } from './storage/local-filestorage/local-file-storage.service';
-import { databaseServiceLoader } from './database/database/database.service.loader';
-import type { DatabaseService } from './database/database/database.service';
+import { databaseServiceLoader } from './database/database.service.loader';
+import type { DatabaseService } from './database/database.service';
+import { cacheServiceLoader } from './cache/cache.service.loader';
+import type { CacheService } from './cache/cache.service';
 
 export type ServiceReturnTypes = {
   redis: RedisService;
+  cache: CacheService;
   database: DatabaseService;
   email: EmailService;
   logger: LoggingService;
@@ -57,6 +60,7 @@ export type ServiceLoaders = {
 
 export const serviceLoaders: ServiceLoaders = {
   redis: redisServiceLoader,
+  cache: cacheServiceLoader,
   database: databaseServiceLoader,
   email: emailServiceLoader,
   logger: winstonServiceLoader,

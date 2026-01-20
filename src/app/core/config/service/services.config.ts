@@ -16,9 +16,12 @@ import type { IFileSystemStorageConfig } from './local-file-storage.config';
 import { storageConfig } from './local-file-storage.config';
 import type { IDatabaseConfig } from './database.config';
 import { databaseConfig } from './database.config';
+import type { ICacheConfig } from './cache.config';
+import { cacheConfig } from './cache.config';
 
 export type ServiceConfig = {
   redis: IRedisConfig;
+  cache: ICacheConfig;
   queue: IQueueConfig;
   mongoose: IMongooseConfig;
   database: IDatabaseConfig;
@@ -31,6 +34,7 @@ export type ServiceConfig = {
 
 export const serviceConfig = (): ServiceConfig => ({
   redis: redisConfig(),
+  cache: cacheConfig(),
   database: databaseConfig(),
   queue: queueConfig(),
   mongoose: mongooseConfig(),

@@ -3,12 +3,12 @@
  */
 
 import type { AwilixContainer } from 'awilix';
-import type { IDatabaseConfig } from '../../../config/service/database.config';
-import type { ICoreService } from '../../core.service';
-import { MongoDBService } from '../mongodb/mongodb.service';
+import type { IDatabaseConfig } from '../../config/service/database.config';
+import type { ICoreService } from '../core.service';
+import { MongoDBService } from './mongodb/mongodb.service';
 import type { MongoClient } from 'mongodb';
 import type { Pool } from 'mysql';
-import { MySQLService } from '../mysql/mysql.service';
+import { MySQLService } from './mysql/mysql.service';
 
 export type DatabaseClientType = MongoClient | Pool;
 
