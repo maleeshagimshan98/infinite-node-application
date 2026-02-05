@@ -3,7 +3,7 @@ import type { ILoginRecord } from '../../models/auth/login-record.model';
 import { LoginRecord } from '../../models/auth/login-record.model';
 import type { IUser } from '../../models/user/user.model';
 import { User } from '../../models/user/user.model';
-import { BaseController } from '../BaseController';
+import { BaseController } from '../base.controller';
 import APIResponseUtils from '../../app/utils/api-response/api-response-utils';
 import type { HydratedDocument } from 'mongoose';
 // import { APIResponseData } from '../../utils/api-response/api-response';

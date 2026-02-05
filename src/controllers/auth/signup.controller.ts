@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { BaseController } from '../BaseController';
+import { BaseController } from '../base.controller';
 import { matchedData } from 'express-validator';
 import { User } from '../../models/user/user.model';
 import ApiResponseUtils from '../../app/utils/api-response/api-response-utils';

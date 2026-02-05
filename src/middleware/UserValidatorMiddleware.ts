@@ -2,14 +2,15 @@ import type { NextFunction, Response } from 'express';
 import type { AuthenticatedRequest } from '../app/utils/request/authenticated-request';
 import APIResponseUtils from '../app/utils/api-response/api-response-utils';
 import { LoginRecord } from '../models/auth/login-record.model';
-import { type IUser, User } from '../models/user/user.model';
+import type { INewUser } from '../models/user/user.model';
+import { User } from '../models/user/user.model';
 
 export const UserValidatorMiddleware = (): ((
-  req: AuthenticatedRequest<IUser>,
+  req: AuthenticatedRequest<INewUser>,
   res: Response,
   next: NextFunction,
 ) => Promise<void>) => {
-  return async (req: AuthenticatedRequest<IUser>, res: Response, next: NextFunction): Promise<void> => {
+  return async (req: AuthenticatedRequest<INewUser>, res: Response, next: NextFunction): Promise<void> => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
       const apiResponse = APIResponseUtils.noAuthorizationHeaderFoundResponse();

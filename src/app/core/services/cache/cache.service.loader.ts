@@ -11,7 +11,8 @@ import { registerService } from '../service.container';
 
 export const createRedisClient = async (container: AwilixContainer, config: ICacheConfig): Promise<RedisClientType> => {
   const client: RedisClientType = createClient(config.redis);
-  client.on('error', (err) => console.log('Redis Client Error', err));
+  //... TODO - check error types and see what can you do to handle them properly
+  client.on('error', (err: Error) => console.log('Redis Client Error', err));
   await client.connect();
   return client;
 };

@@ -5,9 +5,9 @@ import { loginCredentailValidator } from '../validators/auth/login-credential.va
 import { forgotPasswordValidator } from '../validators/auth/forgot-password.validator';
 import { resetPasswordValidator } from '../validators/auth/reset-password.validator';
 import { userValidator } from '../validators/user/user.validator';
-import LoginController from '../controllers/auth/LoginController';
-import SignupController from '../controllers/auth/SignupController';
-import AccountRecoveryController from '../controllers/auth/AccountRecoveryController';
+import LoginController from '../controllers/auth/login.controller';
+import SignupController from '../controllers/auth/signup.controller';
+import AccountRecoveryController from '../controllers/auth/account-recovery.controller';
 
 const router = Router();
 const loginController = new LoginController();
