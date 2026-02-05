@@ -3,7 +3,7 @@
  */
 
 import type { AwilixContainer } from 'awilix';
-import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
+import { InfiniteNodeError } from '../../errors/InfiniteNodeError';
 import { registerService } from '../service.container';
 import { type INotificationConfig } from '../../config/service/notification.config';
 import { NotificationService } from './notification.service';

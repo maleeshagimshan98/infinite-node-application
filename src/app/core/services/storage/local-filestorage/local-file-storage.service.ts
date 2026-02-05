@@ -1,7 +1,7 @@
 import type { AwilixContainer } from 'awilix';
 import type { ICoreService } from '../../core.service';
 import type { IFileSystemStorageConfig } from '../../../config/service/local-file-storage.config';
-import { InfiniteNodeError } from '../../../../errors/InfiniteNodeError';
+import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
 import { LocalFileStorageClient } from './local-file-storage-client';
 
 export class LocalFileStorageService implements ICoreService<LocalFileStorageClient, IFileSystemStorageConfig> {

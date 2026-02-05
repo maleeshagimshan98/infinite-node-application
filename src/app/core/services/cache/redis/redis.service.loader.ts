@@ -3,7 +3,7 @@
  */
 
 import type { RedisClientType } from 'redis';
-import { InfiniteNodeError } from '../../../../errors/InfiniteNodeError';
+import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
 import { RedisService } from './redis.service';
 import { registerService } from '../../service.container';
 import type { IRedisConfig } from '../../../config/service/redis.config';

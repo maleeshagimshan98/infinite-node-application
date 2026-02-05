@@ -1,7 +1,7 @@
 import type { AwilixContainer } from 'awilix';
 import type { ICoreService } from '../core.service';
 import type { INotificationConfig } from '../../config/service/notification.config';
-import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
+import { InfiniteNodeError } from '../../errors/InfiniteNodeError';
 
 export class NotificationService implements ICoreService<undefined, INotificationConfig> {
   private client: undefined;

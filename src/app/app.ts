@@ -14,7 +14,7 @@ import type { INodeApplicationConfig } from './core/config/config';
 import { configLoader } from './core/config/config';
 import { coreMiddleware } from './core/middleware/core.middleware';
 // import type { IService } from '../services/IService';
-import { InfiniteNodeError } from './errors/InfiniteNodeError';
+import { InfiniteNodeError } from './core/errors/InfiniteNodeError';
 import type { ServiceLoaders, ServiceReturnTypes } from './core/services/services.loader';
 import { serviceLoaders } from './core/services/services.loader';
 import { container } from './core/services/service.container';

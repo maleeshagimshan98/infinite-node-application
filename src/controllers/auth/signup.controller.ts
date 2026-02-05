@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { BaseController } from '../base.controller';
 import { matchedData } from 'express-validator';
-import ApiResponseUtils from '../../app/utils/api-response/api-response-utils';
+import ApiResponseUtils from '../../app/core/utils/api-response/api-response-utils';
 import { SignupService } from '../../services/auth/signup.service';
 import type { INewUser } from '../../models/user/user.model';
 

@@ -10,7 +10,7 @@ import { LoginRecord } from '../../models/auth/login-record.model';
 import type { ILoginRecord } from '../../models/auth/login-record.model';
 import { User } from '../../models/user/user.model';
 import type { IUser } from '../../models/user/user.model';
-import { ErrorResponseMessages } from '../../app/utils/error-response-messages';
+import { ErrorResponseMessages } from '../../app/core/utils/error-response-messages';
 
 export class LoginService extends BaseService {
   constructor() {

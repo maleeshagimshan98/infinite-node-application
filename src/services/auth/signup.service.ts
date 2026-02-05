@@ -10,7 +10,7 @@ import { User } from '../../models/user/user.model';
 import type { INewUser, IUser } from '../../models/user/user.model';
 import type { ICustomerGroup } from '../../models/user/customer-group.model';
 import { CustomerGroup } from '../../models/user/customer-group.model';
-import { ErrorResponseMessages } from '../../app/utils/error-response-messages';
+import { ErrorResponseMessages } from '../../app/core/utils/error-response-messages';
 
 export class SignupService extends BaseService {
   constructor() {

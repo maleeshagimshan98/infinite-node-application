@@ -5,7 +5,7 @@
 import type { AwilixContainer } from 'awilix';
 import type { IDatabaseConfig } from '../../config/service/database.config';
 import { DatabaseService } from './database.service';
-import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
+import { InfiniteNodeError } from '../../errors/InfiniteNodeError';
 import { registerService } from '../service.container';
 
 export const databaseServiceLoader = async (

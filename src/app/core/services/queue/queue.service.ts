@@ -6,7 +6,7 @@ import type { AwilixContainer } from 'awilix';
 import type { ICoreService } from '../core.service';
 import type { IQueueConfig } from '../../config/service/queue.config';
 import { Queue } from 'bullmq';
-import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
+import { InfiniteNodeError } from '../../errors/InfiniteNodeError';
 
 export class QueueService implements ICoreService<Queue, IQueueConfig> {
   private client: Queue | undefined;

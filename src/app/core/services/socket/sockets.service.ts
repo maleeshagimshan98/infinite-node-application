@@ -6,7 +6,7 @@ import type { AwilixContainer } from 'awilix';
 import type { ICoreService } from '../core.service';
 import type { ISocketConfig } from '../../config/service/socket.config';
 import { Server, type ServerOptions } from 'socket.io';
-import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
+import { InfiniteNodeError } from '../../errors/InfiniteNodeError';
 import type { Server as HttpServer } from 'http';
 
 export class SocketsService implements ICoreService<Server, ISocketConfig> {

@@ -3,7 +3,7 @@
  */
 
 import type { AwilixContainer } from 'awilix';
-import { InfiniteNodeError } from '../../../../errors/InfiniteNodeError';
+import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
 import { registerService } from '../../service.container';
 import type { IMySQLConfig } from '../../../config/service/mysql.config';
 import { MySQLService } from './mysql.service';

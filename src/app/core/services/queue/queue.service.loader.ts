@@ -2,7 +2,7 @@ import type { AwilixContainer } from 'awilix';
 import { registerService } from '../service.container';
 import { type IQueueConfig } from '../../config/service/queue.config';
 import { QueueService } from './queue.service';
-import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
+import { InfiniteNodeError } from '../../errors/InfiniteNodeError';
 import type { Queue } from 'bullmq';
 
 export const queueServiceLoader = async (container: AwilixContainer, config: IQueueConfig): Promise<QueueService> => {

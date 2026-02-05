@@ -5,7 +5,7 @@
 import type { AwilixContainer } from 'awilix';
 import type { ICacheConfig } from '../../config/service/cache.config';
 import { CacheService } from './cache.service';
-import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
+import { InfiniteNodeError } from '../../errors/InfiniteNodeError';
 import { registerService } from '../service.container';
 
 export const cacheServiceLoader = async (container: AwilixContainer, config: ICacheConfig): Promise<CacheService> => {

@@ -3,7 +3,7 @@
  */
 
 import type { AwilixContainer } from 'awilix';
-import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
+import { InfiniteNodeError } from '../../errors/InfiniteNodeError';
 import { registerService } from '../service.container';
 import { type IMongooseConfig } from '../../config/service/mongoose.config';
 import { MongooseService } from './mongoose.service';

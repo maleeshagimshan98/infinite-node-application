@@ -2,7 +2,7 @@ import type { AwilixContainer } from 'awilix';
 import type { ICoreService } from '../core.service';
 import type { IMongooseConfig } from '../../config/service/mongoose.config';
 import mongoose, { type Mongoose } from 'mongoose';
-import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
+import { InfiniteNodeError } from '../../errors/InfiniteNodeError';
 
 export class MongooseService implements ICoreService<Mongoose, IMongooseConfig> {
   private client: Mongoose | undefined;

@@ -1,5 +1,5 @@
 import { redisServiceLoader } from './redis.service.loader';
-import { InfiniteNodeError } from '../../../../errors/InfiniteNodeError';
+import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
 import type { IRedisConfig } from '../../../config/service/redis.config';
 import type { AwilixContainer } from 'awilix';
 import { createClient } from 'redis';

@@ -3,7 +3,7 @@
  */
 
 import type { AwilixContainer } from 'awilix';
-import { InfiniteNodeError } from '../../../../errors/InfiniteNodeError';
+import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
 import { registerService } from '../../service.container';
 import { type ILoggingConfig } from '../../../config/service/winston.config';
 import { LoggingService } from './winston.service';

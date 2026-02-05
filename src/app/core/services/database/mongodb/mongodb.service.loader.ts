@@ -3,7 +3,7 @@
  */
 
 import { MongoClient } from 'mongodb';
-import { InfiniteNodeError } from '../../../../errors/InfiniteNodeError';
+import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
 import { type AwilixContainer } from 'awilix';
 import { MongoDBService } from './mongodb.service';
 import { registerService } from '../../service.container';

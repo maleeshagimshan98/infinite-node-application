@@ -10,7 +10,7 @@ import { User } from '../../models/user/user.model';
 import type { IUser } from '../../models/user/user.model';
 import { PasswordResetCodesModel } from '../../models/auth/password-reset-code.model';
 import { LoginRecord } from '../../models/auth/login-record.model';
-import { ErrorResponseMessages } from '../../app/utils/error-response-messages';
+import { ErrorResponseMessages } from '../../app/core/utils/error-response-messages';
 
 export class AccountRecoveryService extends BaseService {
   constructor() {

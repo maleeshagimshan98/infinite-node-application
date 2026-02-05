@@ -3,7 +3,7 @@
  */
 
 import type { AwilixContainer } from 'awilix';
-import { InfiniteNodeError } from '../../../../errors/InfiniteNodeError';
+import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
 import { registerService } from '../../service.container';
 import { type IFileSystemStorageConfig } from '../../../config/service/local-file-storage.config';
 import { LocalFileStorageService } from './local-file-storage.service';
