@@ -83,7 +83,7 @@ export async function runAllSeeders(): Promise<void> {
  */
 export async function clearAllSeeders(): Promise<void> {
   console.log('\n\n╔═══════════════════════════════════════════════════════════╗');
-  console.log('║          🗑️  DATABASE CLEANUP PROCESS STARTED 🗑️           ║');
+  console.log('║          🗑️  DATABASE CLEANUP PROCESS STARTED 🗑️            ║');
   console.log('╚═══════════════════════════════════════════════════════════╝\n');
 
   try {
@@ -103,12 +103,12 @@ export async function clearAllSeeders(): Promise<void> {
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('╔═══════════════════════════════════════════════════════════╗');
-    console.log('║     ✨ DATABASE CLEANUP COMPLETED SUCCESSFULLY ✨          ║');
+    console.log('║     ✨ DATABASE CLEANUP COMPLETED SUCCESSFULLY ✨        ║');
     console.log('╚═══════════════════════════════════════════════════════════╝\n');
   } catch (error) {
     console.error('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.error('╔═══════════════════════════════════════════════════════════╗');
-    console.error('║      ❌ DATABASE CLEANUP FAILED ❌                        ║');
+    console.error('║      ❌ DATABASE CLEANUP FAILED ❌                       ║');
     console.error('╚═══════════════════════════════════════════════════════════╝');
     console.error('\nError Details:', error instanceof Error ? error.message : String(error));
     console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');

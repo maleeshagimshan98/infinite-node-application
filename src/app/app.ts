@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+
 /**
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
@@ -10,10 +12,10 @@ import debug from 'debug';
 import chalk from 'chalk';
 import type { INodeApplicationConfig } from './core/config/config';
 import { configLoader } from './core/config/config';
-import { coreMiddleware } from './core/core.middleware';
+import { coreMiddleware } from './core/middleware/core.middleware';
 // import type { IService } from '../services/IService';
-import { InfiniteNodeError } from './errors/InfiniteNodeError';
-import type { ServiceLoaders } from './core/services/services.loader';
+import { InfiniteNodeError } from './core/errors/InfiniteNodeError';
+import type { ServiceLoaders, ServiceReturnTypes } from './core/services/services.loader';
 import { serviceLoaders } from './core/services/services.loader';
 import { container } from './core/services/service.container';
 import { asValue, type AwilixContainer } from 'awilix';
@@ -53,14 +55,14 @@ class InfiniteNodeApplication {
   private container: AwilixContainer;
 
   /**
-   * @type {Array<keyof ServiceLoaders>} _defferedServices - List of deffered services to be initialized later
+   * @type {Array<keyof ServiceLoaders>} _deferredServices - List of deferred services to be initialized later
    */
-  private _defferedServices: Array<keyof ServiceLoaders> = [];
-  private _app = {
-    services: {},
-    routes: {},
-    middleware: {},
-  };
+  private _deferredServices: Array<keyof ServiceLoaders> = [];
+
+  /**
+   * @type {Record<keyof ServiceConfig, ServiceReturnTypes[keyof ServiceConfig]> | Record<string, unknown>} services - Registered services
+   */
+  private services: Record<keyof ServiceConfig, ServiceReturnTypes[keyof ServiceConfig]> | Record<string, unknown> = {};
 
   private consoleNotice(): void {
     console.log(
@@ -161,7 +163,7 @@ class InfiniteNodeApplication {
   /**
    * Register a service in the DI container
    *
-   * @param {keyof IServiceLoaders} serviceName - The name of the service
+   * @param {keyof ServiceLoaders} serviceName - The name of the service
    * @param {function} serviceLoader - The service loader function
    * @param {object} options - The configuration options for the service
    * @returns {void}
@@ -170,7 +172,7 @@ class InfiniteNodeApplication {
   private async registerService<K extends keyof ServiceLoaders>(
     serviceName: K,
     serviceLoader: ServiceLoaders[K],
-    options: ServiceConfig[K],
+    _options: ServiceConfig[K],
   ): Promise<void> {
     if (!serviceLoader) {
       throw new InfiniteNodeError(`Service loader for ${serviceName} not found`);
@@ -179,7 +181,7 @@ class InfiniteNodeApplication {
       throw new InfiniteNodeError(`Service ${serviceName} must be a function`);
     }
     //... registering the service in DI container
-    await serviceLoader(serviceName, this.container, options);
+    this.services[serviceName] = await serviceLoader(this.container, _options);
     console.log(chalk.green(`-- Service ${serviceName} registered successfully`));
   }
 
@@ -189,8 +191,8 @@ class InfiniteNodeApplication {
    * @returns {void}
    * @throws {InfiniteNodeError} If the service loader is not found or not a function
    */
-  async initDefferedServices(): Promise<void> {
-    for (const serviceName of this._defferedServices) {
+  async initDeferredServices(): Promise<void> {
+    for (const serviceName of this._deferredServices) {
       const options = config.services[serviceName];
       const serviceLoader = serviceLoaders[serviceName];
       if (!serviceLoader) {
@@ -201,14 +203,13 @@ class InfiniteNodeApplication {
       }
       await this.registerService(serviceName, serviceLoader, options);
     }
-    this._defferedServices = []; // Clear deffered services after initialization
+    this._deferredServices = []; // Clear deffered services after initialization
   }
 
   /**
    * Initialize core services
    *
-   * This method iterates through all service configurations defined in the application config.
-   * For each service, it checks if a corresponding service loader exists and is a function.
+   * This method iterates through all service loaders defined in the service loaders.
    * If the service is marked as deferred (options.deferred), it adds the service to the deferred services list
    * for later initialization and skips immediate registration.
    * Otherwise, it registers the service immediately in the dependency injection container.
@@ -230,13 +231,13 @@ class InfiniteNodeApplication {
         throw new InfiniteNodeError(`Service ${serviceName} must be a function`);
       }
       if (options.deferred) {
-        this._defferedServices.push(serviceName);
+        this._deferredServices.push(serviceName);
         continue; // Skip deffered services for now
       }
       //... registering the service in DI container
-      await this.registerService(serviceName, serviceLoader, options);
+      await this.registerService<typeof serviceName>(serviceName, serviceLoader, options);
     }
-    await this.initDefferedServices();
+    await this.initDeferredServices();
   }
 
   /**

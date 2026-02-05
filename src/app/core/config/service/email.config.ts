@@ -5,25 +5,33 @@
 import type { IServiceConfig } from './core.service.config';
 
 export interface IEmailConfig extends IServiceConfig {
-  driver: string;
-  smtp: {
+  params: {
     host: string;
-    port: string;
-    username: string;
-    password: string;
+    port: number;
     secure: boolean;
+    auth?: {
+      user: string;
+      pass: string;
+    };
+    from?: string;
   };
 }
 
-export const emailConfig = (): IEmailConfig => ({
-  driver: process.env.EMAIL_DRIVER || 'smtp',
-  singleton: false,
-  deferred: true,
-  smtp: {
-    host: process.env.EMAIL_SMTP_HOST || 'localhost',
-    port: process.env.EMAIL_SMTP_PORT || '587',
-    username: process.env.EMAIL_SMTP_USERNAME || 'user',
-    password: process.env.EMAIL_SMTP_PASSWORD || 'password',
-    secure: process.env.EMAIL_SMTP_SECURE === 'true',
-  },
-});
+export const emailConfig = (): IEmailConfig => {
+  return {
+    serviceName: 'email',
+    singleton: true,
+    deferred: false,
+    optional: process.env.EMAIL_SERVICE_OPTIONAL === 'true',
+    params: {
+      host: process.env.EMAIL_SMTP_HOST || 'localhost',
+      port: Number(process.env.EMAIL_SMTP_PORT) || 587,
+      secure: process.env.EMAIL_SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.EMAIL_SMTP_USERNAME || '',
+        pass: process.env.EMAIL_SMTP_PASSWORD || '',
+      },
+      from: process.env.EMAIL_FROM || '',
+    },
+  };
+};

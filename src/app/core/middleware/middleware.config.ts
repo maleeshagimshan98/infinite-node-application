@@ -39,7 +39,7 @@ export interface MiddlewareConfig {
   };
 }
 
-export const middlewareConfig: (container: AwilixContainer) => MiddlewareConfig = (container: AwilixContainer) => {
+export const coreMiddlewareConfig: (container: AwilixContainer) => MiddlewareConfig = (container: AwilixContainer) => {
   return {
     cookieParser: {
       secret: process.env.COOKIE_SECRET || 'your_cookie_secret',

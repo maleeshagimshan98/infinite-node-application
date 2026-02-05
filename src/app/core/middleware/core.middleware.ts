@@ -10,12 +10,12 @@ import rateLimit from 'express-rate-limit';
 import type { RequestHandler } from 'express';
 import morgan from 'morgan';
 import express from 'express';
-import { middlewareConfig } from './config/middleware.config';
+import { coreMiddlewareConfig } from './middleware.config';
 import type { AwilixContainer } from 'awilix';
 import type { Logger } from 'winston';
 
 export const coreMiddleware = async (container: AwilixContainer): Promise<Record<string, () => RequestHandler>> => {
-  const middlewareConfigInstance = middlewareConfig(container);
+  const middlewareConfigInstance = coreMiddlewareConfig(container);
   const middlewares = {
     cookieParser: (): RequestHandler => cookieParser(middlewareConfigInstance.cookieParser?.secret),
     session: (): RequestHandler =>
