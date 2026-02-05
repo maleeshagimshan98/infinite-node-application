@@ -1,35 +1,27 @@
 /**
- * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
+ * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { RedisClientType } from 'redis';
-import { createClient } from 'redis';
-import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
+import type { AwilixContainer } from 'awilix';
 import type { ICacheConfig } from '../../config/service/cache.config';
-import { type AwilixContainer } from 'awilix';
+import { CacheService } from './cache.service';
+import { InfiniteNodeError } from '../../errors/InfiniteNodeError';
 import { registerService } from '../service.container';
 
-export const createRedisClient = async (container: AwilixContainer, config: ICacheConfig): Promise<RedisClientType> => {
-  const client: RedisClientType = createClient(config.redis);
-  //... TODO - check error types and see what can you do to handle them properly
-  client.on('error', (err: Error) => console.log('Redis Client Error', err));
-  await client.connect();
-  return client;
-};
-
-export const cacheServiceLoader = async (
-  name: string,
-  container: AwilixContainer,
-  config: ICacheConfig,
-): Promise<void> => {
+export const cacheServiceLoader = async (container: AwilixContainer, config: ICacheConfig): Promise<CacheService> => {
   try {
-    if (config.driver === 'redis') {
-      const client = await createRedisClient(container, config);
-      registerService(name, container, config, client);
-    } else {
-      throw new InfiniteNodeError(`Cache driver "${config.driver}" is not supported.`);
+    const cacheService = new CacheService();
+    await cacheService.init(container, config);
+    const client = cacheService.service();
+    if (!client && !config.optional) {
+      throw new InfiniteNodeError('Cache client is not properly initialized.');
     }
+    registerService(config.serviceName, 'singleton', client);
+    return cacheService;
   } catch (error: unknown) {
+    if (error instanceof InfiniteNodeError) {
+      throw error;
+    }
     throw new InfiniteNodeError(
       `Failed to load CacheService: ${error instanceof Error ? error.message : 'Unknown error'}`,
     );

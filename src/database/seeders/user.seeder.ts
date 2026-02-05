@@ -32,68 +32,19 @@ export async function seedUsers(): Promise<boolean> {
 
     const usersToSeed = [
       {
-        profile: {
-          first_name: 'John',
-          last_name: 'Doe',
-          email: 'john@example.com',
-          address: [
-            {
-              st_line_1: '123 Main Street',
-              st_line_2: 'Apt 4B',
-              city: 'New York',
-              state: 'NY',
-              country: 'USA',
-              zipcode: '10001',
-              is_billing_address: true,
-            },
-          ],
-          phone: '+1-555-0101',
-          profile_img: 'https://via.placeholder.com/150',
-        },
+        email: 'john@example.com',
         password: hashedPassword,
         status: 'active' as const,
         cg_id: defaultGroup._id.toString(),
       },
       {
-        profile: {
-          first_name: 'Jane',
-          last_name: 'Smith',
-          email: 'jane@example.com',
-          address: [
-            {
-              st_line_1: '456 Oak Avenue',
-              city: 'Los Angeles',
-              state: 'CA',
-              country: 'USA',
-              zipcode: '90001',
-              is_billing_address: true,
-            },
-          ],
-          phone: '+1-555-0102',
-          profile_img: 'https://via.placeholder.com/150',
-        },
+        email: 'jane@example.com',
         password: hashedPassword,
         status: 'active' as const,
         cg_id: defaultGroup._id.toString(),
       },
       {
-        profile: {
-          first_name: 'Bob',
-          last_name: 'Johnson',
-          email: 'bob@example.com',
-          address: [
-            {
-              st_line_1: '789 Pine Road',
-              st_line_2: 'Suite 200',
-              city: 'Chicago',
-              state: 'IL',
-              country: 'USA',
-              zipcode: '60601',
-              is_billing_address: true,
-            },
-          ],
-          phone: '+1-555-0103',
-        },
+        email: 'bob@example.com',
         password: hashedPassword,
         status: 'pending_verification' as const,
         cg_id: defaultGroup._id.toString(),
@@ -106,9 +57,7 @@ export async function seedUsers(): Promise<boolean> {
 
     // Display created users
     createdUsers.forEach((user, index) => {
-      console.log(
-        `      • User ${index + 1}: ${user.profile.first_name} ${user.profile.last_name} (${user.profile.email})`,
-      );
+      console.log(`      • User ${index + 1}: ${user.email}`);
     });
 
     return true;

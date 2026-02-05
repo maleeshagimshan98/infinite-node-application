@@ -5,7 +5,7 @@
 import type { Request, Response } from 'express';
 import { BaseController } from '../base.controller';
 import HealthService from '../../services/health/health.service';
-import APIResponseUtils from '../../app/utils/api-response/api-response-utils';
+import APIResponseUtils from '../../app/core/utils/api-response/api-response-utils';
 
 class HealthController extends BaseController {
   private healthService: HealthService;

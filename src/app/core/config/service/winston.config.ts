@@ -25,11 +25,14 @@ export interface ILoggingConfig extends IServiceConfig {
 }
 
 export const loggingConfig = (): ILoggingConfig => {
+  const applicationLogFileName = process.env.WINSTON_LOG_FILE_NAME || './logs/application-%DATE%.log';
+  const errorLogFileName = process.env.WINSTON_ERROR_LOG_FILE_NAME || './logs/error-%DATE%.log';
   return {
+    serviceName: 'logger',
     singleton: true,
     deferred: true,
     winston: {
-      fileName: process.env.WINSTON_LOG_FILE_NAME || './logs/application-%DATE%.log',
+      fileName: applicationLogFileName,
       datePattern: process.env.WINSTON_LOG_DATE_PATTERN || 'YYYY-MM-DD',
       zippedArchive: process.env.WINSTON_LOG_ZIPPED_ARCHIVE === 'true',
       maxSize: Number(process.env.WINSTON_LOG_MAX_SIZE) || 5242880,
@@ -41,8 +44,8 @@ export const loggingConfig = (): ILoggingConfig => {
           type: 'console',
           options: { level: 'info', format: 'simple' },
         },
-        { type: 'file', options: { filename: 'application.log', level: 'info', format: 'json' } },
-        { type: 'file', options: { filename: 'error.log', level: 'error', format: 'json' } },
+        { type: 'file', options: { filename: applicationLogFileName, level: 'info', format: 'json' } },
+        { type: 'file', options: { filename: errorLogFileName, level: 'error', format: 'json' } },
       ],
     },
   };

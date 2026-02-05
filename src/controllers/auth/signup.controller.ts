@@ -1,69 +1,52 @@
 import type { Request, Response } from 'express';
 import { BaseController } from '../base.controller';
 import { matchedData } from 'express-validator';
-import { User } from '../../models/user/user.model';
-import ApiResponseUtils from '../../app/utils/api-response/api-response-utils';
-import argon2 from 'argon2';
-import { CustomerGroup } from '../../models/user/customer-group.model';
-import { ErrorResponseMessages } from '../../app/utils/error-response-messages';
+import ApiResponseUtils from '../../app/core/utils/api-response/api-response-utils';
+import { SignupService } from '../../services/auth/signup.service';
+import type { INewUser } from '../../models/user/user.model';
 
 class SignupController extends BaseController {
+  private signupService: SignupService;
+
   constructor() {
     super();
+    this.signupService = new SignupService();
   }
 
+  /**
+   * Register a new user
+   *
+   * @param {Request} req - The incoming request object
+   * @param {Response} res - The response object
+   * @returns {Promise<Response>}
+   */
   async register(req: Request, res: Response): Promise<Response> {
-    const userData = matchedData(req);
-    const existingUser = await User.findOne({ 'profile.email': userData.profile.email });
+    const response = await this.catchExceptionsWrapper(async () => {
+      const userData = matchedData<INewUser>(req);
+      const result = await this.signupService.register(userData);
 
-    if (existingUser) {
-      return ApiResponseUtils.createResponse(
-        ApiResponseUtils.apiErrorResponse(400, 'This email is already associated with another account'),
-        res,
-      );
-    }
+      return ApiResponseUtils.apiOkResponse(201, false, null, 'User registered successfully', result);
+    });
 
-    userData.password = await argon2.hash(userData.password);
-    const defaultCustomerGroup = await CustomerGroup.findOne({ default: true });
-
-    if (!defaultCustomerGroup) {
-      //... TODO - Error - No default customer group is available
-    }
-
-    userData.cg_id = defaultCustomerGroup ? defaultCustomerGroup._id : 1;
-    userData.status = 'pending_verification';
-    const newUser = new User(userData);
-    await newUser.save();
-
-    return ApiResponseUtils.createResponse(
-      ApiResponseUtils.apiOkResponse(201, false, null, 'User registered successfully', {
-        id: newUser._id.toString(),
-        profile: newUser.profile,
-        status: newUser.status,
-      }),
-      res,
-    );
+    return ApiResponseUtils.createResponse(response, res);
   }
 
+  /**
+   * Verify user email
+   *
+   * @param {Request} req - The incoming request object
+   * @param {Response} res - The response object
+   * @returns {Promise<Response>}
+   */
   async verifyEmail(req: Request, res: Response): Promise<Response> {
-    const verifyCred = matchedData(req);
+    const response = await this.catchExceptionsWrapper(async () => {
+      const verifyCred = matchedData(req);
+      await this.signupService.verifyEmail(verifyCred.email);
 
-    const user = await User.findOne({ 'profile.email': verifyCred.email }).exec();
-    if (!user) {
-      return ApiResponseUtils.createResponse(
-        ApiResponseUtils.resourceNotFoundErrorResponse(
-          ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', verifyCred.email),
-        ),
-        res,
-      );
-    }
-    user.status = 'active';
-    await user.save();
+      return ApiResponseUtils.apiOkResponse(200, false, null, 'Email verified successfully', null);
+    });
 
-    return ApiResponseUtils.createResponse(
-      ApiResponseUtils.apiOkResponse(200, false, null, 'Email verified successfully'),
-      res,
-    );
+    return ApiResponseUtils.createResponse(response, res);
   }
 }
 

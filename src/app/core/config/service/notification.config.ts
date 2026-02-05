@@ -5,11 +5,18 @@
 import type { IServiceConfig } from './core.service.config';
 
 export interface INotificationConfig extends IServiceConfig {
-  test: string;
+  params?: {
+    // TODO: extend with provider details (email/sms/push)
+    driver?: 'inmemory';
+  };
 }
 
 export const notificationConfig = (): INotificationConfig => ({
+  serviceName: 'notification',
   singleton: true,
   deferred: true,
-  test: '',
+  optional: process.env.NOTIFICATION_SERVICE_OPTIONAL === 'true',
+  params: {
+    driver: 'inmemory',
+  },
 });
