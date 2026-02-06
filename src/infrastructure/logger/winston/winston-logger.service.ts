@@ -3,7 +3,7 @@
  */
 
 import type winston from 'winston';
-import type { ILogger } from '../../../application/interfaces/logger.interface';
+import type { ILogger } from '@/application/interfaces/logger.interface';
 
 export class WinstonLoggerService implements ILogger {
   /**

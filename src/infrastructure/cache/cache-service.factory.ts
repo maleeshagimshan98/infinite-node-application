@@ -3,7 +3,7 @@
  */
 
 import type { RedisClientType } from 'redis';
-import type { ICache } from '../../application/interfaces/cache.interface';
+import type { ICache } from '@/application/interfaces/cache.interface';
 import { RedisCacheService } from './redis/redis-cache.service';
 
 export type CacheDriverType = 'redis' | 'memcached' | 'inmemory';

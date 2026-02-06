@@ -3,7 +3,7 @@
  */
 
 import type { Queue } from 'bullmq';
-import type { IQueue, Job, JobOptions, JobStatus } from '../../../application/interfaces/queue.interface';
+import type { IQueue, Job, JobOptions, JobStatus } from '@/application/interfaces/queue.interface';
 
 /**
  * BullMQ Queue Service Implementation

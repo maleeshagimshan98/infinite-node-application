@@ -4,8 +4,8 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import type { IStorage } from '../../../application/interfaces/storage.interface';
-import type { LocalFileStorageClient } from '../../../app/core/services/storage/local-filestorage/local-file-storage-client';
+import type { IStorage } from '@/application/interfaces/storage.interface';
+import type { LocalFileStorageClient } from '@/app/core/services/storage/local-filestorage/local-file-storage-client';
 
 export class LocalStorageService implements IStorage {
   /**

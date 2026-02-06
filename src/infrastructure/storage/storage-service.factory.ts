@@ -2,8 +2,8 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IStorage } from '../../application/interfaces/storage.interface';
-import type { LocalFileStorageClient } from '../../app/core/services/storage/local-filestorage/local-file-storage-client';
+import type { IStorage } from '@/application/interfaces/storage.interface';
+import type { LocalFileStorageClient } from '@/app/core/services/storage/local-filestorage/local-file-storage-client';
 import { LocalStorageService } from './local/local-storage.service';
 
 export type StorageDriverType = 'local' | 'aws' | 'gcp' | 'azure';

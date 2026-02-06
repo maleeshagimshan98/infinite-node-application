@@ -2,7 +2,7 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IEmail } from '../../../application/interfaces/email.interface';
+import type { IEmail } from '@/application/interfaces/email.interface';
 
 /**
  * SMTP Email Service Implementation

@@ -5,7 +5,7 @@
  * Supports multiple email providers (placeholder, Nodemailer, SendGrid, AWS SES, etc.).
  */
 
-import type { IEmail } from '../../application/interfaces/email.interface';
+import type { IEmail } from '@/application/interfaces/email.interface';
 import { SMTPEmailService } from './smtp/smtp-email.service';
 
 /**

@@ -3,7 +3,7 @@
  */
 
 import type { Queue } from 'bullmq';
-import type { IQueue } from '../../application/interfaces/queue.interface';
+import type { IQueue } from '@/application/interfaces/queue.interface';
 import { BullMQQueueService } from './bullmq/bullmq-queue.service';
 
 export class QueueServiceFactory {

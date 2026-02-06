@@ -3,7 +3,7 @@
  */
 
 import type { RedisClientType } from 'redis';
-import type { ICache } from '../../../application/interfaces/cache.interface';
+import type { ICache } from '@/application/interfaces/cache.interface';
 
 export class RedisCacheService implements ICache {
   /**

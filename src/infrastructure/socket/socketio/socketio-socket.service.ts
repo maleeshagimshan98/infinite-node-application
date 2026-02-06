@@ -3,7 +3,7 @@
  */
 
 import type { Server } from 'socket.io';
-import type { ISocket } from '../../../application/interfaces/socket.interface';
+import type { ISocket } from '@/application/interfaces/socket.interface';
 
 /**
  * Socket.IO Socket Service Implementation

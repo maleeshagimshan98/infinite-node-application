@@ -2,7 +2,7 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { INotification } from '../../../application/interfaces/notification.interface';
+import type { INotification } from '@/application/interfaces/notification.interface';
 
 /**
  * In-Memory Notification Service Implementation
