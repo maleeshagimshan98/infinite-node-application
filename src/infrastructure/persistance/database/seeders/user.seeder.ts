@@ -1,6 +1,6 @@
 import argon2 from 'argon2';
-import { User } from '../../models/user/user.model';
-import { CustomerGroup } from '../../models/user/customer-group.model';
+import { User } from '@/infrastructure/persistance/database/models/user/user.model';
+import { CustomerGroup } from '@/infrastructure/persistance/database/models/user/customer-group.model';
 
 /**
  * Seeds the database with sample users
