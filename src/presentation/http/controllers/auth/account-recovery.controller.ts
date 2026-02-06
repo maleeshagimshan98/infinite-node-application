@@ -1,8 +1,8 @@
 import type { Request, Response } from 'express';
-import { BaseController } from '../base.controller';
-import ApiResponseUtils from '../../app/core/utils/api-response/api-response-utils';
+import { BaseController } from '@/presentation/http/controllers/base.controller';
+import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import { matchedData } from 'express-validator';
-import { AccountRecoveryService } from '../../services/auth/account-recovery.service';
+import { AccountRecoveryService } from '@/services/auth/account-recovery.service';
 
 class AccountRecoveryController extends BaseController {
   private accountRecoveryService: AccountRecoveryService;

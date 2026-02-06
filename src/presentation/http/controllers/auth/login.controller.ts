@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { BaseController } from '../base.controller';
-import APIResponseUtils from '../../app/core/utils/api-response/api-response-utils';
-import { LoginService } from '../../services/auth/login.service';
+import APIResponseUtils from '@/app/core/utils/api-response/api-response-utils';
+import { LoginService } from '@/services/auth/login.service';
 import { matchedData } from 'express-validator';
 
 class LoginController extends BaseController {
