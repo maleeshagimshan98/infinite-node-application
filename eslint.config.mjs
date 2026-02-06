@@ -21,6 +21,7 @@ export default [
     plugins: {
       '@typescript-eslint': tseslint.plugin,
       prettier: prettierPlugin,
+      import: 'eslint-plugin-import',
     },
     rules: {
       /** ✅ TypeScript Rules */
@@ -47,6 +48,33 @@ export default [
       'linebreak-style': ['error', 'unix'], // Enforce LF (Unix-style EOL)
       'no-console': 'warn', // Warn on console.log usage
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      'import/order': [
+        'error',
+        {
+          groups: [
+            'builtin', // Node.js built-ins
+            'external', // npm packages (e.g., 'redis')
+            'internal', // Aliased paths (e.g., '@/application')
+            ['parent', 'sibling'], // Relative paths
+            'index',
+            'object',
+            'type',
+          ],
+          pathGroups: [
+            {
+              pattern: '@/**',
+              group: 'internal',
+              position: 'before',
+            },
+          ],
+          pathGroupsExcludedImportTypes: ['builtin'],
+          'newlines-between': 'always',
+          alphabetize: {
+            order: 'asc',
+            caseInsensitive: true,
+          },
+        },
+      ],
     },
   },
   pluginJs.configs.recommended,
