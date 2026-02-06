@@ -3,7 +3,7 @@
  */
 
 import InfiniteNodeApplication from './app/app';
-import routes from './routes';
+import routes from './presentation/http/routes';
 
 try {
   const app = new InfiniteNodeApplication(routes);
