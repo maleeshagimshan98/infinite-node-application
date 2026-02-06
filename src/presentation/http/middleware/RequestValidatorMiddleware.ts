@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { Schema, ValidationChain } from 'express-validator';
 import { checkSchema } from 'express-validator';
-import ApiResponseUtils from '../app/core/utils/api-response/api-response-utils';
+import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import type { RunnableValidationChains } from 'express-validator/lib/middlewares/schema';
 import { validationResult } from 'express-validator';
 

@@ -1,9 +1,9 @@
 import type { NextFunction, Response } from 'express';
-import type { AuthenticatedRequest } from '../app/utils/request/authenticated-request';
-import APIResponseUtils from '../app/utils/api-response/api-response-utils';
-import { LoginRecord } from '../models/auth/login-record.model';
-import type { INewUser } from '../models/user/user.model';
-import { User } from '../models/user/user.model';
+import type { AuthenticatedRequest } from '@/app/core/utils/request/authenticated-request';
+import APIResponseUtils from '@/app/core/utils/api-response/api-response-utils';
+import { LoginRecord } from '@/infrastructure/persistance/database/models/auth/login-record.model';
+import type { INewUser } from '@/infrastructure/persistance/database/models/user/user.model';
+import { User } from '@/infrastructure/persistance/database/models/user/user.model';
 
 export const UserValidatorMiddleware = (): ((
   req: AuthenticatedRequest<INewUser>,
