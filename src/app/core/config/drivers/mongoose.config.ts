@@ -3,15 +3,15 @@
  */
 
 import type mongoose from 'mongoose';
-import type { IServiceConfig } from './core.service.config';
+import type { IDriverConfig } from './core.driver.config';
 
-export interface IMongooseConfig extends IServiceConfig {
+export interface IMongooseConfig extends IDriverConfig {
   uri: string;
   options?: mongoose.ConnectOptions;
 }
 
 export const mongooseConfig = (): IMongooseConfig => ({
-  serviceName: 'mongoose',
+  driverName: 'mongoose',
   singleton: true,
   deferred: true,
   uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/infinite-node',
