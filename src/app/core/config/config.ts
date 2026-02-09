@@ -7,8 +7,8 @@ import { serverConfig } from './server.config';
 import { coreMiddlewareConfig } from '../middleware/middleware.config';
 import type { IAppConfig } from './app.config';
 import { appConfig } from './app.config';
-import type { ServiceConfig } from './service/services.config';
-import { serviceConfig } from './service/services.config';
+import type { DriverConfig } from './drivers/drivers.config';
+import { driverConfig } from './drivers/drivers.config';
 
 export type INodeApplicationConfig = {
   server: ServerConfig;
@@ -16,7 +16,7 @@ export type INodeApplicationConfig = {
   app: IAppConfig;
   jwt: unknown;
   logging: Record<string, unknown>;
-  services: ServiceConfig;
+  services: DriverConfig;
 };
 
 export const configLoader: () => INodeApplicationConfig = () => {
@@ -29,6 +29,6 @@ export const configLoader: () => INodeApplicationConfig = () => {
       expiresIn: process.env.JWT_EXPIRES_IN || '1h',
     },
     logging: {},
-    services: serviceConfig(),
+    services: driverConfig(),
   };
 };

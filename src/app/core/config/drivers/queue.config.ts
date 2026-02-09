@@ -2,9 +2,9 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IServiceConfig } from './core.service.config';
+import type { IDriverConfig } from './core.driver.config';
 
-export interface IQueueConfig extends IServiceConfig {
+export interface IQueueConfig extends IDriverConfig {
   queueName: string;
   params: {
     port: number;
@@ -15,7 +15,7 @@ export interface IQueueConfig extends IServiceConfig {
 }
 
 export const queueConfig = (): IQueueConfig => ({
-  serviceName: 'queue',
+  driverName: 'queue',
   singleton: true,
   deferred: true,
   optional: process.env.QUEUE_SERVICE_OPTIONAL === 'true',

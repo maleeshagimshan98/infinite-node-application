@@ -2,11 +2,11 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IServiceConfig } from './core.service.config';
+import type { IDriverConfig } from './core.driver.config';
 import type { IRedisConfig } from './redis.config';
 import { redisConfig } from './redis.config';
 
-export interface ICacheConfig extends IServiceConfig {
+export interface ICacheConfig extends IDriverConfig {
   driver: 'redis' | 'memcached' | 'inmemory';
   params: {
     redis: IRedisConfig;
@@ -15,7 +15,7 @@ export interface ICacheConfig extends IServiceConfig {
 
 export const cacheConfig = (): ICacheConfig => {
   return {
-    serviceName: 'cache',
+    driverName: 'cache',
     singleton: true,
     deferred: false,
     optional: process.env.CACHE_SERVICE_OPTIONAL === 'true',

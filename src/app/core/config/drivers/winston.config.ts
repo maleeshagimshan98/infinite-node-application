@@ -2,9 +2,9 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IServiceConfig } from './core.service.config';
+import type { IDriverConfig } from './core.driver.config';
 
-export interface ILoggingConfig extends IServiceConfig {
+export interface ILoggingConfig extends IDriverConfig {
   winston: {
     fileName: string;
     datePattern: string;
@@ -28,7 +28,7 @@ export const loggingConfig = (): ILoggingConfig => {
   const applicationLogFileName = process.env.WINSTON_LOG_FILE_NAME || './logs/application-%DATE%.log';
   const errorLogFileName = process.env.WINSTON_ERROR_LOG_FILE_NAME || './logs/error-%DATE%.log';
   return {
-    serviceName: 'logger',
+    driverName: 'logger',
     singleton: true,
     deferred: true,
     winston: {

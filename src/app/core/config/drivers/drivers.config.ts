@@ -6,7 +6,6 @@ import { redisConfig, type IRedisConfig } from './redis.config';
 import type { IEmailConfig } from './email.config';
 import { emailConfig } from './email.config';
 import { loggingConfig, type ILoggingConfig } from './winston.config';
-import { mongooseConfig, type IMongooseConfig } from './mongoose.config';
 import { notificationConfig, type INotificationConfig } from './notification.config';
 import type { IQueueConfig } from './queue.config';
 import { queueConfig } from './queue.config';
@@ -19,11 +18,10 @@ import { databaseConfig } from './database.config';
 import type { ICacheConfig } from './cache.config';
 import { cacheConfig } from './cache.config';
 
-export type ServiceConfig = {
+export type DriverConfig = {
   redis: IRedisConfig;
   cache: ICacheConfig;
   queue: IQueueConfig;
-  mongoose: IMongooseConfig;
   database: IDatabaseConfig;
   socket: ISocketConfig;
   storage: IFileSystemStorageConfig;
@@ -32,12 +30,11 @@ export type ServiceConfig = {
   logger: ILoggingConfig;
 };
 
-export const serviceConfig = (): ServiceConfig => ({
+export const driverConfig = (): DriverConfig => ({
   redis: redisConfig(),
   cache: cacheConfig(),
   database: databaseConfig(),
   queue: queueConfig(),
-  mongoose: mongooseConfig(),
   socket: socketConfig(),
   storage: storageConfig(),
   email: emailConfig(),

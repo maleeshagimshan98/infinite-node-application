@@ -2,9 +2,9 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IServiceConfig } from './core.service.config';
+import type { IDriverConfig } from './core.driver.config';
 
-export interface IMongoDBConfig extends IServiceConfig {
+export interface IMongoDBConfig extends IDriverConfig {
   uri: string;
   options: {
     useNewUrlParser: boolean;
@@ -16,7 +16,7 @@ export interface IMongoDBConfig extends IServiceConfig {
 
 export const mongodbConfig = (): IMongoDBConfig => {
   return {
-    serviceName: 'mongodb',
+    driverName: 'mongodb',
     singleton: true,
     deferred: false,
     uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/infinite_node',

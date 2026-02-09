@@ -2,13 +2,13 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IServiceConfig } from './core.service.config';
+import type { IDriverConfig } from './core.driver.config';
 import type { IMongoDBConfig } from './mongodb.config';
 import { mongodbConfig } from './mongodb.config';
 import type { IMySQLConfig } from './mysql.config';
 import { mysqlConfig } from './mysql.config';
 
-export interface IDatabaseConfig extends IServiceConfig {
+export interface IDatabaseConfig extends IDriverConfig {
   driver: 'mongodb' | 'mysql' | 'postgresql' | 'sqlite' | 'mssql';
   params: {
     mongodb: IMongoDBConfig;
@@ -18,7 +18,7 @@ export interface IDatabaseConfig extends IServiceConfig {
 
 export const databaseConfig = (): IDatabaseConfig => {
   return {
-    serviceName: 'database',
+    driverName: 'database',
     singleton: true,
     deferred: false,
     optional: false,

@@ -2,9 +2,9 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IServiceConfig } from './core.service.config';
+import type { IDriverConfig } from './core.driver.config';
 
-export interface ISocketConfig extends IServiceConfig {
+export interface ISocketConfig extends IDriverConfig {
   params?: {
     path?: string;
     cors?: {
@@ -15,7 +15,7 @@ export interface ISocketConfig extends IServiceConfig {
 }
 
 export const socketConfig = (): ISocketConfig => ({
-  serviceName: 'socket',
+  driverName: 'socket',
   singleton: true,
   deferred: true,
   optional: process.env.SOCKET_SERVICE_OPTIONAL === 'true',

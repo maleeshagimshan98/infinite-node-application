@@ -2,9 +2,9 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IServiceConfig } from './core.service.config';
+import type { IDriverConfig } from './core.driver.config';
 
-export interface IRedisConfig extends IServiceConfig {
+export interface IRedisConfig extends IDriverConfig {
   params: {
     url: string;
     ttl: string;
@@ -75,7 +75,7 @@ export interface IRedisConfig extends IServiceConfig {
 
 export const redisConfig = (): IRedisConfig => {
   const config: IRedisConfig = {
-    serviceName: 'redis',
+    driverName: 'redis',
     singleton: true,
     deferred: false,
     optional: process.env.REDIS_SERVICE_OPTIONAL === 'true',

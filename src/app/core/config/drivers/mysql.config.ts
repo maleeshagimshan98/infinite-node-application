@@ -2,9 +2,9 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IServiceConfig } from './core.service.config';
+import type { IDriverConfig } from './core.driver.config';
 
-export interface IMySQLConfig extends IServiceConfig {
+export interface IMySQLConfig extends IDriverConfig {
   params: {
     host: string;
     port: string;
@@ -16,7 +16,7 @@ export interface IMySQLConfig extends IServiceConfig {
 
 export const mysqlConfig = (): IMySQLConfig => {
   return {
-    serviceName: 'mysql',
+    driverName: 'mysql',
     singleton: true,
     deferred: false,
     params: {

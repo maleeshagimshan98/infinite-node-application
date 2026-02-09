@@ -2,16 +2,16 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IServiceConfig } from './core.service.config';
+import type { IDriverConfig } from './core.driver.config';
 
-export interface IFileSystemStorageConfig extends IServiceConfig {
+export interface IFileSystemStorageConfig extends IDriverConfig {
   params: {
     rootPath: string;
   };
 }
 
 export const storageConfig = (): IFileSystemStorageConfig => ({
-  serviceName: 'storage',
+  driverName: 'storage',
   singleton: false,
   deferred: true,
   optional: process.env.STORAGE_SERVICE_OPTIONAL === 'false',

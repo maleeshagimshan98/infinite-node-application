@@ -2,9 +2,9 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IServiceConfig } from './core.service.config';
+import type { IDriverConfig } from './core.driver.config';
 
-export interface IEmailConfig extends IServiceConfig {
+export interface IEmailConfig extends IDriverConfig {
   params: {
     host: string;
     port: number;
@@ -19,7 +19,7 @@ export interface IEmailConfig extends IServiceConfig {
 
 export const emailConfig = (): IEmailConfig => {
   return {
-    serviceName: 'email',
+    driverName: 'email',
     singleton: true,
     deferred: false,
     optional: process.env.EMAIL_SERVICE_OPTIONAL === 'true',
