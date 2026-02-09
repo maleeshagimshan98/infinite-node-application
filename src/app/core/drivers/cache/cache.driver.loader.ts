@@ -6,7 +6,7 @@ import type { AwilixContainer } from 'awilix';
 import type { ICacheConfig } from '../../config/drivers/cache.config';
 import { CacheDriver } from './cache.service';
 import { InfiniteNodeError } from '../../errors/InfiniteNodeError';
-import { registerService } from '../service.container';
+import { registerService } from '../../service.container';
 
 export const cacheDriverLoader = async (container: AwilixContainer, config: ICacheConfig): Promise<CacheDriver> => {
   try {

@@ -4,7 +4,7 @@
 
 import type { AwilixContainer } from 'awilix';
 import { InfiniteNodeError } from '../../errors/InfiniteNodeError';
-import { registerService } from '../service.container';
+import { registerService } from '../../service.container';
 import type { IEmailConfig } from '../../config/drivers/email.config';
 import { EmailDriver } from './email.driver';
 

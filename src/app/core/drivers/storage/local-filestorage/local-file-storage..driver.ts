@@ -4,7 +4,7 @@
 
 import type { AwilixContainer } from 'awilix';
 import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
-import { registerService } from '../../service.container';
+import { registerService } from '../../../service.container';
 import { type IFileSystemStorageConfig } from '../../../config/drivers/local-file-storage.config';
 import { LocalFileStorageDriver } from './local-file-storage.driver';
 import type { LocalFileStorageClient } from './local-file-storage-client';

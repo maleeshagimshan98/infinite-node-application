@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { seedUsers } from './user.seeder';
-import { mongooseConfig } from '@/app/core/config/service/mongoose.config';
+import { mongooseConfig } from '@/app/core/config/drivers/mongoose.config';
 
 /**
  * Initialize MongoDB connection

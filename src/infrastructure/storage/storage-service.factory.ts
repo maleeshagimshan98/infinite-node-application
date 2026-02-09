@@ -3,7 +3,7 @@
  */
 
 import type { IStorage } from '@/application/interfaces/storage.interface';
-import type { LocalFileStorageClient } from '@/app/core/services/storage/local-filestorage/local-file-storage-client';
+import type { LocalFileStorageClient } from '@/app/core/drivers/storage/local-filestorage/local-file-storage-client';
 import { LocalStorageService } from './local/local-storage.service';
 
 export type StorageDriverType = 'local' | 'aws' | 'gcp' | 'azure';

@@ -4,7 +4,7 @@
 
 import type { AwilixContainer } from 'awilix';
 import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
-import { registerService } from '../../service.container';
+import { registerService } from '../../../service.container';
 import type { IMySQLConfig } from '../../../config/drivers/mysql.config';
 import { MySQLDriver } from './mysql.driver';
 import type { Pool } from 'mysql';

@@ -1,5 +1,5 @@
 import type { AwilixContainer } from 'awilix';
-import { container } from '../../app/core/services/service.container';
+import { container } from '../../app/core/service.container';
 import { PaginationException } from '../../app/core/utils/pagination/pagination-exception';
 import { Paginator } from '../../app/core/utils/pagination/paginator';
 

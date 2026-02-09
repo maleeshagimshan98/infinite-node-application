@@ -4,7 +4,7 @@
 
 import type { AwilixContainer } from 'awilix';
 import { InfiniteNodeError } from '../../errors/InfiniteNodeError';
-import { registerService } from '../service.container';
+import { registerService } from '../../service.container';
 import { type ISocketConfig } from '../../config/drivers/socket.config';
 import { SocketsDriver } from './sockets.driver';
 import type { Server } from 'socket.io';

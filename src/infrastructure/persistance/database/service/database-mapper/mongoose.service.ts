@@ -3,7 +3,7 @@
  */
 
 import type { IDatabaseMapper, TransactionOptions } from '@/application/interfaces/database-mapper.interface';
-import { IMongooseConfig } from '@/app/core/config/service/mongoose.config';
+import { IMongooseConfig } from '@/app/core/config/drivers/mongoose.config';
 import mongoose, { Connection } from 'mongoose';
 import { PersistanceError } from '../../erros/persistance.error';
 
@@ -89,10 +89,9 @@ export class MongooseService implements IDatabaseMapper {
       try {
         return await callback({ session });
       } catch (err: unknown) {
-        throw new PersistanceError(
-          `Transaction failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
-          { cause: err },
-        );
+        throw new PersistanceError(`Transaction failed: ${err instanceof Error ? err.message : 'Unknown error'}`, {
+          cause: err,
+        });
       } finally {
         await session.endSession();
       }

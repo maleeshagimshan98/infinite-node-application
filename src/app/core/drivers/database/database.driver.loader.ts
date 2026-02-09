@@ -6,7 +6,7 @@ import type { AwilixContainer } from 'awilix';
 import type { IDatabaseConfig } from '../../config/drivers/database.config';
 import { DatabaseDriver } from './database.driver';
 import { InfiniteNodeError } from '../../errors/InfiniteNodeError';
-import { registerService } from '../service.container';
+import { registerService } from '../../service.container';
 
 export const databaseDriverLoader = async (
   container: AwilixContainer,

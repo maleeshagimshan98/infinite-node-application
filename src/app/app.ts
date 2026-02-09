@@ -15,11 +15,11 @@ import { configLoader } from './core/config/config';
 import { coreMiddleware } from './core/middleware/core.middleware';
 // import type { IService } from '../services/IService';
 import { InfiniteNodeError } from './core/errors/InfiniteNodeError';
-import type { ServiceLoaders, ServiceReturnTypes } from './core/services/services.loader';
-import { serviceLoaders } from './core/services/services.loader';
-import { container } from './core/services/service.container';
+import type { ServiceLoaders, ServiceReturnTypes } from './core/drivers/driver.loader';
+import { serviceLoaders } from './core/drivers/driver.loader';
+import { container } from './core/service.container';
 import { asValue, type AwilixContainer } from 'awilix';
-import type { ServiceConfig } from './core/config/service/services.config';
+import type { DriverConfig } from './core/config/drivers/drivers.config';
 import { scopePerRequest } from 'awilix-express';
 import type { Logger } from 'winston';
 import path from 'path';
@@ -60,9 +60,9 @@ class InfiniteNodeApplication {
   private _deferredServices: Array<keyof ServiceLoaders> = [];
 
   /**
-   * @type {Record<keyof ServiceConfig, ServiceReturnTypes[keyof ServiceConfig]> | Record<string, unknown>} services - Registered services
+   * @type {Record<keyof DriverConfig, ServiceReturnTypes[keyof DriverConfig]> | Record<string, unknown>} services - Registered services
    */
-  private services: Record<keyof ServiceConfig, ServiceReturnTypes[keyof ServiceConfig]> | Record<string, unknown> = {};
+  private services: Record<keyof DriverConfig, ServiceReturnTypes[keyof DriverConfig]> | Record<string, unknown> = {};
 
   private consoleNotice(): void {
     console.log(
@@ -172,7 +172,7 @@ class InfiniteNodeApplication {
   private async registerService<K extends keyof ServiceLoaders>(
     serviceName: K,
     serviceLoader: ServiceLoaders[K],
-    _options: ServiceConfig[K],
+    _options: DriverConfig[K],
   ): Promise<void> {
     if (!serviceLoader) {
       throw new InfiniteNodeError(`Service loader for ${serviceName} not found`);
@@ -219,7 +219,7 @@ class InfiniteNodeApplication {
    * @throws {InfiniteNodeError} If a service loader is missing or not a function.
    */
   private async initializeCoreServices(): Promise<void> {
-    const serviceConfig: ServiceConfig = config.services;
+    const serviceConfig: DriverConfig = config.services;
     console.log(chalk.green(`initializing the core services \n`));
     for (const serviceName of Object.keys(serviceConfig) as Array<keyof ServiceLoaders>) {
       const options = serviceConfig[serviceName];

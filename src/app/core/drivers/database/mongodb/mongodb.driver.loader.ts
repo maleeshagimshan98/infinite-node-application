@@ -6,7 +6,7 @@ import { MongoClient } from 'mongodb';
 import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
 import { type AwilixContainer } from 'awilix';
 import { MongoDBDriver } from './mongodb.driver';
-import { registerService } from '../../service.container';
+import { registerService } from '../../../service.container';
 import { type IMongoDBConfig } from '../../../config/drivers/mongodb.config';
 
 export const mongoDbDriverLoader = async (

@@ -4,7 +4,7 @@
 
 import type { AwilixContainer } from 'awilix';
 import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
-import { registerService } from '../../service.container';
+import { registerService } from '../../../service.container';
 import { type ILoggingConfig } from '../../../config/drivers/winston.config';
 import { LoggingService } from './winston.driver';
 import type winston from 'winston';

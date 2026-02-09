@@ -4,7 +4,7 @@
 
 import type { AwilixContainer } from 'awilix';
 import { InfiniteNodeError } from '../../errors/InfiniteNodeError';
-import { registerService } from '../service.container';
+import { registerService } from '../../service.container';
 import { type INotificationConfig } from '../../config/drivers/notification.config';
 import { NotificationDriver } from './notification.driver';
 import type { EventEmitter } from 'events';

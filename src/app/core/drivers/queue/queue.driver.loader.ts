@@ -1,5 +1,5 @@
 import type { AwilixContainer } from 'awilix';
-import { registerService } from '../service.container';
+import { registerService } from '../../service.container';
 import { type IQueueConfig } from '../../config/drivers/queue.config';
 import { QueueDriver } from './queue.driver';
 import { InfiniteNodeError } from '../../errors/InfiniteNodeError';

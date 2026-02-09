@@ -1,12 +1,11 @@
 import { databaseDriverLoader } from './database.driver.loader';
 import type { IDatabaseConfig } from '@/app/core/config/drivers/database.config';
-import { container } from '@/app/core/drivers/service.container';
+import { container } from '@/app/core/service.container';
 import type mysql from 'mysql';
 // import mongodb from 'mongodb';
 
 // Integration tests (require real DBs)
 describe('integration', () => {
-
   it('should create and register a real MySQL client and perform basic operations', async () => {
     const config: IDatabaseConfig = {
       driverName: 'database',
@@ -37,7 +36,7 @@ describe('integration', () => {
     };
 
     await databaseDriverLoader(container, config);
-    
+
     const client: mysql.Connection = container.resolve('database');
     console.log(client);
     expect(client).toBeDefined();

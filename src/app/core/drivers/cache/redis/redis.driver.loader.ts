@@ -5,7 +5,7 @@
 import type { RedisClientType } from 'redis';
 import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
 import { RedisDriver } from './redis.driver';
-import { registerService } from '../../service.container';
+import { registerService } from '../../../service.container';
 import type { IRedisConfig } from '../../../config/drivers/redis.config';
 import type { AwilixContainer } from 'awilix';
 
