@@ -19,28 +19,31 @@ export class SocketsDriver implements ICoreDriver<Server, ISocketConfig> {
   private _config: ISocketConfig;
 
   /**
+   * The HTTP server instance to attach Socket.io to
+   *
+   * @type {HttpServer}
+   */
+  private _httpServer: HttpServer;
+
+  /**
    * The underlying Socket.io server instance
    *
    * @type {Server | undefined}
    */
   private _client: Server | undefined;
 
-  constructor(config: ISocketConfig) {
+  constructor(config: ISocketConfig, httpServer: HttpServer) {
     this._config = config;
+    this._httpServer = httpServer;
   }
 
   async init(): Promise<void> {
     try {
-      const httpServer = container.resolve<HttpServer>('httpServer');
-      if (!httpServer) {
-        throw new DriverError('httpServer is not available in container for SocketsDriver.');
-      }
-
       const options: Partial<ServerOptions> = {};
       if (this._config.params?.path) options.path = this._config.params.path;
-      if (this._config.params?.cors) options.cors = this._config.params.cors as any;
+      if (this._config.params?.cors) options.cors = this._config.params.cors;
 
-      const io = new Server(httpServer, options);
+      const io = new Server(this._httpServer, options);
 
       if (typeof io.on !== 'function' || typeof io.emit !== 'function') {
         throw new DriverError('Socket.io server failed basic validation.');
