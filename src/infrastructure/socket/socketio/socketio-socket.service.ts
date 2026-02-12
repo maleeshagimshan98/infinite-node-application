@@ -2,8 +2,10 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { Server } from 'socket.io';
 import type { ISocket } from '@/application/interfaces/socket.interface';
+
+import type { SocketsDriver } from './driver/sockets.driver';
+import type { Server } from 'socket.io';
 
 /**
  * Socket.IO Socket Service Implementation
@@ -33,14 +35,67 @@ import type { ISocket } from '@/application/interfaces/socket.interface';
  */
 export class SocketIOService implements ISocket {
   /**
-   * Creates an instance of SocketIOService
+   * The SocketsDriver instance
    *
-   * @param {Server} driver - The Socket.IO Server instance from the core driver
+   * @type {SocketsDriver}
    */
-  constructor(private readonly driver: Server) {}
+  private driver: SocketsDriver;
 
   /**
-   * Emits an event to all connected socket clients
+   * The Socket.IO Server client instance used for emitting and listening to events
+   *
+   * @type {Server | undefined}
+   */
+  private client: Server | undefined;
+
+  /**
+   * Creates an instance of SocketIOService
+   *
+   * @param {SocketsDriver} driver - The Socket.IO Server instance from the core driver
+   */
+  constructor(driver: SocketsDriver) {
+    this.driver = driver;
+    this.client = driver.client();
+  }
+
+  /**
+   * Get the service name for this socket implementation
+   *
+   * @returns {'socket'} The service name identifier
+   */
+  serviceName(): 'socket' {
+    return 'socket';
+  }
+
+  /**
+   * Indicates that this socket service should be registered as a singleton in the DI container
+   *
+   * @returns {true} Always returns true for singleton services
+   */
+  singleton(): true {
+    return true;
+  }
+
+  /**
+   * Indicates whether this socket service should be deferred in the DI container
+   *
+   * @returns {false} Always returns false for non-deferred services
+   */
+  deferred(): false {
+    return false;
+  }
+
+  /**
+   * Returns the underlying SocketsDriver instance
+   *
+   * @returns {SocketsDriver} The SocketsDriver instance
+   */
+  getDriver(): SocketsDriver {
+    return this.driver;
+  }
+
+  /**
+   * Returns the underlying Socket.IO Server client instance
    *
    * @param {string} event - The event name to emit
    * @param {Record<string, unknown>} data - The data payload to send with the event
@@ -55,11 +110,11 @@ export class SocketIOService implements ISocket {
    * socketService.emitEvent('user-update', { userId: '123', status: 'online' });
    *
    * // Emit to a specific room (if needed, extend this method)
-   * // this.driver.to('room-name').emit(event, data);
+   * // this.client?.to('room-name').emit(event, data);
    * ```
    */
   emitEvent(event: string, data: Record<string, unknown>): void {
-    this.driver.emit(event, data);
+    this.client?.emit(event, data);
   }
 
   /**
@@ -84,7 +139,7 @@ export class SocketIOService implements ISocket {
    * ```
    */
   onEvent(event: string, handler: (data: Record<string, unknown>) => void): void {
-    this.driver.on(event, handler);
+    this.client?.on(event, handler);
   }
 
   /**
@@ -101,11 +156,11 @@ export class SocketIOService implements ISocket {
    */
   async disconnect(): Promise<void> {
     // Disconnect all connected clients
-    this.driver.disconnectSockets();
+    this.client?.disconnectSockets();
 
     // Close the server
     await new Promise<void>((resolve, reject) => {
-      this.driver.close((err) => {
+      this.client?.close((err) => {
         if (err) {
           reject(err);
         } else {

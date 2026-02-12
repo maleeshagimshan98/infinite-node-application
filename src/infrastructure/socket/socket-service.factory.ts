@@ -2,9 +2,10 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { Server } from 'socket.io';
 import type { ISocket } from '@/application/interfaces/socket.interface';
+
 import { SocketIOService } from './socketio/socketio-socket.service';
+import { socketDriverLoader } from './socketio/driver/socket-driver.loader';
 
 /**
  * Factory class for creating socket service instances
@@ -13,12 +14,7 @@ import { SocketIOService } from './socketio/socketio-socket.service';
  *
  * @example
  * ```typescript
- * // Using the core driver
- * const socketDriver = socketsService.service();
- * const socket = SocketServiceFactory.createSocketIOService(socketDriver);
- *
- * // Using the generic factory method
- * const socket = SocketServiceFactory.create('socketio', socketDriver);
+ * const socket = await SocketServiceFactory.create('socketio',);
  * ```
  */
 export class SocketServiceFactory {
@@ -28,8 +24,8 @@ export class SocketServiceFactory {
    * @param {Server} driver - The Socket.IO Server driver instance
    * @returns {ISocket} A Socket.IO service instance
    */
-  static createSocketIOService(driver: Server): ISocket {
-    return new SocketIOService(driver);
+  static async createSocketIOService(): Promise<ISocket> {
+    return new SocketIOService(await socketDriverLoader());
   }
 
   /**
@@ -45,11 +41,12 @@ export class SocketServiceFactory {
    * const socket = SocketServiceFactory.create('socketio', socketDriver);
    * ```
    */
-  static create(socketType: string, driver: unknown): ISocket {
+  static async create(): Promise<ISocket> {
+    const socketType = process.env.SOCKET_DRIVER || 'socketio';
     switch (socketType.toLowerCase()) {
       case 'socketio':
       case 'socket.io':
-        return this.createSocketIOService(driver as Server);
+        return this.createSocketIOService();
 
       // Future provider support:
       // case 'ws':
