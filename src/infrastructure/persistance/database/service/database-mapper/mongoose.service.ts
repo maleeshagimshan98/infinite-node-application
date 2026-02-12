@@ -3,9 +3,12 @@
  */
 
 import type { IDatabaseMapper, TransactionOptions } from '@/application/interfaces/database-mapper.interface';
-import { IMongooseConfig } from '@/app/core/config/drivers/mongoose.config';
-import mongoose, { Connection } from 'mongoose';
+
 import { PersistanceError } from '../../erros/persistance.error';
+
+import type { Connection } from 'mongoose';
+import type mongoose from 'mongoose';
+import type { MongooseDriver } from './driver/mongoose.driver';
 
 /**
  * Mongoose ORM Service Implementation
@@ -18,46 +21,66 @@ import { PersistanceError } from '../../erros/persistance.error';
  * @example
  * ```typescript
  * const mongooseService = new MongooseService();
- * await mongooseService.init({
- *   uri: 'mongodb://localhost:27017/mydb',
- *   options: { useNewUrlParser: true }
- * });
+ * await mongooseService.init();
  * ```
  */
 export class MongooseService implements IDatabaseMapper {
-  private client: mongoose.Mongoose | undefined;
+  /**
+   * The configuration used to initialize the Mongoose connection
+   *
+   * @type {MongooseDriver}
+   */
+  private driver: MongooseDriver;
 
   /**
-   * Initializes the Mongoose connection with the provided configuration
+   * The underlying Mongoose client/instance used for database operations
    *
-   * @param {IMongooseConfig | unknown} config - Mongoose configuration with URI and options
-   * @returns {Promise<void>}
-   * @throws {PersistanceError} If connection fails or encounters errors
-   *
-   * @example
-   * ```typescript
-   * await mongooseService.init({
-   *   uri: 'mongodb://localhost:27017/mydb',
-   *   options: { useNewUrlParser: true, useUnifiedTopology: true }
-   * });
-   * ```
+   * @type {mongoose.Mongoose | undefined}
    */
-  async init(config: IMongooseConfig | unknown): Promise<void> {
-    const mongooseConfig = config as IMongooseConfig;
-    try {
-      const conn = await mongoose.connect(mongooseConfig.uri, mongooseConfig.options);
-      this.client = conn;
-      if (this.client.connection.readyState !== 1) {
-        throw new PersistanceError(`Mongoose not connected. State: ${this.client.connection.readyState}`);
-      }
-      this.client.connection.on('error', (err) => {
-        throw new PersistanceError(`Mongoose connection error: ${err instanceof Error ? err.message : String(err)}`);
-      });
-    } catch (err: unknown) {
-      throw new PersistanceError(
-        `Failed to initialize MongooseService: ${err instanceof Error ? err.message : 'Unknown error'}`,
-      );
+  private client: mongoose.Mongoose | undefined;
+
+  constructor(driver: MongooseDriver) {
+    this.driver = driver;
+  }
+
+  /**
+   * Get the service name for this database mapper implementation
+   *
+   * @returns {'database-mapper'} The service name identifier
+   */
+  serviceName(): 'database-mapper' {
+    return 'database-mapper';
+  }
+
+  /**
+   * Indicates that this database mapper service should be registered as a singleton in the DI container
+   *
+   * @returns {true} Always returns true for singleton services
+   */
+  singleton(): true {
+    return true;
+  }
+
+  /**
+   * Indicates whether this database mapper service should be deferred in the DI container
+   *
+   * @returns {false} Always returns false for non-deferred services
+   */
+  deferred(): false {
+    return false;
+  }
+
+  /**
+   * Provides access to the underlying Mongoose client/instance
+   *
+   * @returns {MongooseDriver} The underlying Mongoose driver
+   * @throws {PersistanceError} If the service is not initialized
+   */
+  getDriver(): MongooseDriver {
+    if (!this.driver) {
+      throw new PersistanceError('MongooseService not initialized. Call init() before accessing the driver.');
     }
+    return this.driver;
   }
 
   /**
