@@ -1,9 +1,9 @@
 import { Router } from 'express';
 
-import { loginCredentailValidator } from '@/validators/auth/login-credential.validator';
-import { forgotPasswordValidator } from '@/validators/auth/forgot-password.validator';
-import { resetPasswordValidator } from '@/validators/auth/reset-password.validator';
-import { userValidator } from '@/validators/user/user.validator';
+import { loginCredentailValidator } from '@/presentation/http/validators/auth/login-credential.validator';
+import { forgotPasswordValidator } from '@/presentation/http/validators/auth/forgot-password.validator';
+import { resetPasswordValidator } from '@/presentation/http/validators/auth/reset-password.validator';
+import { userValidator } from '@/presentation/http/validators/user/user.validator';
 
 import { RequestValidatorMiddleware } from '../middleware/RequestValidatorMiddleware';
 import LoginController from '../controllers/auth/login.controller';
