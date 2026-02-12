@@ -2,16 +2,89 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { RedisClientType } from 'redis';
 import type { ICache } from '@/application/interfaces/cache.interface';
+
+import type { RedisDriver } from './driver/redis.driver';
+import type { RedisClientType } from 'redis';
 
 export class RedisCacheService implements ICache {
   /**
-   * Creates an instance of RedisCacheService
+   * Redis driver instance used to access the underlying Redis client
    *
-   * @param {RedisClientType} redisClient - Redis client instance from the driver layer
+   * @type {RedisDriver}
    */
-  constructor(private readonly redisClient: RedisClientType) {}
+  private readonly driver: RedisDriver;
+
+  /**
+   * Redis client instance from the driver layer
+   * Used to perform cache operations
+   *
+   * @type {RedisClientType}
+   */
+  private readonly redisClient: RedisClientType;
+
+  /**
+   * Creates an instance of RedisCacheService
+   */
+  constructor(driver: RedisDriver) {
+    this.driver = driver;
+    const redisClient = this.driver.client();
+    if (!redisClient || !(redisClient instanceof Object)) {
+      throw new Error('Invalid Redis client provided to RedisCacheService');
+    }
+    this.redisClient = redisClient;
+  }
+
+  /**
+   * Get the service name for this cache implementation
+   *
+   * @returns {'cache'} The service name identifier
+   * @example
+   * ```typescript
+   * const cacheService = new RedisCacheService(redisDriver);
+   * console.log(cacheService.serviceName()); // Output: 'cache'
+   * ```
+   */
+  serviceName(): 'cache' {
+    return 'cache';
+  }
+
+  /**
+   * Indicates that this cache service should be registered as a singleton in the DI container
+   *
+   * @returns {true} Always returns true for singleton services
+   * @example
+   * ```typescript
+   * const cacheService = new RedisCacheService(redisDriver);
+   * console.log(cacheService.singleton()); // Output: true
+   * ```
+   */
+  singleton(): true {
+    return true;
+  }
+
+  /**
+   * Indicates whether this cache service should be deferred in the DI container
+   *
+   * @returns {false} Always returns false for non-deferred services
+   * @example
+   * ```typescript
+   * const cacheService = new RedisCacheService(redisDriver);
+   * console.log(cacheService.deferred()); // Output: false
+   * ```
+   */
+  deferred(): false {
+    return false;
+  }
+
+  /**
+   * Get the underlying Redis client instance
+   *
+   * @returns {RedisDriver}
+   */
+  getDriver(): RedisDriver {
+    return this.driver;
+  }
 
   /**
    * Get a cached value by key
