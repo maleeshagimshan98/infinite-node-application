@@ -2,11 +2,13 @@
  * Email Service Factory
  *
  * Factory for creating email service implementations based on provider type.
- * Supports multiple email providers (placeholder, Nodemailer, SendGrid, AWS SES, etc.).
+ * Supports multiple email providers (SMTP, SendGrid, AWS SES, etc.).
  */
 
 import type { IEmail } from '@/application/interfaces/email.interface';
+
 import { SMTPEmailService } from './smtp/smtp-email.service';
+import { smtpDriverLoader } from './smtp/driver/smtp.driver.loader';
 
 /**
  * Factory class for creating email service instances
@@ -15,57 +17,53 @@ import { SMTPEmailService } from './smtp/smtp-email.service';
  *
  * @example
  * ```typescript
- * // Using the core driver
- * const emailDriver = emailService.service();
- * const email = EmailServiceFactory.createPlaceholderEmailService(emailDriver);
+ * // Create SMTP email service
+ * const email = await EmailServiceFactory.createSMTPEmailService();
  *
  * // Using the generic factory method
- * const email = EmailServiceFactory.create('placeholder', emailDriver);
+ * const email = await EmailServiceFactory.create('smtp');
  * ```
  */
 export class EmailServiceFactory {
   /**
-   * Creates a placeholder email service instance
+   * Creates an SMTP email service instance
    *
-   * @param {unknown} driver - The email driver (placeholder)
-   * @returns {IEmail} A placeholder email service instance
+   * @returns {IEmail} An SMTP email service instance
    */
-  static createPlaceholderEmailService(driver: unknown): IEmail {
-    return new SMTPEmailService(driver);
+  static async createSMTPEmailService(): Promise<IEmail> {
+    return new SMTPEmailService(await smtpDriverLoader());
   }
 
   /**
    * Creates an email service instance based on the specified type
    *
-   * @param {string} emailType - The type of email provider ('placeholder', 'nodemailer', 'sendgrid', 'ses', etc.)
-   * @param {unknown} driver - The email driver instance
    * @returns {IEmail} An email service instance
    * @throws {Error} If the email type is not supported
    *
    * @example
    * ```typescript
-   * const email = EmailServiceFactory.create('placeholder', emailDriver);
+   * const email = await EmailServiceFactory.create();
+
    * ```
    */
-  static create(emailType: string, driver: unknown): IEmail {
+  static async create(): Promise<IEmail> {
+    const emailType = process.env.EMAIL_DRIVER || 'smtp';
     switch (emailType.toLowerCase()) {
+      case 'smtp':
       case 'placeholder':
       case 'console':
-        return this.createPlaceholderEmailService(driver);
+        return await this.createSMTPEmailService();
 
       // Future provider support:
-      // case 'nodemailer':
-      //   return this.createNodemailerEmailService(driver as Transporter);
-      //
       // case 'sendgrid':
-      //   return this.createSendGridEmailService(driver as SendGridClient);
+      //   return new SendGridEmailService();
       //
       // case 'ses':
       // case 'aws-ses':
-      //   return this.createSESEmailService(driver as SESClient);
+      //   return new SESEmailService();
       //
       // case 'mailgun':
-      //   return this.createMailgunEmailService(driver as MailgunClient);
+      //   return new MailgunEmailService();
 
       default:
         throw new Error(`Unsupported email type: ${emailType}`);

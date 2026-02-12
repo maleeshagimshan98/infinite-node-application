@@ -4,19 +4,20 @@
 
 import type { IEmail } from '@/application/interfaces/email.interface';
 
+import type { SMTPDriver } from './driver/smtp.driver';
+
 /**
  * SMTP Email Service Implementation
  *
- * Provides email functionality using console logging for development/testing.
- * This implementation should be replaced with real email providers in production.
+ * Provides email functionality using SMTP protocol.
+ * This implementation manages its own driver instance internally.
  *
- * @class PlaceholderEmailService
+ * @class SMTPEmailService
  * @implements {IEmail}
  *
  * @example
  * ```typescript
- * const emailDriver = emailService.service(); // unknown placeholder
- * const emailService = new PlaceholderEmailService(emailDriver);
+ * const emailService = new SMTPEmailService();
  *
  * await emailService.sendEmail(
  *   'user@example.com',
@@ -26,12 +27,51 @@ import type { IEmail } from '@/application/interfaces/email.interface';
  * ```
  */
 export class SMTPEmailService implements IEmail {
+  private readonly driver: SMTPDriver;
+
   /**
-   * Creates an instance of PlaceholderEmailService
-   *
-   * @param {unknown} driver - The email driver (placeholder - currently unknown)
+   * Creates an instance of SMTPEmailService
+   * Instantiates and initializes the SMTP driver internally
    */
-  constructor(private readonly driver: unknown) {}
+  constructor(driver: SMTPDriver) {
+    this.driver = driver;
+  }
+
+  /**
+   * Returns the service name identifier for this infrastructure service
+   *
+   * @returns {'email'} Service name identifier
+   */
+  serviceName(): 'email' {
+    return 'email';
+  }
+
+  /**
+   * Indicates that this service should be treated as a singleton within the application context
+   *
+   * @returns {true}
+   */
+  singleton(): true {
+    return true;
+  }
+
+  /**
+   * Indicates whether this service should be deferred during initialization
+   *
+   * @returns {false}
+   */
+  deferred(): false {
+    return false;
+  }
+
+  /**
+   * Get the underlying SMTP driver instance
+   *
+   * @returns {unknown} The SMTP driver instance
+   */
+  getDriver(): unknown {
+    return this.driver.client();
+  }
 
   /**
    * Sends an email to a recipient
