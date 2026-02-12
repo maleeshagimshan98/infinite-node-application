@@ -2,8 +2,10 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { Queue } from 'bullmq';
 import type { IQueue, Job, JobOptions, JobStatus } from '@/application/interfaces/queue.interface';
+
+import type { QueueDriver } from './driver/bullmq.driver';
+import type { Queue } from 'bullmq';
 
 /**
  * BullMQ Queue Service Implementation
@@ -34,11 +36,62 @@ import type { IQueue, Job, JobOptions, JobStatus } from '@/application/interface
  */
 export class BullMQQueueService implements IQueue {
   /**
+   * The QueueDriver instance
+   *
+   *  @type {QueueDriver}
+   */
+  private driver: QueueDriver;
+
+  /**
+   * The BullMQ Queue client instance
+   * @private
+   * @type {Queue | undefined}
+   */
+  private client: Queue | undefined;
+
+  /**
    * Creates an instance of BullMQQueueService
    *
-   * @param {Queue} driver - The BullMQ Queue instance from the core driver
+   * @param {QueueDriver} driver - The BullMQ Queue instance from the core driver
    */
-  constructor(private readonly driver: Queue) {}
+  constructor(driver: QueueDriver) {
+    this.driver = driver;
+    this.client = driver.client();
+  }
+
+  /**
+   * Get the service name for this queue implementation
+   *
+   * @returns {'queue'} The service name identifier
+   */
+  serviceName(): 'queue' {
+    return 'queue';
+  }
+
+  /**
+   * Indicates that this queue service should be registered as a singleton in the DI container
+   *
+   * @returns {true} Always returns true for singleton services
+   */
+  singleton(): true {
+    return true;
+  }
+
+  /**
+   * Indicates whether this queue service should be deferred in the DI container
+   *
+   * @returns {false} Always returns false for non-deferred services
+   */
+  deferred(): false {
+    return false;
+  }
+
+  /**
+   * Returns the underlying BullMQ Queue driver instance
+   */
+  getDriver(): QueueDriver {
+    return this.driver;
+  }
 
   /**
    * Adds a new job to the queue
@@ -58,9 +111,9 @@ export class BullMQQueueService implements IQueue {
    * ```
    */
   async addJob<T>(queueName: string, data: T, options?: JobOptions): Promise<string> {
-    const job = await this.driver.add(queueName, data);
+    const job = await this.client?.add(queueName, data, options);
 
-    return job.id ?? '';
+    return job?.id ?? '';
   }
 
   /**
@@ -114,7 +167,7 @@ export class BullMQQueueService implements IQueue {
    * ```
    */
   async getJobStatus(jobId: string): Promise<JobStatus> {
-    const job = await this.driver.getJob(jobId);
+    const job = await this.client?.getJob(jobId);
 
     if (!job) {
       return 'unknown';

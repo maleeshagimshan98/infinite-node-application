@@ -2,26 +2,25 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { Queue } from 'bullmq';
 import type { IQueue } from '@/application/interfaces/queue.interface';
+
 import { BullMQQueueService } from './bullmq/bullmq-queue.service';
+import { bullmqDriverLoader } from './bullmq/driver/bullmq.driver.loader';
 
 export class QueueServiceFactory {
   /**
    * Creates a BullMQ queue service instance
    *
-   * @param {Queue} driver - The BullMQ Queue driver instance
    * @returns {IQueue} A BullMQ queue service instance
    */
-  static createBullMQQueueService(driver: Queue): IQueue {
-    return new BullMQQueueService(driver);
+  static async createBullMQQueueService(): Promise<IQueue> {
+    return new BullMQQueueService(await bullmqDriverLoader());
   }
 
   /**
    * Creates a queue service instance based on the specified type
    *
    * @param {string} queueType - The type of queue provider ('bullmq', 'sqs', 'rabbitmq', etc.)
-   * @param {unknown} driver - The queue driver instance
    * @returns {IQueue} A queue service instance
    * @throws {Error} If the queue type is not supported
    *
@@ -30,11 +29,12 @@ export class QueueServiceFactory {
    * const queue = QueueServiceFactory.create('bullmq', queueDriver);
    * ```
    */
-  static create(queueType: string, driver: unknown): IQueue {
+  static async create(): Promise<IQueue> {
+    const queueType = process.env.QUEUE_DRIVER || 'bullmq';
     switch (queueType.toLowerCase()) {
       case 'bullmq':
       case 'bull':
-        return this.createBullMQQueueService(driver as Queue);
+        return this.createBullMQQueueService();
 
       // Future provider support:
       // case 'sqs':
