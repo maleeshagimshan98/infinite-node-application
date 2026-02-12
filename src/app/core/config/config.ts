@@ -2,13 +2,12 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { ServerConfig } from './server.config';
 import { serverConfig } from './server.config';
 import { coreMiddlewareConfig } from '../middleware/middleware.config';
-import type { IAppConfig } from './app.config';
 import { appConfig } from './app.config';
-import type { DriverConfig } from './drivers/drivers.config';
-import { driverConfig } from './drivers/drivers.config';
+
+import type { IAppConfig } from './app.config';
+import type { ServerConfig } from './server.config';
 
 export type INodeApplicationConfig = {
   server: ServerConfig;
@@ -16,7 +15,6 @@ export type INodeApplicationConfig = {
   app: IAppConfig;
   jwt: unknown;
   logging: Record<string, unknown>;
-  services: DriverConfig;
 };
 
 export const configLoader: () => INodeApplicationConfig = () => {
@@ -29,6 +27,5 @@ export const configLoader: () => INodeApplicationConfig = () => {
       expiresIn: process.env.JWT_EXPIRES_IN || '1h',
     },
     logging: {},
-    services: driverConfig(),
   };
 };
