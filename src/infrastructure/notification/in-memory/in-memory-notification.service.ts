@@ -4,6 +4,8 @@
 
 import type { INotification } from '@/application/interfaces/notification.interface';
 
+import type { InMemoryNotificationDriver } from './driver/in-memory-notification.driver';
+
 /**
  * In-Memory Notification Service Implementation
  *
@@ -15,8 +17,9 @@ import type { INotification } from '@/application/interfaces/notification.interf
  *
  * @example
  * ```typescript
- * const notificationDriver = notificationService.service(); // undefined placeholder
- * const notificationService = new InMemoryNotificationService(notificationDriver);
+ * const driver = new InMemoryNotificationDriver();
+ * await driver.init(config);
+ * const notificationService = new InMemoryNotificationService(driver);
  *
  * await notificationService.sendNotification('user123', { title: 'Hello', body: 'World' });
  * await notificationService.broadcastNotification({ title: 'Announcement', body: 'System maintenance' });
@@ -24,11 +27,68 @@ import type { INotification } from '@/application/interfaces/notification.interf
  */
 export class InMemoryNotificationService implements INotification {
   /**
+   * The notification driver instance
+   * @private
+   * @readonly
+   */
+  private readonly driver: InMemoryNotificationDriver;
+
+  /**
    * Creates an instance of InMemoryNotificationService
    *
-   * @param {undefined} driver - The notification driver (placeholder - currently undefined)
+   * @param {InMemoryNotificationDriver} driver - The initialized notification driver
+   *
+   * @example
+   * ```typescript
+   * const driver = new InMemoryNotificationDriver();
+   * await driver.init(config);
+   * const service = new InMemoryNotificationService(driver);
+   * ```
    */
-  constructor(private readonly driver: undefined) {}
+  constructor(driver: InMemoryNotificationDriver) {
+    this.driver = driver;
+  }
+
+  /**
+   * Get the service name for this notification implementation
+   *
+   * @returns {'notification'} The service name identifier
+   */
+  serviceName(): 'notification' {
+    return 'notification';
+  }
+
+  /**
+   * Indicates that this notification service should be registered as a singleton in the DI container
+   *
+   * @returns {true} Always returns true for singleton services
+   */
+  singleton(): true {
+    return true;
+  }
+
+  /**
+   * Indicates whether this notification service should be deferred in the DI container
+   *
+   * @returns {false} Always returns false for non-deferred services
+   */
+  deferred(): false {
+    return false;
+  }
+
+  /**
+   * Returns the underlying notification driver instance
+   *
+   * @returns {unknown} The notification driver
+   *
+   * @example
+   * ```typescript
+   * const driver = service.getDriver();
+   * ```
+   */
+  getDriver(): unknown {
+    return this.driver.client();
+  }
 
   /**
    * Sends a notification to a specific recipient

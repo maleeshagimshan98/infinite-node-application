@@ -3,62 +3,79 @@
  */
 
 import type { INotification } from '@/application/interfaces/notification.interface';
+
 import { InMemoryNotificationService } from './in-memory/in-memory-notification.service';
+import { inMemoryNotificationDriverLoader } from './in-memory/driver/in-memory-notification.driver.loader';
 
 /**
  * Factory class for creating notification service instances
+ *
+ * Provides static methods to instantiate notification services with their respective drivers.
+ * The factory handles driver creation, initialization, and service instantiation.
  *
  * @class NotificationServiceFactory
  *
  * @example
  * ```typescript
- * // Using the core driver
- * const notificationDriver = notificationService.service();
- * const notification = NotificationServiceFactory.createInMemoryNotificationService(notificationDriver);
+ * // Create an In-Memory notification service
+ * const notification = await NotificationServiceFactory.createInMemoryNotificationService();
  *
  * // Using the generic factory method
- * const notification = NotificationServiceFactory.create('in-memory', notificationDriver);
+ * const notification = await NotificationServiceFactory.create('in-memory');
  * ```
  */
 export class NotificationServiceFactory {
   /**
    * Creates an In-Memory notification service instance
    *
-   * @param {undefined} driver - The notification driver (placeholder)
-   * @returns {INotification} An In-Memory notification service instance
+   * This method creates and initializes the InMemoryNotificationDriver,
+   * then constructs and returns an InMemoryNotificationService with the initialized driver.
+   *
+   * @returns {Promise<INotification>} A promise that resolves to an initialized In-Memory notification service instance
+   * @throws {Error} If driver initialization fails
+   *
+   * @example
+   * ```typescript
+   * const notification = await NotificationServiceFactory.createInMemoryNotificationService();
+   * await notification.sendNotification('user123', { title: 'Hello', body: 'World' });
+   * ```
    */
-  static createInMemoryNotificationService(driver: undefined): INotification {
-    return new InMemoryNotificationService(driver);
+  static async createInMemoryNotificationService(): Promise<INotification> {
+    return new InMemoryNotificationService(await inMemoryNotificationDriverLoader());
   }
 
   /**
    * Creates a notification service instance based on the specified type
    *
+   * This is a generic factory method that routes to specific service creation methods
+   * based on the notification type parameter.
+   *
    * @param {string} notificationType - The type of notification provider ('in-memory', 'fcm', 'sns', etc.)
-   * @param {unknown} driver - The notification driver instance
-   * @returns {INotification} A notification service instance
-   * @throws {Error} If the notification type is not supported
+   * @returns {Promise<INotification>} A promise that resolves to a notification service instance
+   * @throws {Error} If the notification type is not supported or if initialization fails
    *
    * @example
    * ```typescript
-   * const notification = NotificationServiceFactory.create('in-memory', notificationDriver);
+   * const notification = await NotificationServiceFactory.create('in-memory');
+   * await notification.broadcastNotification({ title: 'System Update', body: 'Maintenance scheduled' });
    * ```
    */
-  static create(notificationType: string, driver: unknown): INotification {
+  static async create(): Promise<INotification> {
+    const notificationType = process.env.NOTIFICATION_DRIVER || 'inmemory';
     switch (notificationType.toLowerCase()) {
       case 'in-memory':
       case 'inmemory':
-        return this.createInMemoryNotificationService(driver as undefined);
+        return await this.createInMemoryNotificationService();
 
       // Future provider support:
       // case 'fcm':
-      //   return this.createFCMNotificationService(driver as FCMDriver);
+      //   return await this.createFCMNotificationService();
       //
       // case 'sns':
-      //   return this.createSNSNotificationService(driver as SNSDriver);
+      //   return await this.createSNSNotificationService();
       //
       // case 'onesignal':
-      //   return this.createOneSignalNotificationService(driver as OneSignalDriver);
+      //   return await this.createOneSignalNotificationService();
 
       default:
         throw new Error(`Unsupported notification type: ${notificationType}`);
