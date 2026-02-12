@@ -20,7 +20,7 @@ import { StartupBanner } from './core/utils/startup-banner';
 import { configLoader } from './core/config/config';
 import { coreMiddleware } from './core/middleware/core.middleware';
 import { InfiniteNodeError } from './core/errors/InfiniteNodeError';
-import { container } from './core/service.container';
+import { autoRegisterApplicationComponents, container } from './core/service.container';
 
 import type { StartupBannerConfig } from './core/utils/startup-banner';
 import type { Application, Router } from 'express';
@@ -94,6 +94,9 @@ class InfiniteNodeApplication {
       this.infrastructureManager
         .init(this.container)
         .then(async () => {
+          // Auto-register services, repositories, and controllers
+          autoRegisterApplicationComponents();
+
           await this.initCoreMiddleware();
           this.express_server.use(scopePerRequest(this.container));
           this.express_server.use(config.app.apiUrlPrefix, routes);
