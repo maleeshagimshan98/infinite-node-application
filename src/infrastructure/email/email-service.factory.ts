@@ -10,6 +10,8 @@ import type { IEmail } from '@/application/interfaces/email.interface';
 import { SMTPEmailService } from './smtp/smtp-email.service';
 import { smtpDriverLoader } from './smtp/driver/smtp.driver.loader';
 
+import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
+
 /**
  * Factory class for creating email service instances
  *
@@ -17,20 +19,17 @@ import { smtpDriverLoader } from './smtp/driver/smtp.driver.loader';
  *
  * @example
  * ```typescript
- * // Create SMTP email service
- * const email = await EmailServiceFactory.createSMTPEmailService();
- *
- * // Using the generic factory method
- * const email = await EmailServiceFactory.create('smtp');
+ * const factory = new EmailServiceFactory();
+ * const email = await factory.create();
  * ```
  */
-export class EmailServiceFactory {
+export class EmailServiceFactory implements IServiceFactory<IEmail> {
   /**
    * Creates an SMTP email service instance
    *
    * @returns {IEmail} An SMTP email service instance
    */
-  static async createSMTPEmailService(): Promise<IEmail> {
+  async createSMTPEmailService(): Promise<IEmail> {
     return new SMTPEmailService(await smtpDriverLoader());
   }
 
@@ -42,11 +41,11 @@ export class EmailServiceFactory {
    *
    * @example
    * ```typescript
-   * const email = await EmailServiceFactory.create();
-
+   * const factory = new EmailServiceFactory();
+   * const email = await factory.create();
    * ```
    */
-  static async create(): Promise<IEmail> {
+  async create(): Promise<IEmail> {
     const emailType = process.env.EMAIL_DRIVER || 'smtp';
     switch (emailType.toLowerCase()) {
       case 'smtp':

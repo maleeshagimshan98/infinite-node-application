@@ -3,6 +3,7 @@
  */
 
 import type { INotification } from '@/application/interfaces/notification.interface';
+import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 
 import { InMemoryNotificationService } from './in-memory/in-memory-notification.service';
 import { inMemoryNotificationDriverLoader } from './in-memory/driver/in-memory-notification.driver.loader';
@@ -10,21 +11,18 @@ import { inMemoryNotificationDriverLoader } from './in-memory/driver/in-memory-n
 /**
  * Factory class for creating notification service instances
  *
- * Provides static methods to instantiate notification services with their respective drivers.
+ * Provides methods to instantiate notification services with their respective drivers.
  * The factory handles driver creation, initialization, and service instantiation.
  *
  * @class NotificationServiceFactory
  *
  * @example
  * ```typescript
- * // Create an In-Memory notification service
- * const notification = await NotificationServiceFactory.createInMemoryNotificationService();
- *
- * // Using the generic factory method
- * const notification = await NotificationServiceFactory.create('in-memory');
+ * const factory = new NotificationServiceFactory();
+ * const notification = await factory.create();
  * ```
  */
-export class NotificationServiceFactory {
+export class NotificationServiceFactory implements IServiceFactory<INotification> {
   /**
    * Creates an In-Memory notification service instance
    *
@@ -36,11 +34,12 @@ export class NotificationServiceFactory {
    *
    * @example
    * ```typescript
-   * const notification = await NotificationServiceFactory.createInMemoryNotificationService();
+   * const factory = new NotificationServiceFactory();
+   * const notification = await factory.createInMemoryNotificationService();
    * await notification.sendNotification('user123', { title: 'Hello', body: 'World' });
    * ```
    */
-  static async createInMemoryNotificationService(): Promise<INotification> {
+  async createInMemoryNotificationService(): Promise<INotification> {
     return new InMemoryNotificationService(await inMemoryNotificationDriverLoader());
   }
 
@@ -50,17 +49,17 @@ export class NotificationServiceFactory {
    * This is a generic factory method that routes to specific service creation methods
    * based on the notification type parameter.
    *
-   * @param {string} notificationType - The type of notification provider ('in-memory', 'fcm', 'sns', etc.)
    * @returns {Promise<INotification>} A promise that resolves to a notification service instance
    * @throws {Error} If the notification type is not supported or if initialization fails
    *
    * @example
    * ```typescript
-   * const notification = await NotificationServiceFactory.create('in-memory');
+   * const factory = new NotificationServiceFactory();
+   * const notification = await factory.create();
    * await notification.broadcastNotification({ title: 'System Update', body: 'Maintenance scheduled' });
    * ```
    */
-  static async create(): Promise<INotification> {
+  async create(): Promise<INotification> {
     const notificationType = process.env.NOTIFICATION_DRIVER || 'inmemory';
     switch (notificationType.toLowerCase()) {
       case 'in-memory':

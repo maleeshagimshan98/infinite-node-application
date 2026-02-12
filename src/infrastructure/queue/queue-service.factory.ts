@@ -3,33 +3,34 @@
  */
 
 import type { IQueue } from '@/application/interfaces/queue.interface';
+import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 
 import { BullMQQueueService } from './bullmq/bullmq-queue.service';
 import { bullmqDriverLoader } from './bullmq/driver/bullmq.driver.loader';
 
-export class QueueServiceFactory {
+export class QueueServiceFactory implements IServiceFactory<IQueue> {
   /**
    * Creates a BullMQ queue service instance
    *
    * @returns {IQueue} A BullMQ queue service instance
    */
-  static async createBullMQQueueService(): Promise<IQueue> {
+  async createBullMQQueueService(): Promise<IQueue> {
     return new BullMQQueueService(await bullmqDriverLoader());
   }
 
   /**
    * Creates a queue service instance based on the specified type
    *
-   * @param {string} queueType - The type of queue provider ('bullmq', 'sqs', 'rabbitmq', etc.)
    * @returns {IQueue} A queue service instance
    * @throws {Error} If the queue type is not supported
    *
    * @example
    * ```typescript
-   * const queue = QueueServiceFactory.create('bullmq', queueDriver);
+   * const factory = new QueueServiceFactory();
+   * const queue = await factory.create();
    * ```
    */
-  static async create(): Promise<IQueue> {
+  async create(): Promise<IQueue> {
     const queueType = process.env.QUEUE_DRIVER || 'bullmq';
     switch (queueType.toLowerCase()) {
       case 'bullmq':

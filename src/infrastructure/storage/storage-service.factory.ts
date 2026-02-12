@@ -7,16 +7,17 @@ import type { IStorage } from '@/application/interfaces/storage.interface';
 import { LocalStorageService } from './local/local-storage.service';
 import { InfrastructureError } from '../core/errors/infrastructure.error';
 
+import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
+
 export type StorageDriverType = 'local' | 'aws' | 'gcp' | 'azure';
 
-export class StorageServiceFactory {
+export class StorageServiceFactory implements IServiceFactory<IStorage> {
   /**
    * Create a storage service instance using the provided local file storage driver
    *
-   * @param storageClient - Local file storage client instance from the driver layer
-   * @returns {IStorage} implementation
+   * @returns {Promise<IStorage>} implementation
    */
-  static createLocalStorageService(): IStorage {
+  async createLocalStorageService(): Promise<IStorage> {
     return new LocalStorageService();
   }
 
@@ -24,12 +25,10 @@ export class StorageServiceFactory {
    * Create a storage service instance based on configuration
    * Currently supports local storage only, but can be extended for other providers
    *
-   * @param driver - Storage driver type ('local', 'aws', 'gcp', 'azure', etc.)
-   * @param client - Client instance from the driver layer
-   * @returns {IStorage} implementation
+   * @returns {Promise<IStorage>} implementation
    * @throws {InfrastructureError} if driver is not supported
    */
-  static create(): IStorage {
+  async create(): Promise<IStorage> {
     const driver = process.env.STORAGE_DRIVER || 'local';
     switch (driver) {
       case 'filesystem':

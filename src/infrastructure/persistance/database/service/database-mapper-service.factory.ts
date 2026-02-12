@@ -3,6 +3,7 @@
  */
 
 import type { IDatabaseMapper } from '@/application/interfaces/database-mapper.interface';
+import type { IServiceFactory } from '@/infrastructure/core/interfaces/service.factory.interface';
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 import { MongooseService } from './database-mapper/mongoose.service';
@@ -13,27 +14,23 @@ export type DatabaseMapperDriverType = 'mongoose' | 'sequelize' | 'typeorm' | 'p
 /**
  * Factory class for creating ORM service instances
  *
- * Provides static methods to instantiate ORM services based on the driver type.
+ * Provides methods to instantiate ORM services based on the driver type.
  * Follows the same pattern as StorageServiceFactory and DatabaseServiceFactory for consistency.
  *
  * @example
  * ```typescript
- * // Create a Mongoose service
- * const databaseMapperService = await DatabaseMapperServiceFactory.createMongooseService();
- * ```
- *
- * // Using the generic factory method
- * const databaseMapperService = await DatabaseMapperServiceFactory.create('mongoose');
+ * const factory = new DatabaseMapperServiceFactory();
+ * const databaseMapperService = await factory.create();
  * ```
  */
-export class DatabaseMapperServiceFactory {
+export class DatabaseMapperServiceFactory implements IServiceFactory<IDatabaseMapper> {
   /**
    * Type guard to validate database mapper driver type
    *
    * @param {unknown} driver - The value to check
    * @returns {driver is DatabaseMapperDriverType} True if the value is a valid database mapper driver type
    */
-  private static isValidDatabaseMapperDriver(driver: unknown): driver is DatabaseMapperDriverType {
+  private isValidDatabaseMapperDriver(driver: unknown): driver is DatabaseMapperDriverType {
     const validDrivers: DatabaseMapperDriverType[] = ['mongoose', 'sequelize', 'typeorm', 'prisma'];
     return typeof driver === 'string' && validDrivers.includes(driver as DatabaseMapperDriverType);
   }
@@ -45,10 +42,11 @@ export class DatabaseMapperServiceFactory {
    *
    * @example
    * ```typescript
-   * const databaseMapperService = await DatabaseMapperServiceFactory.createMongooseService();
+   * const factory = new DatabaseMapperServiceFactory();
+   * const databaseMapperService = await factory.createMongooseService();
    * ```
    */
-  static async createMongooseService(): Promise<IDatabaseMapper> {
+  async createMongooseService(): Promise<IDatabaseMapper> {
     const mongooseService = new MongooseService(await mongooseDriverLoader());
     return mongooseService;
   }
@@ -58,16 +56,16 @@ export class DatabaseMapperServiceFactory {
    *
    * Currently supports Mongoose only, but can be extended for other service providers.
    *
-   * @param {DatabaseMapperDriverType} driver - database mapper driver type ('mongoose', 'sequelize', 'typeorm', 'prisma', etc.)
    * @returns {IDatabaseMapper} implementation
    * @throws {InfrastructureError} if driver is not supported
    *
    * @example
    * ```typescript
-   * const databaseMapperService = await DatabaseMapperServiceFactory.create();
+   * const factory = new DatabaseMapperServiceFactory();
+   * const databaseMapperService = await factory.create();
    * ```
    */
-  static async create(): Promise<IDatabaseMapper> {
+  async create(): Promise<IDatabaseMapper> {
     const envDriver = process.env.DATABASE_MAPPER_DRIVER || 'mongoose';
     if (!this.isValidDatabaseMapperDriver(envDriver)) {
       throw new InfrastructureError(`Invalid database mapper driver: ${envDriver}`);

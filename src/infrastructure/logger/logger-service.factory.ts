@@ -8,6 +8,8 @@ import { WinstonLoggerService } from './winston/winston-logger.service';
 import { winstonDriverLoader } from './winston/driver/winston.driver.loader';
 import { InfrastructureError } from '../core/errors/infrastructure.error';
 
+import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
+
 /**
  * Supported logger driver types
  */
@@ -16,28 +18,25 @@ export type LoggerDriverType = 'winston' | 'bunyan' | 'pino';
 /**
  * Factory class for creating logger service instances
  *
- * Provides static methods to instantiate logger services with their respective drivers.
+ * Provides methods to instantiate logger services with their respective drivers.
  * The factory handles driver creation, initialization, and service instantiation.
  *
  * @class LoggerServiceFactory
  *
  * @example
  * ```typescript
- * // Create a Winston logger service
- * const logger = await LoggerServiceFactory.createWinstonLoggerService();
+ * const factory = new LoggerServiceFactory();
+ * const logger = await factory.create();
  * logger.logInfo('Application started');
- *
- * // Using the generic factory method
- * const logger = await LoggerServiceFactory.create('winston');
  * ```
  */
-export class LoggerServiceFactory {
+export class LoggerServiceFactory implements IServiceFactory<ILogger> {
   /**
    * Type guard to validate logger driver type
    * @param {unknown} value - The value to check
    * @returns {value is LoggerDriverType} True if the value is a valid logger driver type
    */
-  private static isValidLoggerDriver(value: unknown): value is LoggerDriverType {
+  private isValidLoggerDriver(value: unknown): value is LoggerDriverType {
     return typeof value === 'string' && ['winston', 'bunyan', 'pino'].includes(value);
   }
   /**
@@ -51,12 +50,13 @@ export class LoggerServiceFactory {
    *
    * @example
    * ```typescript
-   * const logger = await LoggerServiceFactory.createWinstonLoggerService();
+   * const factory = new LoggerServiceFactory();
+   * const logger = await factory.createWinstonLoggerService();
    * logger.logInfo('Server started on port 3000');
    * logger.logError('Database connection failed', { error: err });
    * ```
    */
-  static async createWinstonLoggerService(): Promise<ILogger> {
+  async createWinstonLoggerService(): Promise<ILogger> {
     return new WinstonLoggerService(await winstonDriverLoader());
   }
 
@@ -66,18 +66,18 @@ export class LoggerServiceFactory {
    * This is a generic factory method that routes to specific service creation methods
    * based on the logger driver type parameter.
    *
-   * @param {LoggerDriverType} driver - The type of logger driver ('winston', 'bunyan', 'pino')
    * @returns {Promise<ILogger>} A promise that resolves to a logger service instance
    * @throws {InfrastructureError} If the logger driver type is not supported or if initialization fails
    *
    * @example
    * ```typescript
-   * const logger = await LoggerServiceFactory.create('winston');
+   * const factory = new LoggerServiceFactory();
+   * const logger = await factory.create();
    * logger.logInfo('Using winston logger');
    * logger.logDebug('Debug mode enabled', { mode: 'development' });
    * ```
    */
-  static async create(): Promise<ILogger> {
+  async create(): Promise<ILogger> {
     const envDriver = process.env.LOGGING_DRIVER || 'winston';
     if (!this.isValidLoggerDriver(envDriver)) {
       throw new InfrastructureError(`Invalid logger driver: ${envDriver}`);

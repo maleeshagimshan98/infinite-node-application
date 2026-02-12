@@ -7,6 +7,8 @@ import type { ISocket } from '@/application/interfaces/socket.interface';
 import { SocketIOService } from './socketio/socketio-socket.service';
 import { socketDriverLoader } from './socketio/driver/socket-driver.loader';
 
+import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
+
 /**
  * Factory class for creating socket service instances
  *
@@ -14,17 +16,18 @@ import { socketDriverLoader } from './socketio/driver/socket-driver.loader';
  *
  * @example
  * ```typescript
- * const socket = await SocketServiceFactory.create('socketio',);
+ * const factory = new SocketServiceFactory();
+ * const socket = await factory.create();
  * ```
  */
-export class SocketServiceFactory {
+export class SocketServiceFactory implements IServiceFactory<ISocket> {
   /**
    * Creates a Socket.IO service instance
    *
    * @param {Server} driver - The Socket.IO Server driver instance
    * @returns {ISocket} A Socket.IO service instance
    */
-  static async createSocketIOService(): Promise<ISocket> {
+  async createSocketIOService(): Promise<ISocket> {
     return new SocketIOService(await socketDriverLoader());
   }
 
@@ -41,7 +44,7 @@ export class SocketServiceFactory {
    * const socket = SocketServiceFactory.create('socketio', socketDriver);
    * ```
    */
-  static async create(): Promise<ISocket> {
+  async create(): Promise<ISocket> {
     const socketType = process.env.SOCKET_DRIVER || 'socketio';
     switch (socketType.toLowerCase()) {
       case 'socketio':
