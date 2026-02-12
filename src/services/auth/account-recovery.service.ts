@@ -2,15 +2,17 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { HydratedDocument } from 'mongoose';
 import argon2 from 'argon2';
+
 import { BaseService } from '../base/BaseService';
 import { ServiceError } from '../base/ServiceError';
 import { User } from '../../models/user/user.model';
-import type { IUser } from '../../models/user/user.model';
 import { PasswordResetCodesModel } from '../../models/auth/password-reset-code.model';
 import { LoginRecord } from '../../models/auth/login-record.model';
 import { ErrorResponseMessages } from '../../app/core/utils/error-response-messages';
+
+import type { IUser } from '../../models/user/user.model';
+import type { HydratedDocument } from 'mongoose';
 
 export class AccountRecoveryService extends BaseService {
   constructor() {

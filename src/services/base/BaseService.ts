@@ -1,7 +1,8 @@
-import type { AwilixContainer } from 'awilix';
 import { container } from '../../app/core/service.container';
 import { PaginationException } from '../../app/core/utils/pagination/pagination-exception';
 import { Paginator } from '../../app/core/utils/pagination/paginator';
+
+import type { AwilixContainer } from 'awilix';
 
 export class BaseService {
   protected container: AwilixContainer;

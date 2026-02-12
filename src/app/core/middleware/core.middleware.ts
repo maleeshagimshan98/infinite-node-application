@@ -7,10 +7,12 @@ import session from 'express-session';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import type { RequestHandler } from 'express';
 import morgan from 'morgan';
 import express from 'express';
+
 import { coreMiddlewareConfig } from './middleware.config';
+
+import type { RequestHandler } from 'express';
 import type { AwilixContainer } from 'awilix';
 import type { Logger } from 'winston';
 

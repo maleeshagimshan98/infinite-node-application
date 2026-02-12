@@ -1,9 +1,12 @@
-import type { Request, Response } from 'express';
-import { BaseController } from '../base.controller';
 import { matchedData } from 'express-validator';
+
 import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import { SignupService } from '@/services/auth/signup.service';
 import type { INewUser } from '@/infrastructure/persistance/database/models/user/user.model';
+
+import { BaseController } from '../base.controller';
+
+import type { Request, Response } from 'express';
 
 class SignupController extends BaseController {
   private signupService: SignupService;

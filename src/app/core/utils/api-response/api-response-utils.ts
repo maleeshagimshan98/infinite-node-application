@@ -1,8 +1,9 @@
-import type { ValidationError } from 'express-validator';
 import { ErrorResponseMessages } from '../error-response-messages';
+import { APIResponse } from './api-response';
+
+import type { ValidationError } from 'express-validator';
 import type { Paginator } from '../pagination/paginator';
 import type { APIResponseData } from './api-response';
-import { APIResponse } from './api-response';
 import type { Response } from 'express';
 
 const transformApiResponseData = (

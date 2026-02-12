@@ -1,13 +1,16 @@
 import { Router } from 'express';
-import type { Request, Response } from 'express';
-import { RequestValidatorMiddleware } from '../middleware/RequestValidatorMiddleware';
+
 import { loginCredentailValidator } from '@/validators/auth/login-credential.validator';
 import { forgotPasswordValidator } from '@/validators/auth/forgot-password.validator';
 import { resetPasswordValidator } from '@/validators/auth/reset-password.validator';
 import { userValidator } from '@/validators/user/user.validator';
+
+import { RequestValidatorMiddleware } from '../middleware/RequestValidatorMiddleware';
 import LoginController from '../controllers/auth/login.controller';
 import SignupController from '../controllers/auth/signup.controller';
 import AccountRecoveryController from '../controllers/auth/account-recovery.controller';
+
+import type { Request, Response } from 'express';
 
 const router = Router();
 const loginController = new LoginController();

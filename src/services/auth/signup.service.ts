@@ -2,15 +2,17 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { HydratedDocument } from 'mongoose';
 import argon2 from 'argon2';
+
+import { ErrorResponseMessages } from '../../app/core/utils/error-response-messages';
+import { CustomerGroup } from '../../models/user/customer-group.model';
+import { User } from '../../models/user/user.model';
 import { BaseService } from '../base/BaseService';
 import { ServiceError } from '../base/ServiceError';
-import { User } from '../../models/user/user.model';
-import type { INewUser, IUser } from '../../models/user/user.model';
+
 import type { ICustomerGroup } from '../../models/user/customer-group.model';
-import { CustomerGroup } from '../../models/user/customer-group.model';
-import { ErrorResponseMessages } from '../../app/core/utils/error-response-messages';
+import type { INewUser, IUser } from '../../models/user/user.model';
+import type { HydratedDocument } from 'mongoose';
 
 export class SignupService extends BaseService {
   constructor() {

@@ -2,10 +2,11 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import RedisStore from 'rate-limit-redis';
+
 import type { AwilixContainer } from 'awilix';
 import type { Options } from 'express-rate-limit';
 import type { RedisReply } from 'rate-limit-redis';
-import RedisStore from 'rate-limit-redis';
 import type { Request, Response } from 'express';
 import type { SessionOptions } from 'express-session';
 import type { CorsOptions } from 'cors';

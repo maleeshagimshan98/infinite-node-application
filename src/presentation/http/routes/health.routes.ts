@@ -3,8 +3,10 @@
  */
 
 import { Router } from 'express';
-import type { Request, Response } from 'express';
+
 import HealthController from '../controllers/health/health.controller';
+
+import type { Request, Response } from 'express';
 
 const router = Router();
 const healthController = new HealthController();

@@ -2,9 +2,10 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import { BaseService } from '../base/BaseService';
+
 import type mongoose from 'mongoose';
 import type { RedisClientType } from 'redis';
-import { BaseService } from '../base/BaseService';
 import type { IHealthCheckResponse } from '../../models/DTO/health-check.model';
 
 class HealthService extends BaseService {

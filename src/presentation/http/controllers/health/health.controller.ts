@@ -2,10 +2,12 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { Request, Response } from 'express';
-import { BaseController } from '../base.controller';
 import HealthService from '@/services/health/health.service';
 import APIResponseUtils from '@/app/core/utils/api-response/api-response-utils';
+
+import { BaseController } from '../base.controller';
+
+import type { Request, Response } from 'express';
 
 class HealthController extends BaseController {
   private healthService: HealthService;
