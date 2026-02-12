@@ -2,6 +2,8 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import type { IBaseInfrastructureService } from './base.interface';
+
 export type TransactionOptions = {
   session?: unknown; // The session object type depends on the underlying database mapper (e.g., Mongoose ClientSession, Sequelize Transaction, etc.)
 };
@@ -12,14 +14,10 @@ export type TransactionOptions = {
  * Defines the contract for database mapping service implementations.
  * Database mappers provide an abstraction layer for database operations using object-oriented paradigms.
  */
-export interface IDatabaseMapper {
-  /**
-   * Initializes the database mapper connection with the provided configuration
-   *
-   * @param {unknown} config - Database mapper-specific configuration object
-   * @returns {Promise<void>}
-   */
-  init(config: unknown): Promise<void>;
+export interface IDatabaseMapper extends IBaseInfrastructureService {
+  serviceName(): 'database-mapper';
+  singleton(): true;
+  deferred(): false;
 
   /**
    * Provides access to the underlying database mapper client/instance for performing database operations

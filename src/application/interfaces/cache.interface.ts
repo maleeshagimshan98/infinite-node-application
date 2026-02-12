@@ -2,7 +2,12 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-export interface ICache {
+import type { IBaseInfrastructureService } from './base.interface';
+export interface ICache extends IBaseInfrastructureService {
+  serviceName(): 'cache';
+  singleton(): true;
+  deferred(): false;
+
   /**
    * Get a cached value by key
    *

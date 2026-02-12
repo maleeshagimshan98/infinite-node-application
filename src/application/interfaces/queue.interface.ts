@@ -30,7 +30,12 @@ export interface Job<T> {
 
 export type JobStatus = 'completed' | 'failed' | 'pending' | 'unknown';
 
-export interface IQueue {
+import type { IBaseInfrastructureService } from './base.interface';
+
+export interface IQueue extends IBaseInfrastructureService {
+  serviceName(): 'queue';
+  singleton(): true;
+  deferred(): false;
   /**
    * Add a job to a queue
    *

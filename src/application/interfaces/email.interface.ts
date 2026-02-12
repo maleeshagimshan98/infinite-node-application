@@ -2,7 +2,13 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-export interface IEmail {
+import type { IBaseInfrastructureService } from './base.interface';
+
+export interface IEmail extends IBaseInfrastructureService {
+  serviceName(): 'email';
+  singleton(): true;
+  deferred(): false;
+
   /**
    * Send an email to a recipient
    *

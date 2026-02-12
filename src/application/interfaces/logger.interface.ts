@@ -2,7 +2,13 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-export interface ILogger {
+import type { IBaseInfrastructureService } from './base.interface';
+
+export interface ILogger extends IBaseInfrastructureService {
+  serviceName(): 'logger';
+  singleton(): false;
+  deferred(): false;
+
   /**
    * Log an informational message
    *

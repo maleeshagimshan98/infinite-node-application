@@ -2,7 +2,13 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-export interface INotification {
+import type { IBaseInfrastructureService } from './base.interface';
+
+export interface INotification extends IBaseInfrastructureService {
+  serviceName(): 'notification';
+  singleton(): true;
+  deferred(): false;
+
   /**
    * Send a notification to a specific recipient
    *

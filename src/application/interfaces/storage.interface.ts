@@ -2,7 +2,13 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-export interface IStorage {
+import type { IBaseInfrastructureService } from './base.interface';
+
+export interface IStorage extends IBaseInfrastructureService {
+  serviceName(): 'storage';
+  singleton(): true;
+  deferred(): false;
+
   /**
    * Get the root path/directory of the storage
    *
