@@ -7,7 +7,7 @@
     "ignoreDeprecations": "6.0",
     "rootDir": "src" /* Set 'src' as the root directory */,
     "outDir": "dist" /* Output compiled files to 'dist' */,
-    "baseUrl": ".", 
+    "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
     },

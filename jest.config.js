@@ -6,7 +6,7 @@ module.exports = {
   },
   testMatch: ['<rootDir>/src/**/*.spec.(ts|js)'], // Match both .ts and .js test files
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/node_modules/$1',
+    '^@/(.*)$': '<rootDir>/src/$1',
   },
   // setupFilesAfterEnv: ['<rootDir>/test/setup.js'],
 };
