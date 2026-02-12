@@ -2,13 +2,15 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import { asValue } from 'awilix';
+import { asClass, asValue } from 'awilix';
 
 import type { IBaseInfrastructureService } from '@/application/interfaces/base.interface';
 
 import { infrastructureLoader } from './infrastructure.loader';
 
 import type { AwilixContainer } from 'awilix';
+
+export type onServiceCreatedCallback = (service: IBaseInfrastructureService) => void;
 
 /**
  * Infrastructure Manager
@@ -30,6 +32,15 @@ import type { AwilixContainer } from 'awilix';
  * ```
  */
 export class InfrastructureManager {
+  private async serviceCreated(
+    service: IBaseInfrastructureService,
+    onServiceCreated?: onServiceCreatedCallback,
+  ): Promise<void> {
+    if (onServiceCreated) {
+      onServiceCreated(service);
+    }
+  }
+
   /**
    * Initializes all infrastructure services and registers them in the DI container
    *
@@ -42,28 +53,29 @@ export class InfrastructureManager {
    *
    * @example
    * ```typescript
-   * const container = createContainer();
    * const manager = new InfrastructureManager();
    * await manager.init(container);
    * ```
    */
-  async init(container: AwilixContainer): Promise<void> {
-    // Iterate through each infrastructure service loader
-    for (const [key, loaderFn] of Object.entries(infrastructureLoader)) {
-      // Call the loader function to instantiate the service
-      const service: IBaseInfrastructureService = await loaderFn();
-
-      // Get the service name for container registration
+  async init(container: AwilixContainer, onServiceCreated?: onServiceCreatedCallback): Promise<void> {
+    for (const FactoryClass of infrastructureLoader) {
+      const factory = new FactoryClass();
+      const service: IBaseInfrastructureService = await factory.create();
       const serviceName = service.serviceName();
 
-      // Check if service should be singleton
       const isSingleton = service.singleton();
-
-      // Register the service in the container
-      // Using asValue since services are already instantiated
-      container.register({
-        [serviceName]: asValue(service),
-      });
+      if (isSingleton) {
+        container.register({
+          [serviceName]: asValue(service),
+        });
+        this.serviceCreated(service, onServiceCreated);
+        continue;
+      } else {
+        container.register({
+          [serviceName]: asClass(FactoryClass),
+        });
+        this.serviceCreated(service, onServiceCreated);
+      }
     }
   }
 }
