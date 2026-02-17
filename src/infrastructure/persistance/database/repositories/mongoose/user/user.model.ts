@@ -1,23 +1,6 @@
-import type { Types } from 'mongoose';
 import { Schema, model } from 'mongoose';
 
-type UserStatus = 'pending_verification' | 'active' | 'suspended';
-
-export interface INewUser {
-  _id?: string | Types.ObjectId;
-  email: string;
-  password: string;
-  status: UserStatus;
-  cg_id: string;
-}
-
-export interface IUser {
-  _id: string | Types.ObjectId;
-  email: string;
-  password: string;
-  status: UserStatus;
-  cg_id: string;
-}
+import type { INewUser } from '@/domain/user/models/user.model';
 
 export const UserSchema = new Schema<INewUser>(
   {
