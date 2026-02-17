@@ -18,28 +18,25 @@ export interface IUser {
   password: string;
   status: UserStatus;
   cg_id: string;
-  isAdmin: boolean;
 }
 
 export class User {
-  private __id: string;
+  private __id: string | undefined;
   private _email: string;
   private _password: string;
   private _status: UserStatus;
   private _cg_id: string;
-  private _isAdmin: boolean;
 
-  constructor(data: IUser) {
+  constructor(data: INewUser) {
     this.__id = data._id;
     this._email = data.email;
     this._password = data.password;
-    this._isAdmin = data.isAdmin;
     this._status = data.status;
     this._cg_id = data.cg_id;
   }
 
   // Getters
-  get _id(): string {
+  get _id(): string | undefined {
     return this.__id;
   }
 
@@ -59,9 +56,6 @@ export class User {
     return this._cg_id;
   }
 
-  get isAdmin(): boolean {
-    return this._isAdmin;
-  }
   // // Setters
   // set id(value: string) {
   //   this._id = value;
@@ -73,10 +67,6 @@ export class User {
 
   set password(value: string) {
     this._password = value;
-  }
-
-  set isAdmin(value: boolean) {
-    this._isAdmin = value;
   }
 
   set status(value: UserStatus) {
