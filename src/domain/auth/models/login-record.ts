@@ -2,27 +2,31 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { Types } from 'mongoose';
-
 type LoginRecordStatus = 'active' | 'cancelled' | 'expired';
 
-export interface ILoginRecord {
-  _id: string | Types.ObjectId | undefined;
+export interface INewLoginRecord {
+  id?: string;
   user_id: string;
   token: string;
   valid_till: Date;
   status: LoginRecordStatus;
 }
 
-export class LoginRecord {
-  private __id: string | Types.ObjectId | undefined;
-  private _user_id: string;
-  private _token: string;
-  private _valid_till: Date;
-  private _status: LoginRecordStatus;
+export interface ILoginRecord extends INewLoginRecord {
+  id: string;
+}
 
-  constructor(data: ILoginRecord) {
-    this.__id = data._id;
+export class NewLoginRecord {
+  protected _id?: string;
+  protected _user_id: string;
+  protected _token: string;
+  protected _valid_till: Date;
+  protected _status: LoginRecordStatus;
+
+  constructor(data: INewLoginRecord) {
+    if (data.id) {
+      this._id = data.id;
+    }
     this._user_id = data.user_id;
     this._token = data.token;
     this._valid_till = data.valid_till;
@@ -30,8 +34,8 @@ export class LoginRecord {
   }
 
   // Getters
-  get _id(): string | Types.ObjectId | undefined {
-    return this.__id;
+  get id(): string | undefined {
+    return this._id;
   }
 
   get user_id(): string {
@@ -51,6 +55,10 @@ export class LoginRecord {
   }
 
   // Setters
+  set id(value: string) {
+    this._id = value;
+  }
+
   set user_id(value: string) {
     this._user_id = value;
   }
@@ -66,4 +74,21 @@ export class LoginRecord {
   set status(value: LoginRecordStatus) {
     this._status = value;
   }
+}
+
+export class LoginRecord extends NewLoginRecord {
+  protected _id: string;
+
+  constructor(data: ILoginRecord) {
+    super(data);
+    this._id = data.id;
+  }
+
+  // Override id getter to return required string
+  get id(): string {
+    return this._id;
+  }
+
+  // All other getters and setters are inherited from NewLoginRecord
+  // Business logic methods can be added here
 }
