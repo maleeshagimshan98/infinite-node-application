@@ -1,8 +1,16 @@
 import { Schema, model } from 'mongoose';
 
-import type { IPasswordResetCode } from '@/domain/auth/models/password-reset-code.model';
+type PasswordResetCodeStatus = 'active' | 'used' | 'cancelled' | 'expired';
 
-export const PasswordResetCodeSchema = new Schema<IPasswordResetCode>(
+export interface IPasswordResetCodeSchema {
+  _id?: string;
+  email: string;
+  code: string;
+  valid_till: Date;
+  status: PasswordResetCodeStatus;
+}
+
+export const PasswordResetCodeSchema = new Schema<IPasswordResetCodeSchema>(
   {
     email: { type: String, required: true },
     code: { type: String, required: true },
@@ -12,4 +20,4 @@ export const PasswordResetCodeSchema = new Schema<IPasswordResetCode>(
   { timestamps: true },
 );
 
-export const PasswordResetCodeModel = model<IPasswordResetCode>('password_reset_code', PasswordResetCodeSchema);
+export const PasswordResetCodeModel = model<IPasswordResetCodeSchema>('password_reset_code', PasswordResetCodeSchema);
