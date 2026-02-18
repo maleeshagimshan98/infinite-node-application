@@ -1,6 +1,6 @@
 import argon2 from 'argon2';
 
-import { User } from '@/infrastructure/persistance/database/repositories/mongoose/user/user.model';
+import { UserModel } from '@/infrastructure/persistance/database/repositories/mongoose/user/user.model';
 import { CustomerGroup } from '@/infrastructure/persistance/database/repositories/mongoose/customer-groups/customer-group.model';
 
 /**
@@ -10,7 +10,7 @@ import { CustomerGroup } from '@/infrastructure/persistance/database/repositorie
 export async function seedUsers(): Promise<boolean> {
   try {
     // Check if users already exist
-    const existingUsers = await User.countDocuments();
+    const existingUsers = await UserModel.countDocuments();
     if (existingUsers > 0) {
       console.log('   ⏭️  Users already exist in database. Skipping seed.');
       return false;
@@ -53,7 +53,7 @@ export async function seedUsers(): Promise<boolean> {
     ];
 
     // Insert users
-    const createdUsers = await User.insertMany(usersToSeed);
+    const createdUsers = await UserModel.insertMany(usersToSeed);
     console.log(`   ✅ Successfully seeded ${createdUsers.length} users`);
 
     // Display created users
@@ -73,7 +73,7 @@ export async function seedUsers(): Promise<boolean> {
  */
 export async function clearUsers(): Promise<void> {
   try {
-    const result = await User.deleteMany({});
+    const result = await UserModel.deleteMany({});
     console.log(`Deleted ${result.deletedCount} users from database`);
   } catch (error) {
     console.error('Error clearing users:', error);
