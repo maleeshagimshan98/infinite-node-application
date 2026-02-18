@@ -6,7 +6,7 @@ import type { APIResponse } from '@/app/core/utils/api-response/api-response';
 import { Paginator } from '@/app/core/utils/pagination/paginator';
 import { PaginationException } from '@/app/core/utils/pagination/pagination-exception';
 import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
-import { ServiceError } from '@/services/base/ServiceError';
+import { ServiceError } from '@/domain/base/service/service.error';
 
 import type { Request } from 'express';
 
