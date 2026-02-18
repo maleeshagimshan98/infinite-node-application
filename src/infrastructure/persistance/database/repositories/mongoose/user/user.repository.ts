@@ -2,15 +2,16 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { INewUser, User } from '@/domain/user/models/user.model';
+import type { User } from '@/domain/user/models/user';
 
 import { BaseRepository } from '../base/base-repository';
 import { UserMapper } from './user.mapper';
+import { UserModel } from './user.model';
 
-import type mongoose from 'mongoose';
+import type { INewUserSchema } from './user.model';
 
-export class UserRepository extends BaseRepository<INewUser, User> {
-  constructor(userModel: mongoose.Model<INewUser>) {
-    super(userModel, new UserMapper());
+export class UserRepository extends BaseRepository<INewUserSchema, User> {
+  constructor() {
+    super(UserModel, new UserMapper());
   }
 }
