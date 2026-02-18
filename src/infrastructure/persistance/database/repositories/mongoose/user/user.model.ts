@@ -1,8 +1,15 @@
 import { Schema, model } from 'mongoose';
 
-import type { INewUser } from '@/domain/user/models/user.model';
+type UserStatus = 'pending_verification' | 'active' | 'suspended';
+export interface INewUserSchema {
+  _id?: string;
+  email: string;
+  password: string;
+  status: UserStatus;
+  cg_id: string;
+}
 
-export const UserSchema = new Schema<INewUser>(
+export const UserSchema = new Schema<INewUserSchema>(
   {
     email: { type: String, required: true },
     password: { type: String, required: true },
@@ -21,4 +28,4 @@ export const UserSchema = new Schema<INewUser>(
 
 // };
 
-export const User = model('user', UserSchema);
+export const UserModel = model('user', UserSchema);
