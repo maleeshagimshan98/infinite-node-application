@@ -1,7 +1,7 @@
 import argon2 from 'argon2';
 
 import { UserModel } from '@/infrastructure/persistance/database/repositories/mongoose/user/user.model';
-import { CustomerGroup } from '@/infrastructure/persistance/database/repositories/mongoose/customer-groups/customer-group.model';
+import { CustomerGroupModel } from '@/infrastructure/persistance/database/repositories/mongoose/customer-groups/customer-group.model';
 
 /**
  * Seeds the database with sample users
@@ -17,9 +17,9 @@ export async function seedUsers(): Promise<boolean> {
     }
 
     // Get or create a default customer group
-    let defaultGroup = await CustomerGroup.findOne({ default: true });
+    let defaultGroup = await CustomerGroupModel.findOne({ default: true });
     if (!defaultGroup) {
-      defaultGroup = await CustomerGroup.create({
+      defaultGroup = await CustomerGroupModel.create({
         name: 'Default Group',
         description: 'Default customer group',
         discount: 0,
