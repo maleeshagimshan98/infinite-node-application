@@ -96,6 +96,21 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
   }
 
   /**
+   * Find all documents matching the provided filter
+   *
+   * @param {Partial<DBModel>} filter Partial filter object to match documents against
+   * @param {mongoose.mongo.ClientSession} session Optional MongoDB session for transaction support
+   * @returns {Promise<DomainModel[]>} Resolves to an array of found documents
+   */
+  public async find(filter: Partial<DBModel>, session?: unknown): Promise<DomainModel[]> {
+    const models = await this.mongooseModel
+      .find(filter)
+      .session((session as mongoose.mongo.ClientSession) ?? null)
+      .exec();
+    return models.map((model) => this.mapper.toDomain(model));
+  }
+
+  /**
    * Update a document by its ID with the provided partial item data
    *
    * @param {string} id

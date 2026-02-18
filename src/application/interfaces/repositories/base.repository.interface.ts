@@ -16,6 +16,7 @@ export interface IBaseRepository<DBSchema, DomainModel, NewDomainModel> {
   create: (item: NewDomainModel, session?: unknown) => Promise<DomainModel>;
   findById: (id: string, session?: unknown) => Promise<DomainModel | null>;
   findOne: (filter: Partial<DBSchema>, session?: unknown) => Promise<DomainModel | null>;
+  find: (filter: Partial<DBSchema>, session?: unknown) => Promise<DomainModel[]>;
   update: (id: string, item: NewDomainModel, session?: unknown) => Promise<DomainModel | null>;
   delete: (id: string, session?: unknown) => Promise<void>;
 }
