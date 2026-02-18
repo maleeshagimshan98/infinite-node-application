@@ -5,99 +5,112 @@
 import type { IBaseRepository } from '@/application/interfaces/repositories/base.repository.interface';
 
 import type mongoose from 'mongoose';
-import type { Model } from 'mongoose';
+import type { Model, Document } from 'mongoose';
 import type { IBaseMapper } from './base.mapper.interface';
 
+type MongooseModel<DBModel> = Model<
+  DBModel,
+  object,
+  object,
+  object,
+  Document<unknown, object, DBModel, object> &
+    DBModel &
+    Required<{
+      _id?: string;
+    }>
+>;
+
 /**
- * BaseRepository provides common CRUD operations for any schema type T (model schema interface) and L (domain model).
+ * BaseRepository provides common CRUD operations for any schema type T (model schema interface) and K (domain model).
  * It uses a Mongoose model for database interactions and a mapper to convert between persistence and domain models.
  */
-export abstract class BaseRepository<T, L> implements IBaseRepository<T, L> {
+export abstract class BaseRepository<DBModel, DomainModel> implements IBaseRepository<DBModel, DomainModel> {
   /**
    * mongoose model instance for the schema T
    *
-   * @type {Model<T>}
+   * @type {DBModel}
    * @private
    */
-  private model: Model<T>;
+  private mongooseModel: MongooseModel<DBModel>;
 
   /**
-   * mapper instance to convert between domain model L and persistence model T
+   * mapper instance to convert between domain model K and persistence model T
    *
-   * @type {IBaseMapper<T, L>}
+   * @type {IBaseMapper<DBModel, DomainModel>}
    * @private
    */
-  private mapper: IBaseMapper<T, L>;
+  private mapper: IBaseMapper<DBModel, DomainModel>;
 
-  constructor(model: Model<T>, mapper: IBaseMapper<T, L>) {
-    this.model = model;
+  constructor(model: MongooseModel<DBModel>, mapper: IBaseMapper<DBModel, DomainModel>) {
+    this.mongooseModel = model;
     this.mapper = mapper;
   }
 
   /**
    * Create a new document in the database
    *
-   * @param {T} item
-   * @returns {Promise<L>}
+   * @param {DomainModel} item
+   * @returns {Promise<DomainModel>}
    */
-  public async create(item: T, session?: unknown): Promise<L> {
-    const model = new this.model(item);
-    const saved = await model.save(session ? { session: session as mongoose.mongo.ClientSession } : undefined);
-    return this.mapper.toDomain(saved.toObject());
+  public async create(item: DomainModel, session?: unknown): Promise<DomainModel> {
+    const model = new this.mongooseModel(this.mapper.toPersistence(item));
+    await model.save(session ? { session: session as mongoose.mongo.ClientSession } : undefined);
+    return this.mapper.toDomain(model);
   }
 
   /**
    * Find a document by its ID
    *
    * @param {string} id
-   * @returns {Promise<L | null>} Resolves to the found document or null if not found
+   * @returns {Promise<DomainModel | null>} Resolves to the found document or null if not found
    */
-  public async findById(id: string, session?: unknown): Promise<L | null> {
-    const model = await this.model
+  public async findById(id: string, session?: unknown): Promise<DomainModel | null> {
+    const model = await this.mongooseModel
       .findById(id)
       .session((session as mongoose.mongo.ClientSession) ?? null)
       .exec();
     if (!model) {
       return null;
     }
-    return this.mapper.toDomain(model.toObject());
+    return this.mapper.toDomain(model);
   }
 
   /**
    * Find a single document matching the provided filter
    *
-   * @param {Partial<T>} filter Partial filter object to match documents against
+   * @param {Partial<DBModel>} filter Partial filter object to match documents against
    * @param {mongoose.mongo.ClientSession} session Optional MongoDB session for transaction support
-   * @returns {Promise<L | null>} Resolves to the found document or null if not found
+   * @returns {Promise<DomainModel | null>} Resolves to the found document or null if not found
    */
-  public async findOne(filter: Partial<T>, session?: unknown): Promise<L | null> {
-    const model = await this.model
+  public async findOne(filter: Partial<DBModel>, session?: unknown): Promise<DomainModel | null> {
+    const model = await this.mongooseModel
       .findOne(filter)
       .session((session as mongoose.mongo.ClientSession) ?? null)
       .exec();
     if (!model) {
       return null;
     }
-    return this.mapper.toDomain(model.toObject());
+    return this.mapper.toDomain(model);
   }
 
   /**
    * Update a document by its ID with the provided partial item data
    *
    * @param {string} id
-   * @param {Partial<T>} item
-   * @returns {Promise<L>} Resolves to the updated document
+   * @param {DomainModel} item
+   * @returns {Promise<DomainModel>} Resolves to the updated document
    */
-  public async update(id: string, item: Partial<T>, session?: unknown): Promise<L> {
-    const model = await this.model
-      .findByIdAndUpdate(id, item, { new: true })
+  public async update(id: string, item: DomainModel, session?: unknown): Promise<DomainModel> {
+    const persistenceData = this.mapper.toPersistence(item);
+    const model = await this.mongooseModel
+      .findByIdAndUpdate(id, { $set: persistenceData as unknown as Record<string, unknown> }, { new: true })
       .session((session as mongoose.mongo.ClientSession) ?? null)
       .exec();
     if (!model) {
       //... throw specific error class
       throw new Error('Document not found');
     }
-    return this.mapper.toDomain(model.toObject());
+    return this.mapper.toDomain(model);
   }
 
   /**
@@ -107,7 +120,7 @@ export abstract class BaseRepository<T, L> implements IBaseRepository<T, L> {
    * @returns {Promise<void>} Resolves when the document is deleted
    */
   public async delete(id: string, session?: unknown): Promise<void> {
-    await this.model
+    await this.mongooseModel
       .findByIdAndDelete(id)
       .session((session as mongoose.mongo.ClientSession) ?? null)
       .exec();
