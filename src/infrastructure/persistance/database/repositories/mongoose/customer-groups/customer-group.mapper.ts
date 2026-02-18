@@ -2,23 +2,39 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import { CustomerGroup } from '@/domain/user/models/customer-group.model';
-import type { ICustomerGroup } from '@/domain/user/models/customer-group.model';
+import type { NewCustomerGroup } from '@/domain/user/models/customer-group';
+import { CustomerGroup } from '@/domain/user/models/customer-group';
 
 import type { IBaseMapper } from '../base/base.mapper.interface';
+import type { INewCustomerGroupSchema } from './customer-group.model';
 
-export class CustomerGroupMapper implements IBaseMapper<ICustomerGroup, CustomerGroup> {
-  toDomain(data: ICustomerGroup): CustomerGroup {
-    return new CustomerGroup(data);
-  }
-
-  toPersistence(data: CustomerGroup): ICustomerGroup {
-    return {
-      _id: data._id,
+export class CustomerGroupMapper implements IBaseMapper<INewCustomerGroupSchema, CustomerGroup, NewCustomerGroup> {
+  toDomain(data: INewCustomerGroupSchema & { _id: string }): CustomerGroup {
+    return new CustomerGroup({
+      id: data._id,
       name: data.name,
       description: data.description,
       discount: data.discount,
       default: data.default,
-    };
+    });
+  }
+
+  toPersistence(data: NewCustomerGroup): INewCustomerGroupSchema {
+    return !data.id
+      ? {
+          // New entity (no ID yet)
+          name: data.name,
+          description: data.description,
+          discount: data.discount,
+          default: data.default,
+        }
+      : {
+          // Existing entity (has ID)
+          _id: data.id,
+          name: data.name,
+          description: data.description,
+          discount: data.discount,
+          default: data.default,
+        };
   }
 }
