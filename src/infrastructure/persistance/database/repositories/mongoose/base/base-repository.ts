@@ -21,12 +21,14 @@ type MongooseModel<DBModel> = Model<
 >;
 
 /**
- * BaseRepository provides common CRUD operations for any schema type T (model schema interface) and K (domain model).
+ * BaseRepository provides common CRUD operations for any schema type DBModel (model schema interface) and DomainModel (domain model).
  * It uses a Mongoose model for database interactions and a mapper to convert between persistence and domain models.
  */
-export abstract class BaseRepository<DBModel, DomainModel> implements IBaseRepository<DBModel, DomainModel> {
+export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
+  implements IBaseRepository<DBModel, DomainModel, NewDomainModel>
+{
   /**
-   * mongoose model instance for the schema T
+   * mongoose model instance for the schema DBModel
    *
    * @type {DBModel}
    * @private
@@ -34,14 +36,14 @@ export abstract class BaseRepository<DBModel, DomainModel> implements IBaseRepos
   private mongooseModel: MongooseModel<DBModel>;
 
   /**
-   * mapper instance to convert between domain model K and persistence model T
+   * mapper instance to convert between domain model DomainModel and persistence model DBModel
    *
-   * @type {IBaseMapper<DBModel, DomainModel>}
+   * @type {IBaseMapper<DBModel, DomainModel, NewDomainModel>}
    * @private
    */
-  private mapper: IBaseMapper<DBModel, DomainModel>;
+  private mapper: IBaseMapper<DBModel, DomainModel, NewDomainModel>;
 
-  constructor(model: MongooseModel<DBModel>, mapper: IBaseMapper<DBModel, DomainModel>) {
+  constructor(model: MongooseModel<DBModel>, mapper: IBaseMapper<DBModel, DomainModel, NewDomainModel>) {
     this.mongooseModel = model;
     this.mapper = mapper;
   }
@@ -49,10 +51,10 @@ export abstract class BaseRepository<DBModel, DomainModel> implements IBaseRepos
   /**
    * Create a new document in the database
    *
-   * @param {DomainModel} item
+   * @param {NewDomainModel} item
    * @returns {Promise<DomainModel>}
    */
-  public async create(item: DomainModel, session?: unknown): Promise<DomainModel> {
+  public async create(item: NewDomainModel, session?: unknown): Promise<DomainModel> {
     const model = new this.mongooseModel(this.mapper.toPersistence(item));
     await model.save(session ? { session: session as mongoose.mongo.ClientSession } : undefined);
     return this.mapper.toDomain(model);
@@ -97,10 +99,10 @@ export abstract class BaseRepository<DBModel, DomainModel> implements IBaseRepos
    * Update a document by its ID with the provided partial item data
    *
    * @param {string} id
-   * @param {DomainModel} item
+   * @param {NewDomainModel} item
    * @returns {Promise<DomainModel>} Resolves to the updated document
    */
-  public async update(id: string, item: DomainModel, session?: unknown): Promise<DomainModel> {
+  public async update(id: string, item: NewDomainModel, session?: unknown): Promise<DomainModel> {
     const persistenceData = this.mapper.toPersistence(item);
     const model = await this.mongooseModel
       .findByIdAndUpdate(id, { $set: persistenceData as unknown as Record<string, unknown> }, { new: true })

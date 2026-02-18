@@ -9,11 +9,13 @@
  *                      This represents the shape of data as it exists in the database.
  * @template DomainModel - The type of the domain object class.
  *                         This represents the rich domain model with business logic.
+ * @template NewDomainModel - The type of the new domain object class.
+ *                              This represents the data required to create a new domain model instance.
  */
-export interface IBaseRepository<DBSchema, DomainModel> {
-  create: (item: DomainModel, session?: unknown) => Promise<DomainModel>;
+export interface IBaseRepository<DBSchema, DomainModel, NewDomainModel> {
+  create: (item: NewDomainModel, session?: unknown) => Promise<DomainModel>;
   findById: (id: string, session?: unknown) => Promise<DomainModel | null>;
   findOne: (filter: Partial<DBSchema>, session?: unknown) => Promise<DomainModel | null>;
-  update: (id: string, item: DomainModel, session?: unknown) => Promise<DomainModel | null>;
+  update: (id: string, item: NewDomainModel, session?: unknown) => Promise<DomainModel | null>;
   delete: (id: string, session?: unknown) => Promise<void>;
 }
