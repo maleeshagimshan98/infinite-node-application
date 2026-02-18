@@ -4,39 +4,42 @@
 
 import argon2 from 'argon2';
 
-import { BaseService } from '../base/BaseService';
-import { ServiceError } from '../base/ServiceError';
-import { LoginRecord } from '../../models/auth/login-record.model';
-import { User } from '../../models/user/user.model';
-import { ErrorResponseMessages } from '../../app/core/utils/error-response-messages';
-
-import type { ILoginRecord } from '../../models/auth/login-record.model';
-import type { IUser } from '../../models/user/user.model';
-import type { HydratedDocument } from 'mongoose';
+import { BaseService } from '@/domain/base/service/base.service';
+import { ServiceError } from '@/domain/base/service/service.error';
+import { NewLoginRecord, type LoginRecord } from '@/domain/auth/models/login-record';
+import type { User } from '@/domain/user/models/user';
+import { ErrorResponseMessages } from '@/app/core/utils/error-response-messages';
+import type { UserRepository } from '@/infrastructure/persistance/database/repositories/mongoose/user/user.repository';
+import type { LoginRecordRepository } from '@/infrastructure/persistance/database/repositories/mongoose/auth/login-record.repository';
 
 export class LoginService extends BaseService {
-  constructor() {
+  private userRepository: UserRepository;
+  private loginRecordRepository: LoginRecordRepository;
+
+  constructor(userRepository: UserRepository, loginRecordRepository: LoginRecordRepository) {
     super();
+    this.userRepository = userRepository;
+    this.loginRecordRepository = loginRecordRepository;
   }
 
   /**
    * Get login record from authentication token
    *
    * @param {string} token - The authentication token
-   * @returns {Promise<HydratedDocument<ILoginRecord> | null>}
+   * @returns {Promise<LoginRecord | null>}
    */
-  async getLoginRecordFromAuthToken(token: string): Promise<HydratedDocument<ILoginRecord> | null> {
-    return await LoginRecord.findOne({ token });
+  async getLoginRecordFromAuthToken(token: string): Promise<LoginRecord | null> {
+    return await this.loginRecordRepository.findOne({ token });
   }
 
   /**
    * Get user from user ID
    *
    * @param {string} userId - The user ID
-   * @returns {Promise<HydratedDocument<IUser> | null>}
+   * @returns {Promise<User | null>}
    */
-  async getUserById(userId: string): Promise<HydratedDocument<IUser> | null> {
-    return await User.findById(userId);
+  async getUserById(userId: string): Promise<User | null> {
+    return await this.userRepository.findById(userId);
   }
 
   /**
@@ -72,7 +75,7 @@ export class LoginService extends BaseService {
 
     if (loginRecord.valid_till < new Date(new Date().getTime())) {
       loginRecord.status = 'expired';
-      await loginRecord.save();
+      await this.loginRecordRepository.update(loginRecord.id, loginRecord);
       throw new ServiceError(ErrorResponseMessages.EXPIRED_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
     }
 
@@ -83,7 +86,7 @@ export class LoginService extends BaseService {
     }
 
     return {
-      id: user._id.toString(),
+      id: user.id,
       status: user.status,
     };
   }
@@ -97,7 +100,7 @@ export class LoginService extends BaseService {
    * @throws {ServiceError}
    */
   async login(email: string, password: string): Promise<{ id: string; status: string; token: string }> {
-    const user = await User.findOne({ email }).exec();
+    const user = await this.userRepository.findOne({ email });
 
     if (!user) {
       throw new ServiceError('Invalid credentials', 'AUTHENTICATION_ERROR');
@@ -109,18 +112,17 @@ export class LoginService extends BaseService {
     }
 
     const token = this.generateToken();
-
-    const loginRecord = new LoginRecord({
-      user_id: user._id,
+    const loginRecord = new NewLoginRecord({
+      user_id: user.id,
       token,
       valid_till: new Date(new Date().getTime() + 24 * 60 * 60 * 1000), // 1 day
       status: 'active',
     });
 
-    await loginRecord.save();
+    const createdLoginRecord = await this.loginRecordRepository.create(loginRecord);
 
     return {
-      id: user._id.toString(),
+      id: user.id,
       status: user.status,
       token,
     };
@@ -145,6 +147,6 @@ export class LoginService extends BaseService {
     }
 
     loginRecord.status = 'cancelled';
-    await loginRecord.save();
+    await this.loginRecordRepository.update(loginRecord.id, loginRecord);
   }
 }
