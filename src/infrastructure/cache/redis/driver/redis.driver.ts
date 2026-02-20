@@ -4,7 +4,7 @@
 
 import { createClient } from 'redis';
 
-import type { ICoreDriver } from '@/infrastructure/core/driver/core.driver';
+import type { ICoreDriver, IDriverHealthStatus } from '@/infrastructure/core/driver/core.driver';
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 import type { RedisClientType } from 'redis';
@@ -49,6 +49,45 @@ export class RedisDriver implements ICoreDriver<RedisClientType, IRedisConfig> {
   async shutdown(): Promise<void> {
     if (this._client) {
       await this._client.quit();
+    }
+  }
+
+  /**
+   * Check Redis connection health
+   *
+   * @returns {Promise<IDriverHealthStatus>} Health status including connection state and latency
+   */
+  async health(): Promise<IDriverHealthStatus> {
+    try {
+      if (!this._client) {
+        return {
+          connected: false,
+          error: 'Redis client not initialized',
+        };
+      }
+
+      if (!this._client.isOpen) {
+        return {
+          connected: false,
+          error: 'Redis connection not open',
+        };
+      }
+
+      // Ping Redis and measure latency
+      const start = process.hrtime.bigint();
+      await this._client.ping();
+      const end = process.hrtime.bigint();
+      const latency = Number((end - start) / BigInt(1000000)); // ns -> ms
+
+      return {
+        connected: true,
+        latency,
+      };
+    } catch (error) {
+      return {
+        connected: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
     }
   }
 }

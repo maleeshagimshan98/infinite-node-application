@@ -6,6 +6,7 @@ import { asClass, asValue } from 'awilix';
 
 import type { IBaseInfrastructureService } from '@/application/interfaces/base.interface';
 
+import { InfrastructureHealthCheckService } from './health/infrastructure-health-check.service';
 import { infrastructureLoader } from './infrastructure.loader';
 
 import type { AwilixContainer } from 'awilix';
@@ -29,13 +30,23 @@ export type onServiceCreatedCallback = (service: IBaseInfrastructureService) => 
  * // Now all infrastructure services are registered and ready to use
  * const cache = container.resolve<ICache>('cache');
  * const logger = container.resolve<ILogger>('logger');
+ * const healthCheck = container.resolve<IHealthCheck>('healthCheck');
  * ```
  */
 export class InfrastructureManager {
+  private healthCheckService: InfrastructureHealthCheckService;
+
+  constructor() {
+    this.healthCheckService = new InfrastructureHealthCheckService();
+  }
+
   private async serviceCreated(
     service: IBaseInfrastructureService,
     onServiceCreated?: onServiceCreatedCallback,
   ): Promise<void> {
+    // Register service with health check service
+    this.healthCheckService.registerService(service);
+
     if (onServiceCreated) {
       onServiceCreated(service);
     }
@@ -68,14 +79,19 @@ export class InfrastructureManager {
         container.register({
           [serviceName]: asValue(service),
         });
-        this.serviceCreated(service, onServiceCreated);
+        await this.serviceCreated(service, onServiceCreated);
         continue;
       } else {
         container.register({
           [serviceName]: asClass(FactoryClass),
         });
-        this.serviceCreated(service, onServiceCreated);
+        await this.serviceCreated(service, onServiceCreated);
       }
     }
+
+    // Register health check service
+    container.register({
+      healthCheck: asValue(this.healthCheckService),
+    });
   }
 }

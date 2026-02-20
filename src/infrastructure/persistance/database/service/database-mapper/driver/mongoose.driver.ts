@@ -4,7 +4,7 @@
 
 import mongoose from 'mongoose';
 
-import type { ICoreDriver } from '@/infrastructure/core/driver/core.driver';
+import type { ICoreDriver, IDriverHealthStatus } from '@/infrastructure/core/driver/core.driver';
 import { DriverError } from '@/infrastructure/core/errors/driver.error';
 
 import type { IMongooseConfig } from './mongoose.config';
@@ -56,6 +56,46 @@ export class MongooseDriver implements ICoreDriver<typeof mongoose, IMongooseCon
           `Failed to shutdown MongooseDriver: ${error instanceof Error ? error.message : 'Unknown error'}`,
         );
       }
+    }
+  }
+
+  /**
+   * Check MongoDB connection health
+   *
+   * @returns {Promise<IDriverHealthStatus>} Health status including connection state and latency
+   */
+  async health(): Promise<IDriverHealthStatus> {
+    try {
+      if (!this._client) {
+        return {
+          connected: false,
+          error: 'MongoDB client not initialized',
+        };
+      }
+
+      // Check connection state (1 = connected)
+      if (this._client.connection.readyState !== 1) {
+        return {
+          connected: false,
+          error: 'MongoDB not connected',
+        };
+      }
+
+      // Ping the database and measure latency
+      const start = process.hrtime.bigint();
+      await this._client.connection.db?.admin().ping();
+      const end = process.hrtime.bigint();
+      const latency = Number((end - start) / BigInt(1000000)); // ns -> ms
+
+      return {
+        connected: true,
+        latency,
+      };
+    } catch (error) {
+      return {
+        connected: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
     }
   }
 }
