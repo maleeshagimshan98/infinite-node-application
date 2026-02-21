@@ -15,7 +15,7 @@ export const mongooseConfig = (): IMongooseConfig => ({
   driverName: 'mongoose',
   singleton: true,
   deferred: true,
-  uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/infinite-node',
+  uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/infinite-node-application',
   //   options: {
   //     // useNewUrlParser: true,
   //     // useUnifiedTopology: true,
