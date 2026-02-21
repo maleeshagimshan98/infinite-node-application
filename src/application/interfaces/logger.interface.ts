@@ -6,7 +6,7 @@ import type { IBaseInfrastructureService } from './base.interface';
 
 export interface ILogger extends IBaseInfrastructureService {
   serviceName(): 'logger';
-  singleton(): false;
+  singleton(): true;
   deferred(): false;
 
   /**

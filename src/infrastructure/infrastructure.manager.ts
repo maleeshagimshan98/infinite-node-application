@@ -81,11 +81,6 @@ export class InfrastructureManager {
         });
         await this.serviceCreated(service, onServiceCreated);
         continue;
-      } else {
-        container.register({
-          [serviceName]: asClass(FactoryClass),
-        });
-        await this.serviceCreated(service, onServiceCreated);
       }
     }
 

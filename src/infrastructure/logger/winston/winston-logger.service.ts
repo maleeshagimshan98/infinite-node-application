@@ -77,10 +77,10 @@ export class WinstonLoggerService implements ILogger {
   /**
    * Indicates that this logger service should be registered as a singleton in the DI container
    *
-   * @returns {false} Always returns false for non-singleton services
+   * @returns {true} Always returns true for singleton services
    */
-  singleton(): false {
-    return false;
+  singleton(): true {
+    return true;
   }
 
   /**
