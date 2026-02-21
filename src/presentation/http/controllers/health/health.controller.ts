@@ -2,19 +2,19 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import HealthService from '@/services/health/health.service';
+import type { HealthService } from '@/domain/health/service/health.service';
 import APIResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 
 import { BaseController } from '../base.controller';
 
 import type { Request, Response } from 'express';
 
-class HealthController extends BaseController {
+export class HealthController extends BaseController {
   private healthService: HealthService;
 
-  constructor() {
+  constructor(healthService: HealthService) {
     super();
-    this.healthService = new HealthService();
+    this.healthService = healthService;
   }
 
   /**

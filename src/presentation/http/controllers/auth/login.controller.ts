@@ -1,18 +1,18 @@
 import { matchedData } from 'express-validator';
 
 import APIResponseUtils from '@/app/core/utils/api-response/api-response-utils';
-import { LoginService } from '@/services/auth/login.service';
+import type { LoginService } from '@/domain/auth/service/login.service';
 
 import { BaseController } from '../base.controller';
 
 import type { Request, Response } from 'express';
 
-class LoginController extends BaseController {
+export class LoginController extends BaseController {
   private loginService: LoginService;
 
-  constructor() {
+  constructor(loginService: LoginService) {
     super();
-    this.loginService = new LoginService();
+    this.loginService = loginService;
   }
 
   /**

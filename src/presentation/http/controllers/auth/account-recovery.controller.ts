@@ -2,16 +2,16 @@ import { matchedData } from 'express-validator';
 
 import { BaseController } from '@/presentation/http/controllers/base.controller';
 import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
-import { AccountRecoveryService } from '@/services/auth/account-recovery.service';
+import type { AccountRecoveryService } from '@/domain/auth/service/account-recovery.service';
 
 import type { Request, Response } from 'express';
 
-class AccountRecoveryController extends BaseController {
+export class AccountRecoveryController extends BaseController {
   private accountRecoveryService: AccountRecoveryService;
 
-  constructor() {
+  constructor(accountRecoveryService: AccountRecoveryService) {
     super();
-    this.accountRecoveryService = new AccountRecoveryService();
+    this.accountRecoveryService = accountRecoveryService;
   }
 
   /**

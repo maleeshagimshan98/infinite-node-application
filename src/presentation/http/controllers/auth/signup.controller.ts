@@ -1,19 +1,18 @@
 import { matchedData } from 'express-validator';
 
 import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
-import { SignupService } from '@/services/auth/signup.service';
-import type { INewUser } from '@/infrastructure/persistance/database/models/user/user.model';
+import type { SignupService } from '@/domain/auth/service/signup.service';
+import type { INewUser } from '@/domain/user/models/user';
 
 import { BaseController } from '../base.controller';
 
 import type { Request, Response } from 'express';
-
-class SignupController extends BaseController {
+export class SignupController extends BaseController {
   private signupService: SignupService;
 
-  constructor() {
+  constructor(signupService: SignupService) {
     super();
-    this.signupService = new SignupService();
+    this.signupService = signupService;
   }
 
   /**
