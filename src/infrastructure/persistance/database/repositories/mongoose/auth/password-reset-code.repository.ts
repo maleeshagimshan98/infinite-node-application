@@ -17,3 +17,5 @@ export class PasswordResetCodeRepository extends BaseRepository<
     super(PasswordResetCodeModel, new PasswordResetCodeMapper());
   }
 }
+
+export default PasswordResetCodeRepository;

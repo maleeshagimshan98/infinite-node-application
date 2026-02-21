@@ -15,3 +15,5 @@ export class LoginRecordRepository extends BaseRepository<ILoginRecordSchema, Lo
     super(LoginRecordModel, new LoginRecordMapper());
   }
 }
+
+export default LoginRecordRepository;

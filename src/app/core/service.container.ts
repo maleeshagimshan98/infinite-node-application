@@ -36,8 +36,10 @@ export const registerService = (name: string, type: string, service: unknown): v
 export const autoRegisterApplicationComponents = (): void => {
   container.loadModules(
     [
-      // Application services
-      'src/services/**/*.service.{ts,js}',
+      // Application layer services
+      'src/application/services/**/*.service.{ts,js}',
+      // Domain services
+      'src/domain/**/service/*.service.{ts,js}',
       // Repositories
       'src/infrastructure/persistance/database/repositories/**/*.repository.{ts,js}',
       // HTTP Controllers

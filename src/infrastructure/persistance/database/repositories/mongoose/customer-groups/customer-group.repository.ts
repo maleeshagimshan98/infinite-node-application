@@ -15,3 +15,5 @@ export class CustomerGroupRepository extends BaseRepository<INewCustomerGroupSch
     super(CustomerGroupModel, new CustomerGroupMapper());
   }
 }
+
+export default CustomerGroupRepository;

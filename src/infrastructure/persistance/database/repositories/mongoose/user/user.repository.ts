@@ -15,3 +15,5 @@ export class UserRepository extends BaseRepository<INewUserSchema, User, NewUser
     super(UserModel, new UserMapper());
   }
 }
+
+export default UserRepository;
