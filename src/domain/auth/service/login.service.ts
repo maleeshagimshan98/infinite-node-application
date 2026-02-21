@@ -4,15 +4,15 @@
 
 import argon2 from 'argon2';
 
-import { BaseService } from '@/domain/base/service/base.service';
-import { ServiceError } from '@/domain/base/service/service.error';
+import { BaseDomainService } from '@/domain/base/service/base.domain.service';
+import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import { NewLoginRecord, type LoginRecord } from '@/domain/auth/models/login-record';
 import type { User } from '@/domain/user/models/user';
 import { ErrorResponseMessages } from '@/app/core/utils/error-response-messages';
 import type { UserRepository } from '@/infrastructure/persistance/database/repositories/mongoose/user/user.repository';
 import type { LoginRecordRepository } from '@/infrastructure/persistance/database/repositories/mongoose/auth/login-record.repository';
 
-export class LoginService extends BaseService {
+export class LoginService extends BaseDomainService {
   private userRepository: UserRepository;
   private loginRecordRepository: LoginRecordRepository;
 
@@ -56,33 +56,33 @@ export class LoginService extends BaseService {
    *
    * @param {string} token - The authentication token
    * @returns {Promise<{ id: string; status: string }>}
-   * @throws {ServiceError}
+   * @throws {DomainServiceError}
    */
   async validateToken(token: string): Promise<{ id: string; status: string }> {
     if (!token) {
-      throw new ServiceError(ErrorResponseMessages.NO_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
+      throw new DomainServiceError(ErrorResponseMessages.NO_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
     }
 
     const loginRecord = await this.getLoginRecordFromAuthToken(token);
 
     if (!loginRecord) {
-      throw new ServiceError(ErrorResponseMessages.INVALID_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
+      throw new DomainServiceError(ErrorResponseMessages.INVALID_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
     }
 
     if (loginRecord.status !== 'active') {
-      throw new ServiceError(ErrorResponseMessages.EXPIRED_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
+      throw new DomainServiceError(ErrorResponseMessages.EXPIRED_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
     }
 
     if (loginRecord.valid_till < new Date(new Date().getTime())) {
       loginRecord.status = 'expired';
       await this.loginRecordRepository.update(loginRecord.id, loginRecord);
-      throw new ServiceError(ErrorResponseMessages.EXPIRED_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
+      throw new DomainServiceError(ErrorResponseMessages.EXPIRED_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
     }
 
     const user = await this.getUserById(loginRecord.user_id);
 
     if (!user) {
-      throw new ServiceError(ErrorResponseMessages.INVALID_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
+      throw new DomainServiceError(ErrorResponseMessages.INVALID_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
     }
 
     return {
@@ -97,18 +97,18 @@ export class LoginService extends BaseService {
    * @param {string} email - User email
    * @param {string} password - User password
    * @returns {Promise<{ id: string; status: string; token: string }>}
-   * @throws {ServiceError}
+   * @throws {DomainServiceError}
    */
   async login(email: string, password: string): Promise<{ id: string; status: string; token: string }> {
     const user = await this.userRepository.findOne({ email });
 
     if (!user) {
-      throw new ServiceError('Invalid credentials', 'AUTHENTICATION_ERROR');
+      throw new DomainServiceError('Invalid credentials', 'AUTHENTICATION_ERROR');
     }
 
     const isPasswordMatching = await argon2.verify(user.password, password);
     if (!isPasswordMatching) {
-      throw new ServiceError('Invalid credentials', 'AUTHENTICATION_ERROR');
+      throw new DomainServiceError('Invalid credentials', 'AUTHENTICATION_ERROR');
     }
 
     const token = this.generateToken();
@@ -133,20 +133,22 @@ export class LoginService extends BaseService {
    *
    * @param {string} token - The authentication token
    * @returns {Promise<void>}
-   * @throws {ServiceError}
+   * @throws {DomainServiceError}
    */
   async logout(token: string): Promise<void> {
     if (!token) {
-      throw new ServiceError(ErrorResponseMessages.NO_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
+      throw new DomainServiceError(ErrorResponseMessages.NO_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
     }
 
     const loginRecord = await this.getLoginRecordFromAuthToken(token);
 
     if (!loginRecord) {
-      throw new ServiceError(ErrorResponseMessages.INVALID_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
+      throw new DomainServiceError(ErrorResponseMessages.INVALID_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
     }
 
     loginRecord.status = 'cancelled';
     await this.loginRecordRepository.update(loginRecord.id, loginRecord);
   }
 }
+
+export default LoginService;

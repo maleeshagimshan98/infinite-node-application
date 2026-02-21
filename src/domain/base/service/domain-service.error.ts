@@ -6,10 +6,16 @@ export type ServiceErrorType =
   | 'AUTHENTICATION_ERROR'
   | 'USER_PERMISSION_ERROR'
   | 'VALIDATION_ERROR'
+  | 'INCOMPLETE_MODEL'
+  | 'NOT_FOUND'
+  | 'ALREADY_EXISTS'
+  | 'UNKNOWN_ERROR'
   | 'MODEL_NOT_FOUND'
-  | 'UNKNOWN_ERROR';
+  | 'MODEL_ALREADY_EXISTS'
+  | 'DATABASE_ERROR'
+  | 'NETWORK_ERROR';
 
-export class ServiceError extends Error {
+export class DomainServiceError extends Error {
   /**
    * The name of the error
    *
@@ -33,7 +39,7 @@ export class ServiceError extends Error {
 
   constructor(message: string, type: ServiceErrorType, data?: Record<string, unknown>) {
     super(message);
-    this.name = 'ServiceException';
+    this.name = 'DomainServiceError';
     this.type = type;
     this.data = data || {};
   }

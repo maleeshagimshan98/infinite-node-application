@@ -2,7 +2,7 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import { BaseService } from '@/domain/base/service/base.service';
+import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import type { IHealthCheck, IHealthCheckResult } from '@/application/interfaces/health-check.interface';
 
 /**
@@ -11,7 +11,7 @@ import type { IHealthCheck, IHealthCheckResult } from '@/application/interfaces/
  * Domain layer service for health checking.
  * Uses only application layer interfaces - no infrastructure knowledge.
  */
-export class HealthService extends BaseService {
+export class HealthService extends BaseDomainService {
   /**
    * Health check implementation instance
    *
@@ -33,3 +33,5 @@ export class HealthService extends BaseService {
     return await this.healthCheck.checkHealth();
   }
 }
+
+export default HealthService;

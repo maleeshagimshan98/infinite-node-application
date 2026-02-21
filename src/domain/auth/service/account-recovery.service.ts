@@ -4,8 +4,8 @@
 
 import argon2 from 'argon2';
 
-import { BaseService } from '@/domain/base/service/base.service';
-import { ServiceError } from '@/domain/base/service/service.error';
+import { BaseDomainService } from '@/domain/base/service/base.domain.service';
+import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import { ErrorResponseMessages } from '@/app/core/utils/error-response-messages';
 import type { User } from '@/domain/user/models/user';
 import { NewPasswordResetCode, type PasswordResetCode } from '@/domain/auth/models/password-reset-code';
@@ -14,7 +14,7 @@ import type { UserRepository } from '@/infrastructure/persistance/database/repos
 import type { PasswordResetCodeRepository } from '@/infrastructure/persistance/database/repositories/mongoose/auth/password-reset-code.repository';
 import type { LoginRecordRepository } from '@/infrastructure/persistance/database/repositories/mongoose/auth/login-record.repository';
 
-export class AccountRecoveryService extends BaseService {
+export class AccountRecoveryService extends BaseDomainService {
   /**
    * User repository instance
    *
@@ -88,13 +88,13 @@ export class AccountRecoveryService extends BaseService {
    *
    * @param {string} email - User email
    * @returns {Promise<void>}
-   * @throws {ServiceError} MODEL_NOT_FOUND if user doesn't exist
+   * @throws {DomainServiceError} MODEL_NOT_FOUND if user doesn't exist
    */
   async forgotPassword(email: string): Promise<void> {
     const user = await this.getUserByEmail(email);
 
     if (!user) {
-      throw new ServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'MODEL_NOT_FOUND');
+      throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'MODEL_NOT_FOUND');
     }
 
     await this.cancelOldResetCodes(email);
@@ -116,7 +116,7 @@ export class AccountRecoveryService extends BaseService {
    * @param {string} verificationCode - Password reset verification code
    * @param {string} newPassword - New password
    * @returns {Promise<void>}
-   * @throws {ServiceError} MODEL_NOT_FOUND if reset code or user doesn't exist
+   * @throws {DomainServiceError} MODEL_NOT_FOUND if reset code or user doesn't exist
    */
   async resetPassword(email: string, verificationCode: string, newPassword: string): Promise<void> {
     const passwordResetCode = await this.passwordResetCodeRepository.findOne({
@@ -126,7 +126,7 @@ export class AccountRecoveryService extends BaseService {
     });
 
     if (!passwordResetCode) {
-      throw new ServiceError(
+      throw new DomainServiceError(
         ErrorResponseMessages.NOT_FOUND_ERROR('Password reset code', 'verification_code', verificationCode),
         'MODEL_NOT_FOUND',
       );
@@ -135,7 +135,7 @@ export class AccountRecoveryService extends BaseService {
     const user = await this.getUserByEmail(email);
 
     if (!user) {
-      throw new ServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'MODEL_NOT_FOUND');
+      throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'MODEL_NOT_FOUND');
     }
 
     // TODO: MUST USE A DATABASE TRANSACTION FOR ALL BELOW DATA MUTATIONS
@@ -158,3 +158,5 @@ export class AccountRecoveryService extends BaseService {
     }
   }
 }
+
+export default AccountRecoveryService;
