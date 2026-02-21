@@ -98,12 +98,14 @@ export const coreMiddlewareConfig: (container: AwilixContainer) => MiddlewareCon
         });
       },
       passOnStoreError: process.env.PASS_ON_STORE_ERROR === 'true',
-      store: new RedisStore({
-        sendCommand: async (...args: string[]): Promise<RedisReply> => {
-          const client = container.resolve('cache');
-          return await client.sendCommand(args);
-        },
-      }),
+      //... TODO
+      //... handle if redis is not present or fails to connect (fallback to in-memory store or allow all requests)
+      // store: new RedisStore({
+      //   sendCommand: async (...args: string[]): Promise<RedisReply> => {
+      //     const client = container.resolve('cache');
+      //     return await client.sendCommand(args);
+      //   },
+      // }),
     },
     morgan: {
       format: process.env.MORGAN_FORMAT || 'dev',
