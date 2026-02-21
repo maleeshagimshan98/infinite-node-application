@@ -10,11 +10,12 @@ import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
 import express from 'express';
 
+import type { ILogger } from '@/application/interfaces/logger.interface';
+
 import { coreMiddlewareConfig } from './middleware.config';
 
 import type { RequestHandler } from 'express';
 import type { AwilixContainer } from 'awilix';
-import type { Logger } from 'winston';
 
 export const coreMiddleware = async (container: AwilixContainer): Promise<Record<string, () => RequestHandler>> => {
   const middlewareConfigInstance = coreMiddlewareConfig(container);
@@ -47,9 +48,9 @@ export const coreMiddleware = async (container: AwilixContainer): Promise<Record
       next();
     },
     logger: (): RequestHandler => {
-      const logger = container.resolve<Logger>('logger');
+      const logger = container.resolve<ILogger>('logger');
       return (req, res, next) => {
-        logger.info(`${req.method} ${req.originalUrl} - ${req.ip}`);
+        logger.logInfo(`${req.method} ${req.originalUrl} - ${req.ip}`);
         next();
       };
     },
