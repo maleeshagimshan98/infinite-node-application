@@ -4,7 +4,7 @@
 
 import type { IDatabaseMapper, TransactionOptions } from '@/application/interfaces';
 
-export class BaseService {
+export class BaseApplicationService {
   private databaseMapperService: IDatabaseMapper;
   constructor(databaseMapperService: IDatabaseMapper) {
     this.databaseMapperService = databaseMapperService;
@@ -22,3 +22,5 @@ export class BaseService {
     });
   }
 }
+
+export default BaseApplicationService;
