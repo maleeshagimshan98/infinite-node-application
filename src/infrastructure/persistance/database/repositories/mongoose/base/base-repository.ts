@@ -99,15 +99,43 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
    * Find all documents matching the provided filter
    *
    * @param {Partial<DBModel>} filter Partial filter object to match documents against
+   * @param {number} limit Optional maximum number of documents to return
+   * @param {number} offset Optional number of documents to skip (for pagination)
    * @param {mongoose.mongo.ClientSession} session Optional MongoDB session for transaction support
    * @returns {Promise<DomainModel[]>} Resolves to an array of found documents
    */
-  public async find(filter: Partial<DBModel>, session?: unknown): Promise<DomainModel[]> {
-    const models = await this.mongooseModel
-      .find(filter)
+  public async find(
+    filter: Partial<DBModel>,
+    limit?: number,
+    offset?: number,
+    session?: unknown,
+  ): Promise<DomainModel[]> {
+    let query = this.mongooseModel.find(filter);
+
+    if (offset !== undefined && offset > 0) {
+      query = query.skip(offset);
+    }
+
+    if (limit !== undefined && limit > 0) {
+      query = query.limit(limit);
+    }
+
+    const models = await query.session((session as mongoose.mongo.ClientSession) ?? null).exec();
+    return models.map((model) => this.mapper.toDomain(model));
+  }
+
+  /**
+   * Count documents matching the provided filter
+   *
+   * @param {Partial<DBModel>} filter Partial filter object to match documents against
+   * @param {mongoose.mongo.ClientSession} session Optional MongoDB session for transaction support
+   * @returns {Promise<number>} Resolves to the count of matching documents
+   */
+  public async count(filter: Partial<DBModel>, session?: unknown): Promise<number> {
+    return await this.mongooseModel
+      .countDocuments(filter)
       .session((session as mongoose.mongo.ClientSession) ?? null)
       .exec();
-    return models.map((model) => this.mapper.toDomain(model));
   }
 
   /**
