@@ -4,18 +4,19 @@
 
 import { Router } from 'express';
 
-import HealthController from '../controllers/health/health.controller';
+import { container } from '@/app/core/service.container';
 
+import type { HealthController } from '../controllers/health/health.controller';
 import type { Request, Response } from 'express';
 
 const router = Router();
-const healthController = new HealthController();
 
 /**
  * GET /health - Main health check endpoint
  * Returns comprehensive health status including service latencies
  */
 router.get('/', (req: Request, res: Response) => {
+  const healthController = container.resolve<HealthController>('healthController');
   healthController.check(req, res);
 });
 
@@ -24,6 +25,7 @@ router.get('/', (req: Request, res: Response) => {
  * Quick check to see if the service process is alive
  */
 router.get('/live', (req: Request, res: Response) => {
+  const healthController = container.resolve<HealthController>('healthController');
   healthController.live(req, res);
 });
 
@@ -32,6 +34,7 @@ router.get('/live', (req: Request, res: Response) => {
  * Full check to see if the service is ready to accept traffic
  */
 router.get('/ready', (req: Request, res: Response) => {
+  const healthController = container.resolve<HealthController>('healthController');
   healthController.ready(req, res);
 });
 
