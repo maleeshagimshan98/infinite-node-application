@@ -3,10 +3,11 @@
  */
 
 import type { IQueue } from '@/application/interfaces/queue.interface';
-import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 
 import { BullMQQueueService } from './bullmq/bullmq-queue.service';
 import { bullmqDriverLoader } from './bullmq/driver/bullmq.driver.loader';
+
+import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 
 export class QueueServiceFactory implements IServiceFactory<IQueue> {
   /**
