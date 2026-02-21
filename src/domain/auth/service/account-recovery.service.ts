@@ -128,14 +128,14 @@ export class AccountRecoveryService extends BaseDomainService {
     if (!passwordResetCode) {
       throw new DomainServiceError(
         ErrorResponseMessages.NOT_FOUND_ERROR('Password reset code', 'verification_code', verificationCode),
-        'MODEL_NOT_FOUND',
+        'NOT_FOUND',
       );
     }
 
     const user = await this.getUserByEmail(email);
 
     if (!user) {
-      throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'MODEL_NOT_FOUND');
+      throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'NOT_FOUND');
     }
 
     // TODO: MUST USE A DATABASE TRANSACTION FOR ALL BELOW DATA MUTATIONS
