@@ -1,67 +1,84 @@
-import argon2 from 'argon2';
-
+import { container } from '@/app/core/service.container';
 import { UserModel } from '@/infrastructure/persistance/database/repositories/mongoose/user/user.model';
-import { CustomerGroupModel } from '@/infrastructure/persistance/database/repositories/mongoose/customer-groups/customer-group.model';
+import type { SignupService } from '@/domain/auth/service/signup.service';
+import type { CustomerGroupService } from '@/domain/user/service/customer-group.service';
+import type { INewUser } from '@/domain/user/models/user';
 
 /**
- * Seeds the database with sample users
+ * Seeds the database with sample users using SignupService
  * @returns boolean indicating if seeding was successful (true) or skipped (false)
  */
 export async function seedUsers(): Promise<boolean> {
   try {
-    // Check if users already exist
-    const existingUsers = await UserModel.countDocuments();
-    if (existingUsers > 0) {
-      console.log('   ⏭️  Users already exist in database. Skipping seed.');
+    // Resolve services from the container
+    const signupService = container.resolve<SignupService>('signupService');
+    const customerGroupService = container.resolve<CustomerGroupService>('customerGroupService');
+
+    // Ensure default customer group exists
+    const defaultGroup = await customerGroupService.getDefaultGroup();
+    if (!defaultGroup) {
+      console.log('   ⚠️  No default customer group found. Please seed customer groups first.');
       return false;
     }
 
-    // Get or create a default customer group
-    let defaultGroup = await CustomerGroupModel.findOne({ default: true });
-    if (!defaultGroup) {
-      defaultGroup = await CustomerGroupModel.create({
-        name: 'Default Group',
-        description: 'Default customer group',
-        discount: 0,
-        default: true,
-      });
-      console.log('   ℹ️  Created default customer group');
-    }
-
-    // Hash password for users (password: 'password123') using Argon2
-    const hashedPassword = await argon2.hash('password123');
-
-    const usersToSeed = [
+    // Define users to seed
+    const usersToSeed: INewUser[] = [
       {
         email: 'john@example.com',
-        password: hashedPassword,
-        status: 'active' as const,
-        cg_id: defaultGroup._id.toString(),
+        password: 'password123',
+        status: 'pending_verification',
+        cg_id: defaultGroup.id,
       },
       {
         email: 'jane@example.com',
-        password: hashedPassword,
-        status: 'active' as const,
-        cg_id: defaultGroup._id.toString(),
+        password: 'password123',
+        status: 'pending_verification',
+        cg_id: defaultGroup.id,
       },
       {
         email: 'bob@example.com',
-        password: hashedPassword,
-        status: 'pending_verification' as const,
-        cg_id: defaultGroup._id.toString(),
+        password: 'password123',
+        status: 'pending_verification',
+        cg_id: defaultGroup.id,
       },
     ];
 
-    // Insert users
-    const createdUsers = await UserModel.insertMany(usersToSeed);
-    console.log(`   ✅ Successfully seeded ${createdUsers.length} users`);
+    // Register users using SignupService
+    const createdUsers = [];
+    const skippedUsers = [];
 
-    // Display created users
-    createdUsers.forEach((user, index) => {
-      console.log(`      • User ${index + 1}: ${user.email}`);
-    });
+    for (const userData of usersToSeed) {
+      try {
+        const result = await signupService.register(userData);
+        createdUsers.push({
+          email: userData.email,
+          id: result.id,
+          status: result.status,
+        });
+      } catch (error) {
+        // If user already exists, skip it
+        if (error instanceof Error && error.message.includes('already associated')) {
+          skippedUsers.push(userData.email);
+        } else {
+          throw error;
+        }
+      }
+    }
 
-    return true;
+    if (createdUsers.length > 0) {
+      console.log(`   ✅ Successfully seeded ${createdUsers.length} users`);
+
+      // Display created users
+      createdUsers.forEach((user, index) => {
+        console.log(`      • User ${index + 1}: ${user.email} (${user.status})`);
+      });
+    }
+
+    if (skippedUsers.length > 0) {
+      console.log(`   ⏭️  Skipped ${skippedUsers.length} existing users`);
+    }
+
+    return createdUsers.length > 0;
   } catch (error) {
     console.error('   ❌ Error seeding users:', error);
     throw error;
