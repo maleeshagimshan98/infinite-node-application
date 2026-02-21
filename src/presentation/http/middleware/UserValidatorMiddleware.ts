@@ -1,51 +1,51 @@
 import type { AuthenticatedRequest } from '@/app/core/utils/request/authenticated-request';
 import APIResponseUtils from '@/app/core/utils/api-response/api-response-utils';
-import { LoginRecord } from '@/infrastructure/persistance/database/models/auth/login-record.model';
-import type { INewUser } from '@/infrastructure/persistance/database/models/user/user.model';
-import { User } from '@/infrastructure/persistance/database/models/user/user.model';
+import type { LoginService } from '@/domain/auth/service/login.service';
+import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 
 import type { NextFunction, Response } from 'express';
 
-export const UserValidatorMiddleware = (): ((
-  req: AuthenticatedRequest<INewUser>,
-  res: Response,
-  next: NextFunction,
-) => Promise<void>) => {
-  return async (req: AuthenticatedRequest<INewUser>, res: Response, next: NextFunction): Promise<void> => {
+export const UserValidatorMiddleware =
+  (loginServiceProvider: () => LoginService) =>
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     const token = req.headers.authorization?.split(' ')[1];
+
     if (!token) {
       const apiResponse = APIResponseUtils.noAuthorizationHeaderFoundResponse();
       res.status(apiResponse.getCode()).send(apiResponse.toJson());
       return;
     }
-    const loginRecord = await LoginRecord.findOne({ token });
-    if (!loginRecord) {
+
+    try {
+      const loginService = loginServiceProvider();
+      if (!loginService) {
+        const apiResponse = APIResponseUtils.getServerErrorAPIResponse();
+        res.status(apiResponse.getCode()).send(apiResponse.toJson());
+        return;
+      }
+      // Use LoginService to validate token and get user data
+      const userData = await loginService.validateToken(token);
+
+      // Get full user object
+      const user = await loginService.getUserById(userData.id);
+
+      if (!user) {
+        const apiResponse = APIResponseUtils.invalidAuthorizationHeaderResponse();
+        res.status(apiResponse.getCode()).send(apiResponse.toJson());
+        return;
+      }
+
+      req.user = user;
+      next();
+    } catch (error) {
+      if (error instanceof DomainServiceError) {
+        const apiResponse = APIResponseUtils.apiErrorResponse(401, error.message);
+        res.status(apiResponse.getCode()).send(apiResponse.toJson());
+        return;
+      }
+
+      // Handle unexpected errors
       const apiResponse = APIResponseUtils.invalidAuthorizationHeaderResponse();
       res.status(apiResponse.getCode()).send(apiResponse.toJson());
-      return;
     }
-
-    if (loginRecord.status !== 'active') {
-      const apiResponse = APIResponseUtils.expiredAuthorizationHeaderResponse();
-      APIResponseUtils.createResponse(apiResponse, res);
-      return;
-    }
-
-    if (loginRecord.valid_till < new Date(new Date().getTime())) {
-      loginRecord.status = 'expired';
-      await loginRecord.save();
-      const apiResponse = APIResponseUtils.expiredAuthorizationHeaderResponse();
-      APIResponseUtils.createResponse(apiResponse, res);
-      return;
-    }
-
-    const user = await User.findById(loginRecord?.user_id);
-    if (!user) {
-      const apiResponse = APIResponseUtils.invalidAuthorizationHeaderResponse();
-      res.status(apiResponse.getCode()).send(apiResponse.toJson());
-      return;
-    }
-    req.user = user;
-    next();
   };
-};
