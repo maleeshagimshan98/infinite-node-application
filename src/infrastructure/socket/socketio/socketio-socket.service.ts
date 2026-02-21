@@ -95,7 +95,7 @@ export class SocketIOService implements ISocket {
   }
 
   /**
-   * Returns the underlying Socket.IO Server client instance
+   * Emits an event to all connected clients
    *
    * @param {string} event - The event name to emit
    * @param {Record<string, unknown>} data - The data payload to send with the event

@@ -3,10 +3,12 @@
  */
 
 import type { INotification } from '@/application/interfaces/notification.interface';
-import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 
 import { InMemoryNotificationService } from './in-memory/in-memory-notification.service';
 import { inMemoryNotificationDriverLoader } from './in-memory/driver/in-memory-notification.driver.loader';
+import { InfrastructureError } from '../core/errors/infrastructure.error';
+
+import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 
 /**
  * Factory class for creating notification service instances
@@ -44,13 +46,13 @@ export class NotificationServiceFactory implements IServiceFactory<INotification
   }
 
   /**
-   * Creates a notification service instance based on the specified type
+   * Creates a notification service instance based on the configured notification driver type
    *
    * This is a generic factory method that routes to specific service creation methods
-   * based on the notification type parameter.
+   * based on the configured notification driver.
    *
    * @returns {Promise<INotification>} A promise that resolves to a notification service instance
-   * @throws {Error} If the notification type is not supported or if initialization fails
+   * @throws {InfrastructureError} If the notification type is not supported or if initialization fails
    *
    * @example
    * ```typescript
@@ -77,7 +79,7 @@ export class NotificationServiceFactory implements IServiceFactory<INotification
       //   return await this.createOneSignalNotificationService();
 
       default:
-        throw new Error(`Unsupported notification type: ${notificationType}`);
+        throw new InfrastructureError(`Unsupported notification type: ${notificationType}`);
     }
   }
 }

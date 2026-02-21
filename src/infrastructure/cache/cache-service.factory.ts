@@ -23,7 +23,7 @@ export class CacheServiceFactory implements IServiceFactory<ICache> {
   /**
    * Create a cache service instance using the provided Redis driver
    *
-   * @returns {ICache} implementation
+   * @returns {Promise<ICache>} Redis cache service implementation
    */
   async createRedisCacheService(): Promise<ICache> {
     return new RedisCacheService(await redisDriverLoader());
@@ -33,8 +33,8 @@ export class CacheServiceFactory implements IServiceFactory<ICache> {
    * Create a cache service instance based on configuration
    * Currently supports Redis only, but can be extended for other providers
    *
-   * @returns {ICache} implementation
-   * @throws {Error} if driver is not supported
+   * @returns {Promise<ICache>} Cache service implementation
+   * @throws {InfrastructureError} If driver is not supported
    */
   async create(): Promise<ICache> {
     const envDriver = process.env.CACHE_DRIVER || 'redis';

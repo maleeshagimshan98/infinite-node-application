@@ -6,6 +6,7 @@ import type { ISocket } from '@/application/interfaces/socket.interface';
 
 import { SocketIOService } from './socketio/socketio-socket.service';
 import { socketDriverLoader } from './socketio/driver/socket-driver.loader';
+import { InfrastructureError } from '../core/errors/infrastructure.error';
 
 import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 
@@ -24,24 +25,22 @@ export class SocketServiceFactory implements IServiceFactory<ISocket> {
   /**
    * Creates a Socket.IO service instance
    *
-   * @param {Server} driver - The Socket.IO Server driver instance
-   * @returns {ISocket} A Socket.IO service instance
+   * @returns {Promise<ISocket>} A Socket.IO service instance
    */
   async createSocketIOService(): Promise<ISocket> {
     return new SocketIOService(await socketDriverLoader());
   }
 
   /**
-   * Creates a socket service instance based on the specified type
+   * Creates a socket service instance based on the configured socket driver type
    *
-   * @param {string} socketType - The type of socket provider ('socketio', 'ws', etc.)
-   * @param {unknown} driver - The socket driver instance
-   * @returns {ISocket} A socket service instance
-   * @throws {Error} If the socket type is not supported
+   * @returns {Promise<ISocket>} A socket service instance
+   * @throws {InfrastructureError} If the socket type is not supported
    *
    * @example
    * ```typescript
-   * const socket = SocketServiceFactory.create('socketio', socketDriver);
+   * const factory = new SocketServiceFactory();
+   * const socket = await factory.create();
    * ```
    */
   async create(): Promise<ISocket> {
@@ -60,7 +59,7 @@ export class SocketServiceFactory implements IServiceFactory<ISocket> {
       //   return this.createPusherService(driver as PusherClient);
 
       default:
-        throw new Error(`Unsupported socket type: ${socketType}`);
+        throw new InfrastructureError(`Unsupported socket type: ${socketType}`);
     }
   }
 }

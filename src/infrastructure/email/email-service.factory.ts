@@ -9,6 +9,7 @@ import type { IEmail } from '@/application/interfaces/email.interface';
 
 import { SMTPEmailService } from './smtp/smtp-email.service';
 import { smtpDriverLoader } from './smtp/driver/smtp.driver.loader';
+import { InfrastructureError } from '../core/errors/infrastructure.error';
 
 import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 
@@ -27,17 +28,17 @@ export class EmailServiceFactory implements IServiceFactory<IEmail> {
   /**
    * Creates an SMTP email service instance
    *
-   * @returns {IEmail} An SMTP email service instance
+   * @returns {Promise<IEmail>} An SMTP email service instance
    */
   async createSMTPEmailService(): Promise<IEmail> {
     return new SMTPEmailService(await smtpDriverLoader());
   }
 
   /**
-   * Creates an email service instance based on the specified type
+   * Creates an email service instance based on the configured email driver type
    *
-   * @returns {IEmail} An email service instance
-   * @throws {Error} If the email type is not supported
+   * @returns {Promise<IEmail>} An email service instance
+   * @throws {InfrastructureError} If the email type is not supported
    *
    * @example
    * ```typescript
@@ -65,7 +66,7 @@ export class EmailServiceFactory implements IServiceFactory<IEmail> {
       //   return new MailgunEmailService();
 
       default:
-        throw new Error(`Unsupported email type: ${emailType}`);
+        throw new InfrastructureError(`Unsupported email type: ${emailType}`);
     }
   }
 }

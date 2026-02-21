@@ -6,6 +6,7 @@ import type { IQueue } from '@/application/interfaces/queue.interface';
 
 import { BullMQQueueService } from './bullmq/bullmq-queue.service';
 import { bullmqDriverLoader } from './bullmq/driver/bullmq.driver.loader';
+import { InfrastructureError } from '../core/errors/infrastructure.error';
 
 import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 
@@ -13,17 +14,17 @@ export class QueueServiceFactory implements IServiceFactory<IQueue> {
   /**
    * Creates a BullMQ queue service instance
    *
-   * @returns {IQueue} A BullMQ queue service instance
+   * @returns {Promise<IQueue>} A BullMQ queue service instance
    */
   async createBullMQQueueService(): Promise<IQueue> {
     return new BullMQQueueService(await bullmqDriverLoader());
   }
 
   /**
-   * Creates a queue service instance based on the specified type
+   * Creates a queue service instance based on the configured queue driver type
    *
-   * @returns {IQueue} A queue service instance
-   * @throws {Error} If the queue type is not supported
+   * @returns {Promise<IQueue>} A queue service instance
+   * @throws {InfrastructureError} If the queue type is not supported
    *
    * @example
    * ```typescript
@@ -50,7 +51,7 @@ export class QueueServiceFactory implements IServiceFactory<IQueue> {
       //   return this.createKafkaQueueService(driver as KafkaClient);
 
       default:
-        throw new Error(`Unsupported queue type: ${queueType}`);
+        throw new InfrastructureError(`Unsupported queue type: ${queueType}`);
     }
   }
 }

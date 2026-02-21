@@ -40,6 +40,17 @@ export class InfrastructureManager {
     this.healthCheckService = new InfrastructureHealthCheckService();
   }
 
+  /**
+   * Handles post-creation tasks for a service
+   *
+   * Registers the service with the health check service and invokes
+   * the optional callback if provided.
+   *
+   * @param {IBaseInfrastructureService} service - The newly created service instance
+   * @param {onServiceCreatedCallback} [onServiceCreated] - Optional callback to invoke after service creation
+   * @returns {Promise<void>}
+   * @private
+   */
   private async serviceCreated(
     service: IBaseInfrastructureService,
     onServiceCreated?: onServiceCreatedCallback,
