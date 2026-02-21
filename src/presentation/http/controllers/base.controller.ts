@@ -6,7 +6,7 @@ import type { APIResponse } from '@/app/core/utils/api-response/api-response';
 import { Paginator } from '@/app/core/utils/pagination/paginator';
 import { PaginationException } from '@/app/core/utils/pagination/pagination-exception';
 import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
-import { ServiceError } from '@/domain/base/service/service.error';
+import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 
 import type { Request } from 'express';
 
@@ -27,15 +27,27 @@ class BaseController {
   /**
    * Generates an API response based on the type of service exception.
    *
-   * @param {ServiceError} serviceException The service exception to handle.
+   * @param {DomainServiceError} serviceException The service exception to handle.
    * @returns {APIResponse} The corresponding API response.
    */
-  protected getServiceErrorResponse(serviceException: ServiceError): APIResponse {
+  protected getServiceErrorResponse(serviceException: DomainServiceError): APIResponse {
     if (serviceException.type === 'USER_PERMISSION_ERROR') {
       return ApiResponseUtils.userNotPermittedError(serviceException.message);
     }
-    if (serviceException.type === 'MODEL_NOT_FOUND') {
+    if (serviceException.type === 'AUTHENTICATION_ERROR') {
+      return ApiResponseUtils.authenticationErrorResponse(serviceException.message);
+    }
+    if (serviceException.type === 'NOT_FOUND') {
       return ApiResponseUtils.resourceNotFoundErrorResponse(serviceException.message);
+    }
+    if (serviceException.type === 'ALREADY_EXISTS') {
+      return ApiResponseUtils.apiErrorResponse(400, serviceException.message);
+    }
+    if (serviceException.type === 'VALIDATION_ERROR') {
+      return ApiResponseUtils.apiErrorResponse(400, serviceException.message, serviceException.data);
+    }
+    if (serviceException.type === 'INCOMPLETE_MODEL') {
+      return ApiResponseUtils.apiErrorResponse(400, serviceException.message);
     }
     if (serviceException.type === 'UNKNOWN_ERROR') {
       return ApiResponseUtils.apiErrorResponse(500, serviceException.message);
@@ -57,7 +69,7 @@ class BaseController {
         this.logErrors(e);
         return ApiResponseUtils.apiErrorResponse(400, e.message);
       }
-      if (e instanceof ServiceError) {
+      if (e instanceof DomainServiceError) {
         this.logErrors(e);
         return this.getServiceErrorResponse(e);
       }

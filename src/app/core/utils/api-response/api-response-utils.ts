@@ -81,6 +81,10 @@ const expiredAuthorizationHeaderResponse = (): APIResponse => {
   return apiErrorResponse(401, ErrorResponseMessages.EXPIRED_AUTHORIZATION_HEADER());
 };
 
+const authenticationErrorResponse = (message: string): APIResponse => {
+  return apiErrorResponse(401, message);
+};
+
 const requestValidationFailResponse = (validationErrors: ValidationError[]): APIResponse => {
   return apiErrorResponse(400, ErrorResponseMessages.REQUEST_VALIDATION_ERROR(), validationErrors);
 };
@@ -115,6 +119,7 @@ export default {
   invalidAuthorizationHeaderResponse,
   resourceNotFoundErrorResponse,
   expiredAuthorizationHeaderResponse,
+  authenticationErrorResponse,
   requestValidationFailResponse,
   userNotFoundError,
   userNotPermittedError,
