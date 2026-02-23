@@ -2,10 +2,11 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import RedisStore from 'rate-limit-redis';
+
 import type { AwilixContainer } from 'awilix';
 import type { Options } from 'express-rate-limit';
 import type { RedisReply } from 'rate-limit-redis';
-import RedisStore from 'rate-limit-redis';
 import type { Request, Response } from 'express';
 import type { SessionOptions } from 'express-session';
 import type { CorsOptions } from 'cors';
@@ -97,12 +98,14 @@ export const coreMiddlewareConfig: (container: AwilixContainer) => MiddlewareCon
         });
       },
       passOnStoreError: process.env.PASS_ON_STORE_ERROR === 'true',
-      store: new RedisStore({
-        sendCommand: async (...args: string[]): Promise<RedisReply> => {
-          const client = container.resolve('cache');
-          return await client.sendCommand(args);
-        },
-      }),
+      //... TODO
+      //... handle if redis is not present or fails to connect (fallback to in-memory store or allow all requests)
+      // store: new RedisStore({
+      //   sendCommand: async (...args: string[]): Promise<RedisReply> => {
+      //     const client = container.resolve('cache');
+      //     return await client.sendCommand(args);
+      //   },
+      // }),
     },
     morgan: {
       format: process.env.MORGAN_FORMAT || 'dev',

@@ -1,6 +1,7 @@
-import type { Request } from 'express';
-import type { HydratedDocument } from 'mongoose';
+import type { User } from '@/domain/user/models/user';
 
-export interface AuthenticatedRequest<T> extends Request {
-  user?: HydratedDocument<T>;
+import type { Request } from 'express';
+
+export interface AuthenticatedRequest extends Request {
+  user?: User;
 }

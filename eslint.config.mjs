@@ -3,6 +3,7 @@ import pluginJs from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 import prettierPlugin from 'eslint-plugin-prettier';
+import importPlugin from 'eslint-plugin-import';
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
@@ -21,6 +22,7 @@ export default [
     plugins: {
       '@typescript-eslint': tseslint.plugin,
       prettier: prettierPlugin,
+      import: importPlugin,
     },
     rules: {
       /** ✅ TypeScript Rules */
@@ -47,6 +49,29 @@ export default [
       'linebreak-style': ['error', 'unix'], // Enforce LF (Unix-style EOL)
       'no-console': 'warn', // Warn on console.log usage
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      'import/order': [
+        'error',
+        {
+          groups: [
+            'builtin', // Node.js built-ins
+            'external', // npm packages (e.g., 'redis')
+            'internal', // Aliased paths (e.g., '@/application')
+            ['parent', 'sibling'], // Relative paths
+            'index',
+            'object',
+            'type',
+          ],
+          pathGroups: [
+            {
+              pattern: '@/**',
+              group: 'internal',
+              position: 'before',
+            },
+          ],
+          pathGroupsExcludedImportTypes: ['builtin'],
+          'newlines-between': 'always',
+        },
+      ],
     },
   },
   pluginJs.configs.recommended,

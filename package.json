@@ -1,17 +1,17 @@
 {
   "name": "infinite-node-application",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "start": "node dist/index.js",
-    "dev": "ts-node-dev ./src/index.ts",
+    "dev": "tsx watch ./src/index.ts",
     "test": "jest",
     "lint": "eslint src --ext .js,.ts",
     "lint:fix": "eslint src --ext .js,.ts --fix",
     "format": "prettier --write .",
     "build": "npm run format && tsc",
-    "seed": "ts-node src/database/seeders/seeder.ts",
-    "seed:clear": "ts-node src/database/seeders/seeder.ts --clear",
+    "seed": "tsx src/infrastructure/persistance/database/seeders/seeder.ts",
+    "seed:clear": "tsx src/infrastructure/persistance/database/seeders/seeder.ts --clear",
     "prepare": "husky install"
   },
   "lint-staged": {
@@ -23,12 +23,12 @@
     ]
   },
   "dependencies": {
-    "chalk": "^4.1.2",
     "argon2": "^0.43.0",
     "awilix": "^12.0.5",
     "awilix-express": "^9.0.2",
     "axios": "^1.11.0",
     "bullmq": "^5.58.4",
+    "chalk": "^4.1.2",
     "cookie-parser": "~1.4.4",
     "cors": "^2.8.5",
     "debug": "~2.6.9",
@@ -71,6 +71,7 @@
     "babel-jest": "^29.5.0",
     "eslint": "^9.21.0",
     "eslint-config-prettier": "^10.0.2",
+    "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-prettier": "^5.2.3",
     "globals": "^16.0.0",
     "husky": "^9.1.7",
@@ -80,8 +81,13 @@
     "ts-jest": "^29.3.0",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
+    "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.25.0"
+  },
+  "overrides": {
+    "minimatch": "^10.2.1"
   },
   "author": {
     "name": "Maleesha Gimshan",

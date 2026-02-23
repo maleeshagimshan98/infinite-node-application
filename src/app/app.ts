@@ -4,26 +4,32 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import express from 'express';
-import type { Application, Router } from 'express';
-import dotenv from 'dotenv';
 import http from 'http';
-import debug from 'debug';
+import path from 'path';
+
 import chalk from 'chalk';
-import type { INodeApplicationConfig } from './core/config/config';
+import debug from 'debug';
+import dotenv from 'dotenv';
+import express from 'express';
+import { asValue } from 'awilix';
+import { scopePerRequest } from 'awilix-express';
+
+import { InfrastructureManager } from '@/infrastructure/infrastructure.manager';
+
+import { StartupBanner } from './core/utils/startup-banner';
 import { configLoader } from './core/config/config';
 import { coreMiddleware } from './core/middleware/core.middleware';
-// import type { IService } from '../services/IService';
 import { InfiniteNodeError } from './core/errors/InfiniteNodeError';
-import type { ServiceLoaders, ServiceReturnTypes } from './core/services/services.loader';
-import { serviceLoaders } from './core/services/services.loader';
-import { container } from './core/services/service.container';
-import { asValue, type AwilixContainer } from 'awilix';
-import type { ServiceConfig } from './core/config/service/services.config';
-import { scopePerRequest } from 'awilix-express';
+import { autoRegisterApplicationComponents, container } from './core/service.container';
+import { ShutdownPriority } from './core/shutdown/shutdown-priority.enum';
+
+import type { StartupBannerConfig } from './core/utils/startup-banner';
+import type { Application, Router } from 'express';
+import type { AwilixContainer } from 'awilix';
 import type { Logger } from 'winston';
-import path from 'path';
 import type net from 'net';
+import type { INodeApplicationConfig } from './core/config/config';
+import type { ShutdownManager } from './core/shutdown/shutdown.manager';
 
 const debugLog = debug('server:server');
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
@@ -55,75 +61,94 @@ class InfiniteNodeApplication {
   private container: AwilixContainer;
 
   /**
-   * @type {Array<keyof ServiceLoaders>} _deferredServices - List of deferred services to be initialized later
+   * @type {InfrastructureManager} infrastructureManager - Manages infrastructure services
    */
-  private _deferredServices: Array<keyof ServiceLoaders> = [];
+  private infrastructureManager: InfrastructureManager;
 
   /**
-   * @type {Record<keyof ServiceConfig, ServiceReturnTypes[keyof ServiceConfig]> | Record<string, unknown>} services - Registered services
+   * @type {StartupBanner} startupBanner - Utility for displaying startup messages
    */
-  private services: Record<keyof ServiceConfig, ServiceReturnTypes[keyof ServiceConfig]> | Record<string, unknown> = {};
-
-  private consoleNotice(): void {
-    console.log(
-      chalk.cyan.bold('\n========== Infinite Node Application - v1.0.0 ==========\n') +
-        '\n' +
-        chalk.green('© 2025 ') +
-        chalk.cyan('Maleesha Gimshan') +
-        '\n \n' +
-        chalk.blue('GitHub: ') +
-        chalk.underline('https://github.com/maleeshagimshan98') +
-        '\n' +
-        chalk.blue('Repository: ') +
-        chalk.underline('https://github.com/maleeshagimshan98/infinite-node-application') +
-        '\n' +
-        chalk.yellow('Buy Me a Coffee: ') +
-        chalk.underline('https://www.buymeacoffee.com/maleeshagimshan') +
-        '\n' +
-        chalk.magenta('Licensed under the MIT License: ') +
-        chalk.underline('https://opensource.org/licenses/MIT') +
-        '\n',
-    );
-  }
+  private startupBanner: StartupBanner | undefined;
 
   /**
+   * @type {Set<net.Socket>} activeConnections - Track active connections for graceful shutdown
+   */
+  private activeConnections = new Set<net.Socket>();
+
+  /**
+   * @type {ShutdownManager | undefined} shutdownManager - Manages graceful shutdown
+   */
+  private shutdownManager: ShutdownManager | undefined;
+
+  /**
+   * Constructor for InfiniteNodeApplication
    *
+   * Initializes the express server, HTTP server, and core services.
+   * Also sets up the application routes and starts listening on the configured port.
+   *
+   * @param {Router} routes - The main application router containing all route definitions
+   * @param {ShutdownManager} shutdownManager - Optional shutdown manager for graceful shutdown
+   * @throws {InfiniteNodeError} If there is an error during initialization
    */
-  constructor(routes: Router) {
+  constructor(routes: Router, shutdownManager?: ShutdownManager) {
     try {
+      this.shutdownManager = shutdownManager as ShutdownManager | undefined;
       this.container = container;
       this.express_server = this.initExpressServer(config);
-      if (!this.express_server) {
-        throw new InfiniteNodeError(`Server instance is not found`);
+      this.httpServer = this.initHttpServer();
+
+      // Track active connections for graceful shutdown
+      this.httpServer.on('connection', (socket) => {
+        this.activeConnections.add(socket);
+        socket.on('close', () => {
+          this.activeConnections.delete(socket);
+        });
+      });
+
+      // Register shutdown hooks if shutdown manager is provided
+      if (this.shutdownManager) {
+        this.registerShutdownHooks();
       }
-      this.httpServer = http.createServer(this.express_server);
+
       this.container.register({
         httpServer: asValue(this.httpServer),
         expressServer: asValue(this.express_server),
       });
-      this.consoleNotice();
-      this.initializeCoreServices()
+
+      this.startupBanner = new StartupBanner(this.createBannerConfig());
+      this.startupBanner.printBanner();
+
+      this.infrastructureManager = new InfrastructureManager();
+      this.infrastructureManager
+        .init(this.container)
         .then(async () => {
+          // Auto-register services, repositories, and controllers
+          autoRegisterApplicationComponents();
+
           await this.initCoreMiddleware();
           this.express_server.use(scopePerRequest(this.container));
           this.express_server.use(config.app.apiUrlPrefix, routes);
-          const addr = this.httpServer.address();
-          const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr?.port}`;
-          console.log(chalk.magenta(`\nApplication name - ${config.app.name}`));
-          console.log(chalk.magenta(`Server Url - ${config.app.baseUrl}`));
-          console.log(chalk.magenta(`Server running on: ${chalk.underline(bind)}\n`));
-          console.log(chalk.cyan.bold('=================================\n'));
+
+          this.startupBanner?.printStartupInfo({
+            appName: config.app.name,
+            serverUrl: config.app.baseUrl,
+            bindAddress: this.getServerBindString(),
+          });
         })
         .catch((error) => {
           const logger = this.container.resolve<Logger>('logger', { allowUnregistered: true });
           if (logger && typeof logger.error === 'function') {
             logger.error('Error during application initialization', { error });
           }
-          console.error(chalk.red('Error during application initialization:'), error);
+          this.startupBanner?.printInitializationError(error);
           process.exit(1);
         });
     } catch (error) {
-      console.error(chalk.red('Fatal error during application startup:'), error);
+      if (this.startupBanner) {
+        this.startupBanner.printFatalError(error as Error);
+      } else {
+        console.error(chalk.red('Fatal error during application startup:'), error);
+      }
       process.exit(1);
     }
   }
@@ -135,9 +160,48 @@ class InfiniteNodeApplication {
    * @returns {Application} - The initialized express application
    */
   initExpressServer(config: INodeApplicationConfig): Application {
-    this.express_server = express();
-    this.express_server.set('port', config.app.port);
-    return this.express_server;
+    const express_server = express();
+    express_server.set('port', config.app.port);
+    return express_server;
+  }
+
+  /**
+   * Get the service name for this email implementation
+   *
+   * @returns {http.Server} The HTTP server instance
+   */
+  private initHttpServer(): http.Server {
+    const httpServer = http.createServer(this.express_server);
+    return httpServer;
+  }
+
+  /**
+   * Get the formatted server bind address string
+   *
+   * @returns {string} Formatted bind address (e.g., "pipe /path" or "port 3000")
+   */
+  private getServerBindString(): string {
+    const addr = this.httpServer.address();
+    return typeof addr === 'string' ? `pipe ${addr}` : `port ${addr?.port}`;
+  }
+
+  /**
+   * Create the startup banner configuration
+   *
+   * @returns {StartupBannerConfig} The banner configuration object
+   */
+  private createBannerConfig(): StartupBannerConfig {
+    return {
+      appName: 'Infinite Node Application',
+      version: '1.0.0',
+      year: '2025',
+      author: 'Maleesha Gimshan',
+      github: 'https://github.com/maleeshagimshan98',
+      repository: 'https://github.com/maleeshagimshan98/infinite-node-application',
+      buyMeCoffee: 'https://www.buymeacoffee.com/maleeshagimshan',
+      license: 'MIT License',
+      licenseUrl: 'https://opensource.org/licenses/MIT',
+    };
   }
 
   /**
@@ -148,96 +212,17 @@ class InfiniteNodeApplication {
    */
   async initCoreMiddleware(): Promise<void> {
     const coreMiddlewareStack = await coreMiddleware(this.container);
-    console.log(chalk.green(`\n \n initializing the core middleware \n`));
+    this.startupBanner?.printMiddlewareInitStart();
+
     for (const middleware in coreMiddlewareStack) {
       if (typeof coreMiddlewareStack[middleware] === 'function') {
         this.express_server.use(coreMiddlewareStack[middleware]());
-        console.log(chalk.green(`-- ${middleware} initialized successfully`));
+        this.startupBanner?.printMiddlewareSuccess(middleware);
       } else {
-        console.log(chalk.red(`Error initializing core middleware ${middleware}`));
+        this.startupBanner?.printMiddlewareError(middleware);
         throw new InfiniteNodeError(`Core Middleware ${middleware} must be a function`);
       }
     }
-  }
-
-  /**
-   * Register a service in the DI container
-   *
-   * @param {keyof ServiceLoaders} serviceName - The name of the service
-   * @param {function} serviceLoader - The service loader function
-   * @param {object} options - The configuration options for the service
-   * @returns {void}
-   * @throws {InfiniteNodeError} If the service loader is not found or not a function
-   */
-  private async registerService<K extends keyof ServiceLoaders>(
-    serviceName: K,
-    serviceLoader: ServiceLoaders[K],
-    _options: ServiceConfig[K],
-  ): Promise<void> {
-    if (!serviceLoader) {
-      throw new InfiniteNodeError(`Service loader for ${serviceName} not found`);
-    }
-    if (typeof serviceLoader !== 'function') {
-      throw new InfiniteNodeError(`Service ${serviceName} must be a function`);
-    }
-    //... registering the service in DI container
-    this.services[serviceName] = await serviceLoader(this.container, _options);
-    console.log(chalk.green(`-- Service ${serviceName} registered successfully`));
-  }
-
-  /**
-   * Initialize deferred services
-   *
-   * @returns {void}
-   * @throws {InfiniteNodeError} If the service loader is not found or not a function
-   */
-  async initDeferredServices(): Promise<void> {
-    for (const serviceName of this._deferredServices) {
-      const options = config.services[serviceName];
-      const serviceLoader = serviceLoaders[serviceName];
-      if (!serviceLoader) {
-        throw new InfiniteNodeError(`Service loader for ${serviceName} not found`);
-      }
-      if (typeof serviceLoader !== 'function') {
-        throw new InfiniteNodeError(`Service ${serviceName} must be a function`);
-      }
-      await this.registerService(serviceName, serviceLoader, options);
-    }
-    this._deferredServices = []; // Clear deffered services after initialization
-  }
-
-  /**
-   * Initialize core services
-   *
-   * This method iterates through all service loaders defined in the service loaders.
-   * If the service is marked as deferred (options.deferred), it adds the service to the deferred services list
-   * for later initialization and skips immediate registration.
-   * Otherwise, it registers the service immediately in the dependency injection container.
-   * After processing all services, it initializes any deferred services.
-   *
-   * @returns {Promise<void>} Resolves when all core and deferred services are initialized.
-   * @throws {InfiniteNodeError} If a service loader is missing or not a function.
-   */
-  private async initializeCoreServices(): Promise<void> {
-    const serviceConfig: ServiceConfig = config.services;
-    console.log(chalk.green(`initializing the core services \n`));
-    for (const serviceName of Object.keys(serviceConfig) as Array<keyof ServiceLoaders>) {
-      const options = serviceConfig[serviceName];
-      const serviceLoader: ServiceLoaders[typeof serviceName] = serviceLoaders[serviceName];
-      if (!serviceLoader) {
-        throw new InfiniteNodeError(`Service loader for ${serviceName} not found`);
-      }
-      if (typeof serviceLoader !== 'function') {
-        throw new InfiniteNodeError(`Service ${serviceName} must be a function`);
-      }
-      if (options.deferred) {
-        this._deferredServices.push(serviceName);
-        continue; // Skip deffered services for now
-      }
-      //... registering the service in DI container
-      await this.registerService<typeof serviceName>(serviceName, serviceLoader, options);
-    }
-    await this.initDeferredServices();
   }
 
   /**
@@ -272,7 +257,11 @@ class InfiniteNodeApplication {
         break;
       case 'EADDRINUSE':
         console.error(`${bind} is already in use`);
-        process.exit(1);
+        console.error('This may be due to a previous process not releasing the port.');
+        console.error('Waiting 3 seconds before exit to allow port cleanup...');
+        setTimeout(() => {
+          process.exit(1);
+        }, 3000);
         break;
       default:
         throw error;
@@ -317,8 +306,7 @@ class InfiniteNodeApplication {
    * Event listener for HTTP server "listening" event.
    */
   private onListening(server: http.Server): void {
-    const addr = server.address();
-    const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr?.port}`;
+    const bind = this.getServerBindString();
     debugLog(`Listening on ${bind}`);
   }
 
@@ -334,6 +322,104 @@ class InfiniteNodeApplication {
     this.httpServer.on('clientError', (error: Error, socket: net.Socket) => this.onClientError(error, socket));
     this.httpServer.on('listening', () => this.onListening(this.httpServer as http.Server));
     // this.express_server.listen(); TODO - CHECK
+  }
+
+  /**
+   * Shutdown the HTTP server gracefully
+   *
+   * Stops accepting new connections and drains existing ones
+   */
+  async shutdownHttpServer(): Promise<void> {
+    console.log('  Closing HTTP server...');
+
+    return new Promise((resolve) => {
+      // Stop accepting new connections
+      this.httpServer.close((err) => {
+        if (err) {
+          console.error('  Error closing HTTP server:', err);
+        }
+      });
+
+      // Force close after 5 seconds
+      const forceCloseTimeout = setTimeout(() => {
+        console.warn('  Forcing connection closure after timeout');
+        this.destroyActiveConnections();
+        resolve();
+      }, 5000);
+
+      // Wait for connections to drain naturally
+      const checkInterval = setInterval(() => {
+        if (this.activeConnections.size === 0) {
+          clearTimeout(forceCloseTimeout);
+          clearInterval(checkInterval);
+          resolve();
+        }
+      }, 100);
+    });
+  }
+
+  /**
+   * Destroy all active connections
+   */
+  private destroyActiveConnections(): void {
+    console.log(`  Destroying ${this.activeConnections.size} active connections`);
+    this.activeConnections.forEach((socket) => {
+      socket.destroy();
+    });
+    this.activeConnections.clear();
+  }
+
+  /**
+   * Shutdown infrastructure services
+   */
+  async shutdownInfrastructure(): Promise<void> {
+    console.log('  Shutting down infrastructure services...');
+    if (this.infrastructureManager) {
+      await this.infrastructureManager.shutdown();
+    }
+  }
+
+  /**
+   * Check if application is shutting down
+   */
+  isShuttingDown(): boolean {
+    return this.shutdownManager?.isShuttingDown() ?? false;
+  }
+
+  /**
+   * Register shutdown hooks with the shutdown manager
+   *
+   * This method encapsulates the application's shutdown logic by registering
+   * hooks in priority order:
+   * 1. HTTP server (CRITICAL) - Stop accepting new connections first
+   * 2. Infrastructure services (MEDIUM) - Close database, cache, queue connections
+   *
+   * @private
+   */
+  private registerShutdownHooks(): void {
+    if (!this.shutdownManager) {
+      return;
+    }
+
+    // Priority 1 (CRITICAL): Shutdown HTTP server first
+    this.shutdownManager.registerHook({
+      name: 'http-server',
+      priority: ShutdownPriority.CRITICAL,
+      timeout: 5000,
+      handler: async () => {
+        await this.shutdownHttpServer();
+      },
+    });
+
+    // Priority 3 (MEDIUM): Shutdown infrastructure services
+    this.shutdownManager.registerHook({
+      name: 'infrastructure-services',
+      priority: ShutdownPriority.MEDIUM,
+      timeout: 8000,
+      handler: async () => {
+        await this.shutdownInfrastructure();
+      },
+    });
   }
 }
 

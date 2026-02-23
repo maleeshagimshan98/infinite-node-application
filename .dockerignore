@@ -34,3 +34,17 @@ logs
 # Docker
 Dockerfile*
 .dockerignore
+
+# Documentation
+Docs/
+README.md
+
+# Development tools
+.husky/
+.babelrc
+.editorconfig
+.prettierrc.json
+.prettierignore
+ecosystem.config.js
+.gitattributes
+.env.test.example

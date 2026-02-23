@@ -6,6 +6,10 @@
     "moduleResolution": "node" /* Use Node.js module resolution */,
     "rootDir": "src" /* Set 'src' as the root directory */,
     "outDir": "dist" /* Output compiled files to 'dist' */,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
     "allowJs": false /* Don't allow JavaScript files in the project */,
     "resolveJsonModule": true /* Allow importing JSON files */,
     "declaration": true /* Generate type definitions */,
@@ -35,7 +39,8 @@
     "noUncheckedIndexedAccess": true /* Ensure array/indexed types include 'undefined' */,
 
     /* 💡 Compilation Settings */
-    "noEmit": false /* Don't output compiled files (useful for linting) */
+    "noEmit": false /* Don't output compiled files (useful for linting) */,
+    "types": ["jest"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "build"]
