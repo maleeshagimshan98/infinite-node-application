@@ -21,6 +21,7 @@ import { configLoader } from './core/config/config';
 import { coreMiddleware } from './core/middleware/core.middleware';
 import { InfiniteNodeError } from './core/errors/InfiniteNodeError';
 import { autoRegisterApplicationComponents, container } from './core/service.container';
+import { ShutdownPriority } from './core/shutdown/shutdown-priority.enum';
 
 import type { StartupBannerConfig } from './core/utils/startup-banner';
 import type { Application, Router } from 'express';
@@ -28,6 +29,7 @@ import type { AwilixContainer } from 'awilix';
 import type { Logger } from 'winston';
 import type net from 'net';
 import type { INodeApplicationConfig } from './core/config/config';
+import type { ShutdownManager } from './core/shutdown/shutdown.manager';
 
 const debugLog = debug('server:server');
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
@@ -69,19 +71,45 @@ class InfiniteNodeApplication {
   private startupBanner: StartupBanner | undefined;
 
   /**
+   * @type {Set<net.Socket>} activeConnections - Track active connections for graceful shutdown
+   */
+  private activeConnections = new Set<net.Socket>();
+
+  /**
+   * @type {ShutdownManager | undefined} shutdownManager - Manages graceful shutdown
+   */
+  private shutdownManager: ShutdownManager | undefined;
+
+  /**
    * Constructor for InfiniteNodeApplication
    *
    * Initializes the express server, HTTP server, and core services.
    * Also sets up the application routes and starts listening on the configured port.
    *
    * @param {Router} routes - The main application router containing all route definitions
+   * @param {ShutdownManager} shutdownManager - Optional shutdown manager for graceful shutdown
    * @throws {InfiniteNodeError} If there is an error during initialization
    */
-  constructor(routes: Router) {
+  constructor(routes: Router, shutdownManager?: ShutdownManager) {
     try {
+      this.shutdownManager = shutdownManager as ShutdownManager | undefined;
       this.container = container;
       this.express_server = this.initExpressServer(config);
       this.httpServer = this.initHttpServer();
+
+      // Track active connections for graceful shutdown
+      this.httpServer.on('connection', (socket) => {
+        this.activeConnections.add(socket);
+        socket.on('close', () => {
+          this.activeConnections.delete(socket);
+        });
+      });
+
+      // Register shutdown hooks if shutdown manager is provided
+      if (this.shutdownManager) {
+        this.registerShutdownHooks();
+      }
+
       this.container.register({
         httpServer: asValue(this.httpServer),
         expressServer: asValue(this.express_server),
@@ -229,7 +257,11 @@ class InfiniteNodeApplication {
         break;
       case 'EADDRINUSE':
         console.error(`${bind} is already in use`);
-        process.exit(1);
+        console.error('This may be due to a previous process not releasing the port.');
+        console.error('Waiting 3 seconds before exit to allow port cleanup...');
+        setTimeout(() => {
+          process.exit(1);
+        }, 3000);
         break;
       default:
         throw error;
@@ -290,6 +322,104 @@ class InfiniteNodeApplication {
     this.httpServer.on('clientError', (error: Error, socket: net.Socket) => this.onClientError(error, socket));
     this.httpServer.on('listening', () => this.onListening(this.httpServer as http.Server));
     // this.express_server.listen(); TODO - CHECK
+  }
+
+  /**
+   * Shutdown the HTTP server gracefully
+   *
+   * Stops accepting new connections and drains existing ones
+   */
+  async shutdownHttpServer(): Promise<void> {
+    console.log('  Closing HTTP server...');
+
+    return new Promise((resolve) => {
+      // Stop accepting new connections
+      this.httpServer.close((err) => {
+        if (err) {
+          console.error('  Error closing HTTP server:', err);
+        }
+      });
+
+      // Force close after 5 seconds
+      const forceCloseTimeout = setTimeout(() => {
+        console.warn('  Forcing connection closure after timeout');
+        this.destroyActiveConnections();
+        resolve();
+      }, 5000);
+
+      // Wait for connections to drain naturally
+      const checkInterval = setInterval(() => {
+        if (this.activeConnections.size === 0) {
+          clearTimeout(forceCloseTimeout);
+          clearInterval(checkInterval);
+          resolve();
+        }
+      }, 100);
+    });
+  }
+
+  /**
+   * Destroy all active connections
+   */
+  private destroyActiveConnections(): void {
+    console.log(`  Destroying ${this.activeConnections.size} active connections`);
+    this.activeConnections.forEach((socket) => {
+      socket.destroy();
+    });
+    this.activeConnections.clear();
+  }
+
+  /**
+   * Shutdown infrastructure services
+   */
+  async shutdownInfrastructure(): Promise<void> {
+    console.log('  Shutting down infrastructure services...');
+    if (this.infrastructureManager) {
+      await this.infrastructureManager.shutdown();
+    }
+  }
+
+  /**
+   * Check if application is shutting down
+   */
+  isShuttingDown(): boolean {
+    return this.shutdownManager?.isShuttingDown() ?? false;
+  }
+
+  /**
+   * Register shutdown hooks with the shutdown manager
+   *
+   * This method encapsulates the application's shutdown logic by registering
+   * hooks in priority order:
+   * 1. HTTP server (CRITICAL) - Stop accepting new connections first
+   * 2. Infrastructure services (MEDIUM) - Close database, cache, queue connections
+   *
+   * @private
+   */
+  private registerShutdownHooks(): void {
+    if (!this.shutdownManager) {
+      return;
+    }
+
+    // Priority 1 (CRITICAL): Shutdown HTTP server first
+    this.shutdownManager.registerHook({
+      name: 'http-server',
+      priority: ShutdownPriority.CRITICAL,
+      timeout: 5000,
+      handler: async () => {
+        await this.shutdownHttpServer();
+      },
+    });
+
+    // Priority 3 (MEDIUM): Shutdown infrastructure services
+    this.shutdownManager.registerHook({
+      name: 'infrastructure-services',
+      priority: ShutdownPriority.MEDIUM,
+      timeout: 8000,
+      handler: async () => {
+        await this.shutdownInfrastructure();
+      },
+    });
   }
 }
 

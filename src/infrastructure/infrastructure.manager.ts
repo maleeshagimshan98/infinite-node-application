@@ -35,6 +35,7 @@ export type onServiceCreatedCallback = (service: IBaseInfrastructureService) => 
  */
 export class InfrastructureManager {
   private healthCheckService: InfrastructureHealthCheckService;
+  private services: IBaseInfrastructureService[] = [];
 
   constructor() {
     this.healthCheckService = new InfrastructureHealthCheckService();
@@ -90,6 +91,8 @@ export class InfrastructureManager {
         container.register({
           [serviceName]: asValue(service),
         });
+        // Track service for shutdown
+        this.services.push(service);
         await this.serviceCreated(service, onServiceCreated);
         continue;
       }
@@ -99,5 +102,29 @@ export class InfrastructureManager {
     container.register({
       healthCheck: asValue(this.healthCheckService),
     });
+  }
+
+  /**
+   * Gracefully shutdown all infrastructure services
+   *
+   * Services are shut down in reverse order of initialization
+   *
+   * @returns {Promise<void>}
+   */
+  async shutdown(): Promise<void> {
+    console.log('Shutting down infrastructure services...');
+
+    // Shutdown in reverse order (LIFO)
+    const reversedServices = [...this.services].reverse();
+
+    for (const service of reversedServices) {
+      if (typeof service.shutdown === 'function') {
+        try {
+          await service.shutdown();
+        } catch (error) {
+          console.error(`  Error shutting down ${service.serviceName()}:`, error);
+        }
+      }
+    }
   }
 }

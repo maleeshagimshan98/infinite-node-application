@@ -176,4 +176,16 @@ export class BullMQQueueService implements IQueue {
     const state = await job.getState();
     return state;
   }
+
+  /**
+   * Gracefully shutdown the BullMQ queue and workers
+   *
+   * @returns {Promise<void>}
+   */
+  async shutdown(): Promise<void> {
+    if (this.client) {
+      await this.client.close();
+      console.log('  BullMQ queue closed');
+    }
+  }
 }

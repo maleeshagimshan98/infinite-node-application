@@ -169,4 +169,14 @@ export class SocketIOService implements ISocket {
       });
     });
   }
+
+  /**
+   * Gracefully shutdown Socket.IO server
+   *
+   * @returns {Promise<void>}
+   */
+  async shutdown(): Promise<void> {
+    console.log('  Closing Socket.IO connections...');
+    await this.disconnect();
+  }
 }

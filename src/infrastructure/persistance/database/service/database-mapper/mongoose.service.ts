@@ -120,4 +120,16 @@ export class MongooseService implements IDatabaseMapper {
       }
     });
   }
+
+  /**
+   * Gracefully shutdown the MongoDB connection
+   *
+   * @returns {Promise<void>}
+   */
+  async shutdown(): Promise<void> {
+    if (this.client) {
+      await this.client.connection.close();
+      console.log('  MongoDB connection closed');
+    }
+  }
 }

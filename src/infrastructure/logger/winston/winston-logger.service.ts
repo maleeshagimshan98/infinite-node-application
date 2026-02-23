@@ -139,4 +139,27 @@ export class WinstonLoggerService implements ILogger {
   logDebug(message: string, meta?: Record<string, unknown>): void {
     this.winstonLogger.debug(message, meta);
   }
+
+  /**
+   * Gracefully shutdown the Winston logger
+   *
+   * Ensures all logs are flushed before closing
+   *
+   * @returns {Promise<void>}
+   */
+  async shutdown(): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      this.winstonLogger.on('finish', () => {
+        console.log('  Winston logger closed');
+        resolve();
+      });
+
+      this.winstonLogger.on('error', (error) => {
+        console.error('  Error closing Winston logger:', error);
+        reject(error);
+      });
+
+      this.winstonLogger.end();
+    });
+  }
 }

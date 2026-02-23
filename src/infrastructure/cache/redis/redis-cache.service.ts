@@ -138,4 +138,20 @@ export class RedisCacheService implements ICache {
   async clear(): Promise<void> {
     await this.redisClient.flushAll();
   }
+
+  /**
+   * Gracefully shutdown the Redis connection
+   *
+   * @returns {Promise<void>}
+   */
+  async shutdown(): Promise<void> {
+    try {
+      await this.redisClient.quit();
+      console.log('  Redis connection closed');
+    } catch (error) {
+      console.error('  Error closing Redis connection:', error);
+      // Force disconnect if quit fails
+      await this.redisClient.disconnect();
+    }
+  }
 }
