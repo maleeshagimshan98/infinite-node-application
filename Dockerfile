@@ -1,5 +1,11 @@
-# Use the official Node.js 18 Alpine image as base
+# Use the official Node.js 22 Alpine image as base
 FROM node:22-alpine AS base
+
+# Metadata labels for container management
+LABEL maintainer="Maleesha Gimshan (www.github.com/maleeshagimshan98)" \
+      org.opencontainers.image.title="Infinite Node Application" \
+      org.opencontainers.image.description="Node.js microservice with clean architecture" \
+      org.opencontainers.image.version="0.2.0"
 
 # Set working directory
 WORKDIR /app
@@ -21,7 +27,8 @@ RUN npm ci --include=dev
 COPY tsconfig.json ./
 COPY . .
 EXPOSE 3001
-CMD ["dumb-init", "sh", "-c", "until nc -z mongodb 27017 && nc -z redis 6379; do echo 'Waiting for services...'; sleep 2; done; npm run dev"]
+# Let orchestrator handle service dependencies; app has retry logic
+CMD ["dumb-init", "npm", "run", "dev"]
 
 # Build stage
 FROM base AS build
@@ -52,9 +59,9 @@ USER nodejs
 # Expose the application port
 EXPOSE 3001
 
-# Health check for container orchestration (checks if service responds)
+# Health check for container orchestration (liveness probe)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD curl -f http://localhost:3001/health || exit 1
+  CMD curl -f http://localhost:3001/api/v1/health/live || exit 1
 
-# Wait for dependencies and start the application
-CMD ["dumb-init", "sh", "-c", "until nc -z mongodb 27017 && nc -z redis 6379; do echo 'Waiting for services...'; sleep 2; done; npm start"]
+# Start the application (orchestrator handles service dependencies)
+CMD ["dumb-init", "npm", "start"]
