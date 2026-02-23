@@ -88,13 +88,13 @@ export class AccountRecoveryService extends BaseDomainService {
    *
    * @param {string} email - User email
    * @returns {Promise<void>}
-   * @throws {DomainServiceError} MODEL_NOT_FOUND if user doesn't exist
+   * @throws {DomainServiceError} NOT_FOUND if user doesn't exist
    */
   async forgotPassword(email: string): Promise<void> {
     const user = await this.getUserByEmail(email);
 
     if (!user) {
-      throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'MODEL_NOT_FOUND');
+      throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'NOT_FOUND');
     }
 
     await this.cancelOldResetCodes(email);
@@ -116,7 +116,7 @@ export class AccountRecoveryService extends BaseDomainService {
    * @param {string} verificationCode - Password reset verification code
    * @param {string} newPassword - New password
    * @returns {Promise<void>}
-   * @throws {DomainServiceError} MODEL_NOT_FOUND if reset code or user doesn't exist
+   * @throws {DomainServiceError} NOT_FOUND if reset code or user doesn't exist
    */
   async resetPassword(email: string, verificationCode: string, newPassword: string): Promise<void> {
     const passwordResetCode = await this.passwordResetCodeRepository.findOne({

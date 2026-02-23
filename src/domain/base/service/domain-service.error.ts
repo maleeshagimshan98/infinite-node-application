@@ -10,7 +10,6 @@ export type ServiceErrorType =
   | 'NOT_FOUND'
   | 'ALREADY_EXISTS'
   | 'UNKNOWN_ERROR'
-  | 'MODEL_NOT_FOUND'
   | 'MODEL_ALREADY_EXISTS'
   | 'DATABASE_ERROR'
   | 'NETWORK_ERROR';

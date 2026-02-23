@@ -131,10 +131,7 @@ export class CustomerGroupService extends BaseDomainService {
     const existingGroup = await this.getById(id);
 
     if (!existingGroup) {
-      throw new DomainServiceError(
-        ErrorResponseMessages.NOT_FOUND_ERROR('Customer Group', 'id', id),
-        'MODEL_NOT_FOUND',
-      );
+      throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('Customer Group', 'id', id), 'NOT_FOUND');
     }
 
     // If updating name, check for duplicates
@@ -179,10 +176,7 @@ export class CustomerGroupService extends BaseDomainService {
     const group = await this.getById(id);
 
     if (!group) {
-      throw new DomainServiceError(
-        ErrorResponseMessages.NOT_FOUND_ERROR('Customer Group', 'id', id),
-        'MODEL_NOT_FOUND',
-      );
+      throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('Customer Group', 'id', id), 'NOT_FOUND');
     }
 
     // Don't allow deletion of default group
@@ -219,10 +213,7 @@ export class CustomerGroupService extends BaseDomainService {
     const group = await this.getById(id);
 
     if (!group) {
-      throw new DomainServiceError(
-        ErrorResponseMessages.NOT_FOUND_ERROR('Customer Group', 'id', id),
-        'MODEL_NOT_FOUND',
-      );
+      throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('Customer Group', 'id', id), 'NOT_FOUND');
     }
 
     // If already default, nothing to do

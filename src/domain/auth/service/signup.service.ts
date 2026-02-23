@@ -104,7 +104,7 @@ export class SignupService extends BaseDomainService {
     const user: User | null = await this.getUserByEmail(email);
 
     if (!user) {
-      throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'MODEL_NOT_FOUND');
+      throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'NOT_FOUND');
     }
 
     user.status = 'active';
