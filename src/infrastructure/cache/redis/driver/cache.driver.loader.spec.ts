@@ -1,109 +1,106 @@
+/**
+ * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
+ */
+
+// Mock dependencies at top level
+jest.mock('redis', () => ({
+  createClient: jest.fn(),
+}));
+
+jest.mock('./redis.config', () => ({
+  redisConfig: jest.fn(),
+}));
+
+jest.mock('./redis.driver');
+
 import { createClient } from 'redis';
-import { createContainer } from 'awilix';
 
-import { redisDriverLoader } from '../redis.driver.loader';
-import { InfiniteNodeError } from '../../../errors/InfiniteNodeError';
+import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
-import type { IRedisConfig } from '../../../config/drivers/redis.config';
-import type { AwilixContainer } from 'awilix';
+import { redisConfig } from './redis.config';
+import { RedisDriver } from './redis.driver';
+import { redisDriverLoader } from './redis.driver.loader';
 
-describe('cacheDriverLoader', () => {
-  let mockContainer: AwilixContainer;
-  let mockRegister: jest.Mock;
+import type { RedisClientType } from 'redis';
 
-  jest.mock('redis', () => ({
-    createClient: jest.fn(),
-  }));
+describe('redisDriverLoader', () => {
+  let mockClient: Partial<RedisClientType>;
+  let mockDriver: jest.Mocked<RedisDriver>;
+  const mockCreateClient = createClient as jest.MockedFunction<typeof createClient>;
+  const mockRedisConfig = redisConfig as jest.MockedFunction<typeof redisConfig>;
+  const MockedRedisDriver = RedisDriver as jest.MockedClass<typeof RedisDriver>;
 
   beforeEach(() => {
-    mockRegister = jest.fn();
-    mockContainer = { register: mockRegister } as unknown as AwilixContainer;
+    // Reset all mocks
     jest.clearAllMocks();
-  });
 
-  it('should register Redis client when driver is "redis"', async () => {
-    const mockClient = { on: jest.fn() };
-    (createClient as jest.Mock).mockReturnValue(mockClient);
+    // Setup mock Redis client
+    mockClient = {
+      on: jest.fn(),
+      connect: jest.fn().mockResolvedValue(undefined),
+      ping: jest.fn().mockResolvedValue('PONG'),
+      quit: jest.fn().mockResolvedValue(undefined),
+      isOpen: true,
+    };
 
-    const config: IRedisConfig = {
+    // Setup mock Driver
+    mockDriver = {
+      init: jest.fn().mockResolvedValue(undefined),
+      client: jest.fn().mockReturnValue(mockClient as RedisClientType),
+      config: jest.fn(),
+      shutdown: jest.fn().mockResolvedValue(undefined),
+      health: jest.fn().mockResolvedValue({ connected: true, latency: 5 }),
+    } as unknown as jest.Mocked<RedisDriver>;
+
+    // Mock createClient to return mock client
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockCreateClient.mockReturnValue(mockClient as any);
+
+    // Mock RedisDriver constructor
+    MockedRedisDriver.mockImplementation(() => mockDriver);
+
+    // Mock redisConfig
+    mockRedisConfig.mockReturnValue({
       driverName: 'redis',
       singleton: true,
-      deferred: true,
-      driver: 'redis',
-      params: { url: 'redis://localhost:6379', ttl: '3600', connectionTimeout: '5000' },
-    } as IRedisConfig;
-
-    await redisDriverLoader(mockContainer, config);
-    expect(createClient).toHaveBeenCalledWith(config.params);
-    expect(mockClient.on).toHaveBeenCalledWith('error', expect.any(Function));
-    expect(mockRegister).toHaveBeenCalledWith({
-      cacheClient: expect.any(Object),
+      deferred: false,
+      params: {
+        url: 'redis://localhost:6379',
+        ttl: '3600',
+        connectionTimeout: '5000',
+      },
     });
   });
 
-  it('should handle Redis client error event', async () => {
-    const mockClient = { on: jest.fn((event, cb) => event === 'error' && cb(new Error('fail'))) };
-    (createClient as jest.Mock).mockReturnValue(mockClient);
-    const logSpy = jest.spyOn(console, 'log').mockImplementation();
+  it('should create and initialize a RedisDriver instance', async () => {
+    const driver = await redisDriverLoader();
 
-    const config: IRedisConfig = {
-      driverName: 'redis',
-      params: { url: 'redis://localhost:6379', ttl: '3600', connectionTimeout: '5000' },
-      deferred: true,
-      singleton: true,
-    } as IRedisConfig;
-
-    await redisDriverLoader(mockContainer, config);
-
-    expect(logSpy).toHaveBeenCalledWith('Redis Client Error', expect.any(Error));
-    logSpy.mockRestore();
+    expect(mockRedisConfig).toHaveBeenCalled();
+    expect(MockedRedisDriver).toHaveBeenCalledWith(
+      expect.objectContaining({
+        driverName: 'redis',
+        params: expect.any(Object),
+      }),
+    );
+    expect(mockDriver.init).toHaveBeenCalled();
+    expect(driver).toBe(mockDriver);
   });
 
-  it('should throw InfiniteNodeError for unsupported driver', () => {
-    const config: IRedisConfig = {
-      driverName: 'redis',
-      params: { url: '', ttl: '', connectionTimeout: '' },
-      deferred: true,
-      singleton: true,
-    } as IRedisConfig;
+  it('should propagate errors from driver initialization', async () => {
+    const initError = new InfrastructureError('Connection failed');
+    mockDriver.init.mockRejectedValue(initError);
 
-    expect(() => redisDriverLoader(mockContainer, config)).toThrow(InfiniteNodeError);
-    expect(() => redisDriverLoader(mockContainer, config)).toThrow(/not supported/);
+    await expect(redisDriverLoader()).rejects.toThrow(InfrastructureError);
+    await expect(redisDriverLoader()).rejects.toThrow('Connection failed');
   });
 
-  it('should throw InfiniteNodeError on Redis client creation failure', () => {
-    (createClient as jest.Mock).mockImplementation(() => {
-      throw new Error('Redis creation failed');
+  it('should propagate errors from driver construction', async () => {
+    const constructionError = new InfrastructureError('Invalid configuration');
+    MockedRedisDriver.mockImplementation(() => {
+      throw constructionError;
     });
 
-    const config: IRedisConfig = {
-      driverName: 'redis',
-      params: { url: 'redis://localhost:6379', ttl: '3600', connectionTimeout: '5000' },
-      deferred: true,
-    } as IRedisConfig;
-
-    expect(() => redisDriverLoader(mockContainer, config)).toThrow(InfiniteNodeError);
-    expect(() => redisDriverLoader(mockContainer, config)).toThrow(/Failed to load CacheService/);
-  });
-
-  it('should create and register a real Redis client and perform basic operations', async () => {
-    jest.unmock('redis');
-    const config: IRedisConfig = {
-      driverName: 'redis',
-      params: { url: 'redis://localhost:6379', ttl: '3600', connectionTimeout: '5000' },
-      deferred: true,
-    } as IRedisConfig;
-
-    const container: AwilixContainer = createContainer();
-    await redisDriverLoader(container, config);
-    const client = container.resolve('cache');
-
-    // Test Redis client operations
-    await client.connect();
-    await client.set('integration-test-key', 'integration-test-value');
-    const value = await client.get('integration-test-key');
-    expect(value).toBe('integration-test-value');
-    await client.del('integration-test-key');
-    await client.disconnect();
+    await expect(redisDriverLoader()).rejects.toThrow(InfrastructureError);
+    await expect(redisDriverLoader()).rejects.toThrow('Invalid configuration');
   });
 });
