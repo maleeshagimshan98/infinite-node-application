@@ -3,6 +3,7 @@
  */
 
 import type { IQueue, Job, JobOptions, JobStatus } from '@/application/interfaces/queue.interface';
+import { PersistanceError } from '@/infrastructure/persistance/database/erros/persistance.error';
 
 import type { QueueDriver } from './driver/bullmq.driver';
 import type { Queue } from 'bullmq';
@@ -45,9 +46,9 @@ export class BullMQQueueService implements IQueue {
   /**
    * The BullMQ Queue client instance
    * @private
-   * @type {Queue | undefined}
+   * @type {Queue}
    */
-  private client: Queue | undefined;
+  private client: Queue;
 
   /**
    * Creates an instance of BullMQQueueService
@@ -56,7 +57,11 @@ export class BullMQQueueService implements IQueue {
    */
   constructor(driver: QueueDriver) {
     this.driver = driver;
-    this.client = driver.client();
+    const client = driver.client();
+    if (!client || !(client instanceof Object)) {
+      throw new PersistanceError('Invalid BullMQ client provided to BullMQQueueService');
+    }
+    this.client = client;
   }
 
   /**
@@ -111,7 +116,7 @@ export class BullMQQueueService implements IQueue {
    * ```
    */
   async addJob<T>(queueName: string, data: T, options?: JobOptions): Promise<string> {
-    const job = await this.client?.add(queueName, data, options);
+    const job = await this.client.add(queueName, data, options);
 
     return job?.id ?? '';
   }
@@ -167,7 +172,7 @@ export class BullMQQueueService implements IQueue {
    * ```
    */
   async getJobStatus(jobId: string): Promise<JobStatus> {
-    const job = await this.client?.getJob(jobId);
+    const job = await this.client.getJob(jobId);
 
     if (!job) {
       return 'unknown';

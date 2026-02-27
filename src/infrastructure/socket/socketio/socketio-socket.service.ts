@@ -44,9 +44,9 @@ export class SocketIOService implements ISocket {
   /**
    * The Socket.IO Server client instance used for emitting and listening to events
    *
-   * @type {Server | undefined}
+   * @type {Server}
    */
-  private client: Server | undefined;
+  private client: Server;
 
   /**
    * Creates an instance of SocketIOService
@@ -55,7 +55,11 @@ export class SocketIOService implements ISocket {
    */
   constructor(driver: SocketsDriver) {
     this.driver = driver;
-    this.client = driver.client();
+    const client = driver.client();
+    if (!client || !(client instanceof Object)) {
+      throw new Error('Invalid Socket.IO client provided to SocketIOService');
+    }
+    this.client = client;
   }
 
   /**
@@ -114,7 +118,7 @@ export class SocketIOService implements ISocket {
    * ```
    */
   emitEvent(event: string, data: Record<string, unknown>): void {
-    this.client?.emit(event, data);
+    this.client.emit(event, data);
   }
 
   /**
@@ -139,7 +143,7 @@ export class SocketIOService implements ISocket {
    * ```
    */
   onEvent(event: string, handler: (data: Record<string, unknown>) => void): void {
-    this.client?.on(event, handler);
+    this.client.on(event, handler);
   }
 
   /**
@@ -156,11 +160,11 @@ export class SocketIOService implements ISocket {
    */
   async disconnect(): Promise<void> {
     // Disconnect all connected clients
-    this.client?.disconnectSockets();
+    this.client.disconnectSockets();
 
     // Close the server
     await new Promise<void>((resolve, reject) => {
-      this.client?.close((err) => {
+      this.client.close((err) => {
         if (err) {
           reject(err);
         } else {
