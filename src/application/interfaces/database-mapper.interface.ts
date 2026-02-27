@@ -15,7 +15,7 @@ export type TransactionOptions = {
  * Database mappers provide an abstraction layer for database operations using object-oriented paradigms.
  */
 export interface IDatabaseMapper extends IBaseInfrastructureService {
-  serviceName(): 'database-mapper';
+  serviceName(): 'database_mapper';
   singleton(): true;
   deferred(): false;
 
@@ -29,9 +29,9 @@ export interface IDatabaseMapper extends IBaseInfrastructureService {
   /**
    * Executes a series of database operations within a transaction, if supported by the underlying mapper
    *
-   * @param {(options: TransactionOptions) => Promise<unknown>} callback - An asynchronous function containing the database operations to execute within the transaction
-   * @returns {Promise<unknown>} The result of the transaction callback
+   * @param {(options: TransactionOptions) => Promise<T>} callback - An asynchronous function containing the database operations to execute within the transaction
+   * @returns {Promise<T>} The result of the transaction callback
    * @throws {PersistanceError} If the underlying mapper does not support transactions or if the transaction fails
    */
-  transaction(callback: (options: TransactionOptions) => Promise<unknown>): Promise<unknown>;
+  transaction<T>(callback: (options: TransactionOptions) => Promise<T>): Promise<T>;
 }

@@ -35,21 +35,26 @@ export class MongooseService implements IDatabaseMapper {
   /**
    * The underlying Mongoose client/instance used for database operations
    *
-   * @type {mongoose.Mongoose | undefined}
+   * @type {mongoose.Mongoose}
    */
-  private client: mongoose.Mongoose | undefined;
+  private client: mongoose.Mongoose;
 
   constructor(driver: MongooseDriver) {
     this.driver = driver;
+    const client = driver.client();
+    if (!client || !(client instanceof Object)) {
+      throw new PersistanceError('Invalid Mongoose client provided to MongooseService');
+    }
+    this.client = client;
   }
 
   /**
    * Get the service name for this database mapper implementation
    *
-   * @returns {'database-mapper'} The service name identifier
+   * @returns {'database_mapper'} The service name identifier
    */
-  serviceName(): 'database-mapper' {
-    return 'database-mapper';
+  serviceName(): 'database_mapper' {
+    return 'database_mapper';
   }
 
   /**
@@ -90,23 +95,17 @@ export class MongooseService implements IDatabaseMapper {
    * @throws {PersistanceError} If the service is not initialized
    */
   mapper(): mongoose.Mongoose {
-    if (!this.client) {
-      throw new PersistanceError('MongooseService not initialized. Call init() before accessing the mapper.');
-    }
     return this.client;
   }
 
   /**
    * Executes a series of database operations within a transaction, if supported by the underlying mapper
    *
-   * @param {(options: TransactionOptions) => Promise<unknown>} callback - An asynchronous function containing the database operations to execute within the transaction
-   * @returns {Promise<unknown>} The result of the transaction callback
+   * @param {(options: TransactionOptions) => Promise<T>} callback - An asynchronous function containing the database operations to execute within the transaction
+   * @returns {Promise<T>} The result of the transaction callback
    * @throws {PersistanceError} If the service is not initialized or the transaction fails
    */
-  async transaction(callback: (options: TransactionOptions) => Promise<unknown>): Promise<unknown> {
-    if (!this.client) {
-      throw new PersistanceError('MongooseService not initialized. Call init() before executing transactions.');
-    }
+  async transaction<T>(callback: (options: TransactionOptions) => Promise<T>): Promise<T> {
     const connection: Connection = this.client.connection;
     return connection.transaction(async (session) => {
       try {

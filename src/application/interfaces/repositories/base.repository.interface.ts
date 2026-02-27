@@ -15,8 +15,14 @@
 export interface IBaseRepository<DBSchema, DomainModel, NewDomainModel> {
   create: (item: NewDomainModel, session?: unknown) => Promise<DomainModel>;
   findById: (id: string, session?: unknown) => Promise<DomainModel | null>;
-  findOne: (filter: Partial<DBSchema>, session?: unknown) => Promise<DomainModel | null>;
-  find: (filter: Partial<DBSchema>, limit?: number, offset?: number, session?: unknown) => Promise<DomainModel[]>;
+  findOne: (filter: Partial<DBSchema>, sort?: Record<string, 1 | -1>, session?: unknown) => Promise<DomainModel | null>;
+  find: (
+    filter: Partial<DBSchema>,
+    limit?: number,
+    offset?: number,
+    sort?: Record<string, 1 | -1>,
+    session?: unknown,
+  ) => Promise<DomainModel[]>;
   count: (filter: Partial<DBSchema>, session?: unknown) => Promise<number>;
   update: (id: string, item: NewDomainModel, session?: unknown) => Promise<DomainModel | null>;
   delete: (id: string, session?: unknown) => Promise<void>;

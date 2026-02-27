@@ -81,14 +81,22 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
    * Find a single document matching the provided filter
    *
    * @param {Partial<DBModel>} filter Partial filter object to match documents against
+   * @param {Record<string, 1 | -1>} sort Optional sort order for the document
    * @param {mongoose.mongo.ClientSession} session Optional MongoDB session for transaction support
    * @returns {Promise<DomainModel | null>} Resolves to the found document or null if not found
    */
-  public async findOne(filter: Partial<DBModel>, session?: unknown): Promise<DomainModel | null> {
-    const model = await this.mongooseModel
-      .findOne(filter)
-      .session((session as mongoose.mongo.ClientSession) ?? null)
-      .exec();
+  public async findOne(
+    filter: Partial<DBModel>,
+    sort?: Record<string, 1 | -1>,
+    session?: unknown,
+  ): Promise<DomainModel | null> {
+    let query = this.mongooseModel.findOne(filter);
+
+    if (sort) {
+      query = query.sort(sort);
+    }
+
+    const model = await query.session((session as mongoose.mongo.ClientSession) ?? null).exec();
     if (!model) {
       return null;
     }
@@ -101,6 +109,7 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
    * @param {Partial<DBModel>} filter Partial filter object to match documents against
    * @param {number} limit Optional maximum number of documents to return
    * @param {number} offset Optional number of documents to skip (for pagination)
+   * @param {Record<string, 1 | -1>} sort Optional sort order for the documents
    * @param {mongoose.mongo.ClientSession} session Optional MongoDB session for transaction support
    * @returns {Promise<DomainModel[]>} Resolves to an array of found documents
    */
@@ -108,6 +117,7 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
     filter: Partial<DBModel>,
     limit?: number,
     offset?: number,
+    sort?: Record<string, 1 | -1>,
     session?: unknown,
   ): Promise<DomainModel[]> {
     let query = this.mongooseModel.find(filter);
@@ -118,6 +128,10 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
 
     if (limit !== undefined && limit > 0) {
       query = query.limit(limit);
+    }
+
+    if (sort) {
+      query = query.sort(sort);
     }
 
     const models = await query.session((session as mongoose.mongo.ClientSession) ?? null).exec();
