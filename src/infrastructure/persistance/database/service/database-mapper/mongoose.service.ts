@@ -114,8 +114,6 @@ export class MongooseService implements IDatabaseMapper {
         throw new PersistanceError(`Transaction failed: ${err instanceof Error ? err.message : 'Unknown error'}`, {
           cause: err,
         });
-      } finally {
-        await session.endSession();
       }
     });
   }
