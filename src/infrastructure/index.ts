@@ -17,3 +17,4 @@ export * from './email';
 export * from './notification';
 export * from './queue';
 export * from './socket';
+export * from './http';

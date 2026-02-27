@@ -12,6 +12,7 @@ import { DatabaseMapperServiceFactory } from './persistance/database/service';
 import { QueueServiceFactory } from './queue';
 import { SocketServiceFactory } from './socket/socket-service.factory';
 import { StorageServiceFactory } from './storage';
+import { HTTPClientServiceFactory } from './http';
 
 import type { IServiceFactory } from './core/interfaces/service.factory.interface';
 
@@ -26,4 +27,5 @@ export const infrastructureLoader: InfrastructureFactoryClass[] = [
   QueueServiceFactory,
   SocketServiceFactory,
   StorageServiceFactory,
+  HTTPClientServiceFactory,
 ];
