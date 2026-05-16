@@ -45,6 +45,7 @@ export class BullMQQueueService implements IQueue {
 
   /**
    * The BullMQ Queue client instance
+   *
    * @private
    * @type {Queue}
    */
@@ -179,7 +180,24 @@ export class BullMQQueueService implements IQueue {
     }
 
     const state = await job.getState();
-    return state;
+
+    // Map BullMQ JobState to application JobStatus
+    switch (state) {
+      case 'completed':
+        return 'completed';
+      case 'failed':
+        return 'failed';
+      case 'waiting':
+      case 'waiting-children':
+      case 'delayed':
+      case 'prioritized':
+        return 'pending';
+      case 'active':
+        return 'pending'; // Active jobs are considered pending from application perspective
+      case 'unknown':
+      default:
+        return 'unknown';
+    }
   }
 
   /**

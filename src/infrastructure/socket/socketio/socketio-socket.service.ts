@@ -3,6 +3,7 @@
  */
 
 import type { ISocket } from '@/application/interfaces/socket.interface';
+import { PersistanceError } from '@/infrastructure/persistance/database/erros/persistance.error';
 
 import type { SocketsDriver } from './driver/sockets.driver';
 import type { Server } from 'socket.io';
@@ -57,7 +58,7 @@ export class SocketIOService implements ISocket {
     this.driver = driver;
     const client = driver.client();
     if (!client || !(client instanceof Object)) {
-      throw new Error('Invalid Socket.IO client provided to SocketIOService');
+      throw new PersistanceError('Invalid Socket.IO client provided to SocketIOService');
     }
     this.client = client;
   }

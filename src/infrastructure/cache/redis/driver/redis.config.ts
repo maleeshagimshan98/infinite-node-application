@@ -80,25 +80,25 @@ export const redisConfig = (): IRedisConfig => {
     deferred: false,
     optional: process.env.REDIS_SERVICE_OPTIONAL === 'true',
     params: {
-      url: process.env.CACHE_SERVER_URL || 'redis://127.0.0.1:6379',
-      ttl: process.env.CACHE_TTL || '3600',
+      url: process.env.REDIS_SERVER_URL || 'redis://127.0.0.1:6379',
+      ttl: process.env.REDIS_TTL || '3600',
       // socket: {
-      //   port: Number(process.env.CACHE_SOCKET_PORT) || 6379,
-      //   host: process.env.CACHE_SOCKET_HOST || 'localhost',
-      //   family: (Number(process.env.CACHE_SOCKET_FAMILY) || 0) as 4 | 6 | 0,
-      //   path: process.env.CACHE_SOCKET_PATH || undefined,
-      //   connectTimeout: Number(process.env.CACHE_SOCKET_CONNECT_TIMEOUT) || 5000,
-      //   socketTimeout: Number(process.env.CACHE_SOCKET_TIMEOUT) || undefined,
-      //   noDelay: process.env.CACHE_SOCKET_NO_DELAY === 'true',
-      //   keepAlive: process.env.CACHE_SOCKET_KEEP_ALIVE === 'true',
-      //   keepAliveInitialDelay: Number(process.env.CACHE_SOCKET_KEEP_ALIVE_INITIAL_DELAY) || 5000,
-      //   tls: process.env.CACHE_SOCKET_TLS === 'true' ? {} : undefined,
+      //   port: Number(process.env.REDIS_SOCKET_PORT) || 6379,
+      //   host: process.env.REDIS_SOCKET_HOST || 'localhost',
+      //   family: (Number(process.env.REDIS_SOCKET_FAMILY) || 0) as 4 | 6 | 0,
+      //   path: process.env.REDIS_SOCKET_PATH || undefined,
+      //   connectTimeout: Number(process.env.REDIS_SOCKET_CONNECT_TIMEOUT) || 5000,
+      //   socketTimeout: Number(process.env.REDIS_SOCKET_TIMEOUT) || undefined,
+      //   noDelay: process.env.REDIS_SOCKET_NO_DELAY === 'true',
+      //   keepAlive: process.env.REDIS_SOCKET_KEEP_ALIVE === 'true',
+      //   keepAliveInitialDelay: Number(process.env.REDIS_SOCKET_KEEP_ALIVE_INITIAL_DELAY) || 5000,
+      //   tls: process.env.REDIS_SOCKET_TLS === 'true' ? {} : undefined,
       //   reconnectStrategy: (retries): number | Error => {
       //     const delay = Math.min(1000 * 2 ** retries, 30000);
       //     return delay;
       //   },
       // },
-      connectionTimeout: process.env.CONNECTION_TIMEOUT || '5000',
+      connectionTimeout: process.env.REDIS_CONNECTION_TIMEOUT || '5000',
     },
   };
   return config;

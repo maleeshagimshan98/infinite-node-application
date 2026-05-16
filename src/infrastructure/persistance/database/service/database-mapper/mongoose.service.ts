@@ -82,9 +82,6 @@ export class MongooseService implements IDatabaseMapper {
    * @throws {PersistanceError} If the service is not initialized
    */
   getDriver(): MongooseDriver {
-    if (!this.driver) {
-      throw new PersistanceError('MongooseService not initialized. Call init() before accessing the driver.');
-    }
     return this.driver;
   }
 
@@ -107,15 +104,18 @@ export class MongooseService implements IDatabaseMapper {
    */
   async transaction<T>(callback: (options: TransactionOptions) => Promise<T>): Promise<T> {
     const connection: Connection = this.client.connection;
-    return connection.transaction(async (session) => {
-      try {
+    try {
+      return connection.transaction(async (session) => {
         return await callback({ session });
-      } catch (err: unknown) {
-        throw new PersistanceError(`Transaction failed: ${err instanceof Error ? err.message : 'Unknown error'}`, {
+      });
+    } catch (err: unknown) {
+      throw new PersistanceError(
+        `Failed to execute transaction: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        {
           cause: err,
-        });
-      }
-    });
+        },
+      );
+    }
   }
 
   /**
