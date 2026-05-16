@@ -3,6 +3,7 @@
  */
 
 import type { IBaseRepository } from '@/application/interfaces/repositories/base.repository.interface';
+import type { TransactionOptions } from '@/application/interfaces';
 
 import type mongoose from 'mongoose';
 import type { Model, Document } from 'mongoose';
@@ -52,11 +53,16 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
    * Create a new document in the database
    *
    * @param {NewDomainModel} item
+   * @param {TransactionOptions | undefined} transactionOptions Optional MongoDB session for transaction support
    * @returns {Promise<DomainModel>}
    */
-  public async create(item: NewDomainModel, session?: unknown): Promise<DomainModel> {
+  public async create(item: NewDomainModel, transactionOptions?: TransactionOptions): Promise<DomainModel> {
     const model = new this.mongooseModel(this.mapper.toPersistence(item));
-    await model.save(session ? { session: session as mongoose.mongo.ClientSession } : undefined);
+    await model.save(
+      transactionOptions && transactionOptions.session
+        ? { session: transactionOptions.session as mongoose.mongo.ClientSession }
+        : undefined,
+    );
     return this.mapper.toDomain(model);
   }
 
@@ -64,12 +70,17 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
    * Find a document by its ID
    *
    * @param {string} id
+   * @param {TransactionOptions | undefined} transactionOptions Optional MongoDB session for transaction support
    * @returns {Promise<DomainModel | null>} Resolves to the found document or null if not found
    */
-  public async findById(id: string, session?: unknown): Promise<DomainModel | null> {
+  public async findById(id: string, transactionOptions?: TransactionOptions): Promise<DomainModel | null> {
     const model = await this.mongooseModel
       .findById(id)
-      .session((session as mongoose.mongo.ClientSession) ?? null)
+      .session(
+        transactionOptions && transactionOptions.session
+          ? (transactionOptions.session as mongoose.mongo.ClientSession)
+          : null,
+      )
       .exec();
     if (!model) {
       return null;
@@ -82,13 +93,13 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
    *
    * @param {Partial<DBModel>} filter Partial filter object to match documents against
    * @param {Record<string, 1 | -1>} sort Optional sort order for the document
-   * @param {mongoose.mongo.ClientSession} session Optional MongoDB session for transaction support
+   * @param {TransactionOptions | undefined} transactionOptions Optional MongoDB session for transaction support
    * @returns {Promise<DomainModel | null>} Resolves to the found document or null if not found
    */
   public async findOne(
     filter: Partial<DBModel>,
     sort?: Record<string, 1 | -1>,
-    session?: unknown,
+    transactionOptions?: TransactionOptions,
   ): Promise<DomainModel | null> {
     let query = this.mongooseModel.findOne(filter);
 
@@ -96,7 +107,11 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
       query = query.sort(sort);
     }
 
-    const model = await query.session((session as mongoose.mongo.ClientSession) ?? null).exec();
+    if (transactionOptions && transactionOptions.session) {
+      query = query.session(transactionOptions.session as mongoose.mongo.ClientSession);
+    }
+
+    const model = await query.exec();
     if (!model) {
       return null;
     }
@@ -107,10 +122,10 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
    * Find all documents matching the provided filter
    *
    * @param {Partial<DBModel>} filter Partial filter object to match documents against
-   * @param {number} limit Optional maximum number of documents to return
-   * @param {number} offset Optional number of documents to skip (for pagination)
-   * @param {Record<string, 1 | -1>} sort Optional sort order for the documents
-   * @param {mongoose.mongo.ClientSession} session Optional MongoDB session for transaction support
+   * @param {number | undefined} limit Optional maximum number of documents to return
+   * @param {number | undefined} offset Optional number of documents to skip (for pagination)
+   * @param {Record<string, 1 | -1> | undefined} sort Optional sort order for the documents
+   * @param {TransactionOptions | undefined} transactionOptions Optional MongoDB session for transaction support
    * @returns {Promise<DomainModel[]>} Resolves to an array of found documents
    */
   public async find(
@@ -118,7 +133,7 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
     limit?: number,
     offset?: number,
     sort?: Record<string, 1 | -1>,
-    session?: unknown,
+    transactionOptions?: TransactionOptions,
   ): Promise<DomainModel[]> {
     let query = this.mongooseModel.find(filter);
 
@@ -134,7 +149,11 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
       query = query.sort(sort);
     }
 
-    const models = await query.session((session as mongoose.mongo.ClientSession) ?? null).exec();
+    if (transactionOptions && transactionOptions.session) {
+      query = query.session(transactionOptions.session as mongoose.mongo.ClientSession);
+    }
+
+    const models = await query.exec();
     return models.map((model) => this.mapper.toDomain(model));
   }
 
@@ -142,28 +161,38 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
    * Count documents matching the provided filter
    *
    * @param {Partial<DBModel>} filter Partial filter object to match documents against
-   * @param {mongoose.mongo.ClientSession} session Optional MongoDB session for transaction support
+   * @param {TransactionOptions | undefined} transactionOptions Optional MongoDB session for transaction support
    * @returns {Promise<number>} Resolves to the count of matching documents
    */
-  public async count(filter: Partial<DBModel>, session?: unknown): Promise<number> {
+  public async count(filter: Partial<DBModel>, transactionOptions?: TransactionOptions): Promise<number> {
     return await this.mongooseModel
       .countDocuments(filter)
-      .session((session as mongoose.mongo.ClientSession) ?? null)
+      .session(
+        transactionOptions && transactionOptions.session
+          ? (transactionOptions.session as mongoose.mongo.ClientSession)
+          : null,
+      )
       .exec();
   }
 
   /**
    * Update a document by its ID with the provided partial item data
    *
-   * @param {string} id
-   * @param {NewDomainModel} item
+   * @param {string} id - The ID of the document to update
+   * @param {NewDomainModel} item - The partial data to update the document with
+   * @param {TransactionOptions | undefined} transactionOptions - Optional MongoDB session for transaction support
    * @returns {Promise<DomainModel>} Resolves to the updated document
+   * @throws {Error} If no document with the given ID is found
    */
-  public async update(id: string, item: NewDomainModel, session?: unknown): Promise<DomainModel> {
+  public async update(id: string, item: NewDomainModel, transactionOptions?: TransactionOptions): Promise<DomainModel> {
     const persistenceData = this.mapper.toPersistence(item);
     const model = await this.mongooseModel
       .findByIdAndUpdate(id, { $set: persistenceData as unknown as Record<string, unknown> }, { new: true })
-      .session((session as mongoose.mongo.ClientSession) ?? null)
+      .session(
+        transactionOptions && transactionOptions.session
+          ? (transactionOptions.session as mongoose.mongo.ClientSession)
+          : null,
+      )
       .exec();
     if (!model) {
       //... throw specific error class
@@ -176,12 +205,17 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
    * Delete a document by its ID
    *
    * @param {string} id
+   * @param {TransactionOptions | undefined} transactionOptions Optional MongoDB session for transaction support
    * @returns {Promise<void>} Resolves when the document is deleted
    */
-  public async delete(id: string, session?: unknown): Promise<void> {
+  public async delete(id: string, transactionOptions?: TransactionOptions): Promise<void> {
     await this.mongooseModel
       .findByIdAndDelete(id)
-      .session((session as mongoose.mongo.ClientSession) ?? null)
+      .session(
+        transactionOptions && transactionOptions.session
+          ? (transactionOptions.session as mongoose.mongo.ClientSession)
+          : null,
+      )
       .exec();
   }
 }
