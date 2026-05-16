@@ -13,6 +13,7 @@ import type { LoginRecord } from '@/domain/auth/models/login-record';
 import type { UserRepository } from '@/infrastructure/persistance/database/repositories/mongoose/user/user.repository';
 import type { PasswordResetCodeRepository } from '@/infrastructure/persistance/database/repositories/mongoose/auth/password-reset-code.repository';
 import type { LoginRecordRepository } from '@/infrastructure/persistance/database/repositories/mongoose/auth/login-record.repository';
+import type { TransactionOptions } from '@/application/interfaces/database-mapper.interface';
 
 export class AccountRecoveryService extends BaseDomainService {
   /**
@@ -61,15 +62,22 @@ export class AccountRecoveryService extends BaseDomainService {
    * Cancel all old reset codes for a user
    *
    * @param {string} email - User email
+   * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
    * @returns {Promise<void>}
    */
-  async cancelOldResetCodes(email: string): Promise<void> {
-    const resetCodes: PasswordResetCode[] = await this.passwordResetCodeRepository.find({ email });
+  async cancelOldResetCodes(email: string, transactionOptions?: TransactionOptions): Promise<void> {
+    const resetCodes: PasswordResetCode[] = await this.passwordResetCodeRepository.find(
+      { email },
+      undefined,
+      undefined,
+      {},
+      transactionOptions,
+    );
     // TODO: Should use a transaction or bulkWrite
     await Promise.all(
       resetCodes.map(async (resetCode) => {
         resetCode.status = 'cancelled';
-        await this.passwordResetCodeRepository.update(resetCode.id, resetCode);
+        await this.passwordResetCodeRepository.update(resetCode.id, resetCode, transactionOptions);
       }),
     );
   }
@@ -87,17 +95,18 @@ export class AccountRecoveryService extends BaseDomainService {
    * Initiate password reset process
    *
    * @param {string} email - User email
+   * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
    * @returns {Promise<void>}
    * @throws {DomainServiceError} NOT_FOUND if user doesn't exist
    */
-  async forgotPassword(email: string): Promise<void> {
+  async forgotPassword(email: string, transactionOptions?: TransactionOptions): Promise<void> {
     const user = await this.getUserByEmail(email);
 
     if (!user) {
       throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'NOT_FOUND');
     }
 
-    await this.cancelOldResetCodes(email);
+    await this.cancelOldResetCodes(email, transactionOptions);
 
     const passwordResetCode = new NewPasswordResetCode({
       email: email,
@@ -106,7 +115,7 @@ export class AccountRecoveryService extends BaseDomainService {
       status: 'active',
     });
 
-    await this.passwordResetCodeRepository.create(passwordResetCode);
+    await this.passwordResetCodeRepository.create(passwordResetCode, transactionOptions);
   }
 
   /**
@@ -115,15 +124,25 @@ export class AccountRecoveryService extends BaseDomainService {
    * @param {string} email - User email
    * @param {string} verificationCode - Password reset verification code
    * @param {string} newPassword - New password
+   * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
    * @returns {Promise<void>}
    * @throws {DomainServiceError} NOT_FOUND if reset code or user doesn't exist
    */
-  async resetPassword(email: string, verificationCode: string, newPassword: string): Promise<void> {
-    const passwordResetCode = await this.passwordResetCodeRepository.findOne({
-      email: email,
-      code: verificationCode,
-      status: 'active',
-    });
+  async resetPassword(
+    email: string,
+    verificationCode: string,
+    newPassword: string,
+    transactionOptions?: TransactionOptions,
+  ): Promise<void> {
+    const passwordResetCode = await this.passwordResetCodeRepository.findOne(
+      {
+        email: email,
+        code: verificationCode,
+        status: 'active',
+      },
+      {},
+      transactionOptions,
+    );
 
     if (!passwordResetCode) {
       throw new DomainServiceError(
@@ -143,18 +162,22 @@ export class AccountRecoveryService extends BaseDomainService {
     user.password = hashedPassword;
     passwordResetCode.status = 'used';
 
-    await this.passwordResetCodeRepository.update(passwordResetCode.id, passwordResetCode);
-    await this.userRepository.update(user.id, user);
+    await this.passwordResetCodeRepository.update(passwordResetCode.id, passwordResetCode, transactionOptions);
+    await this.userRepository.update(user.id, user, transactionOptions);
 
     // TODO: Find all and modify all of the login records
-    const loginRecord: LoginRecord | null = await this.loginRecordRepository.findOne({
-      user_id: user.id,
-      status: 'active',
-    });
+    const loginRecord: LoginRecord | null = await this.loginRecordRepository.findOne(
+      {
+        user_id: user.id,
+        status: 'active',
+      },
+      {},
+      transactionOptions,
+    );
 
     if (loginRecord) {
       loginRecord.status = 'cancelled';
-      await this.loginRecordRepository.update(loginRecord.id, loginRecord);
+      await this.loginRecordRepository.update(loginRecord.id, loginRecord, transactionOptions);
     }
   }
 }

@@ -12,6 +12,7 @@ import type { CustomerGroupRepository } from '@/infrastructure/persistance/datab
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import type { INewUser } from '@/domain/user/models/user';
+import type { TransactionOptions } from '@/application/interfaces/database-mapper.interface';
 
 export class SignupService extends BaseDomainService {
   /**
@@ -57,10 +58,11 @@ export class SignupService extends BaseDomainService {
    * Register a new user
    *
    * @param {INewUser} userData - User registration data
+   * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
    * @returns {Promise<{ id: string; status: string }>}
    * @throws {DomainServiceError}
    */
-  async register(userData: INewUser): Promise<{ id: string; status: string }> {
+  async register(userData: INewUser, transactionOptions?: TransactionOptions): Promise<{ id: string; status: string }> {
     // Check if user already exists
     const existingUser = await this.getUserByEmail(userData.email);
 
@@ -85,7 +87,7 @@ export class SignupService extends BaseDomainService {
     });
 
     // Create new user
-    const createdUser = await this.userRepository.create(newUser);
+    const createdUser = await this.userRepository.create(newUser, transactionOptions);
 
     return {
       id: createdUser.id,
@@ -97,10 +99,11 @@ export class SignupService extends BaseDomainService {
    * Verify user email and activate account
    *
    * @param {string} email - User email
+   * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
    * @returns {Promise<void>}
    * @throws {DomainServiceError}
    */
-  async verifyEmail(email: string): Promise<void> {
+  async verifyEmail(email: string, transactionOptions?: TransactionOptions): Promise<void> {
     const user: User | null = await this.getUserByEmail(email);
 
     if (!user) {
@@ -108,7 +111,7 @@ export class SignupService extends BaseDomainService {
     }
 
     user.status = 'active';
-    await this.userRepository.update(user.id, user);
+    await this.userRepository.update(user.id, user, transactionOptions);
   }
 }
 

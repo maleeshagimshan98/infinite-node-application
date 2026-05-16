@@ -11,6 +11,7 @@ import type { User } from '@/domain/user/models/user';
 import { ErrorResponseMessages } from '@/app/core/utils/error-response-messages';
 import type { UserRepository } from '@/infrastructure/persistance/database/repositories/mongoose/user/user.repository';
 import type { LoginRecordRepository } from '@/infrastructure/persistance/database/repositories/mongoose/auth/login-record.repository';
+import type { TransactionOptions } from '@/application/interfaces/database-mapper.interface';
 
 export class LoginService extends BaseDomainService {
   private userRepository: UserRepository;
@@ -55,10 +56,11 @@ export class LoginService extends BaseDomainService {
    * Validate authentication token and return user data
    *
    * @param {string} token - The authentication token
+   * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
    * @returns {Promise<{ id: string; status: string }>}
    * @throws {DomainServiceError}
    */
-  async validateToken(token: string): Promise<{ id: string; status: string }> {
+  async validateToken(token: string, transactionOptions?: TransactionOptions): Promise<{ id: string; status: string }> {
     if (!token) {
       throw new DomainServiceError(ErrorResponseMessages.NO_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
     }
@@ -75,7 +77,7 @@ export class LoginService extends BaseDomainService {
 
     if (loginRecord.valid_till < new Date(new Date().getTime())) {
       loginRecord.status = 'expired';
-      await this.loginRecordRepository.update(loginRecord.id, loginRecord);
+      await this.loginRecordRepository.update(loginRecord.id, loginRecord, transactionOptions);
       throw new DomainServiceError(ErrorResponseMessages.EXPIRED_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
     }
 
@@ -96,10 +98,15 @@ export class LoginService extends BaseDomainService {
    *
    * @param {string} email - User email
    * @param {string} password - User password
+   * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
    * @returns {Promise<{ id: string; status: string; token: string }>}
    * @throws {DomainServiceError}
    */
-  async login(email: string, password: string): Promise<{ id: string; status: string; token: string }> {
+  async login(
+    email: string,
+    password: string,
+    transactionOptions?: TransactionOptions,
+  ): Promise<{ id: string; status: string; token: string }> {
     const user = await this.userRepository.findOne({ email });
 
     if (!user) {
@@ -119,7 +126,7 @@ export class LoginService extends BaseDomainService {
       status: 'active',
     });
 
-    const createdLoginRecord = await this.loginRecordRepository.create(loginRecord);
+    const createdLoginRecord = await this.loginRecordRepository.create(loginRecord, transactionOptions);
 
     return {
       id: user.id,
@@ -132,10 +139,11 @@ export class LoginService extends BaseDomainService {
    * Logout user by invalidating authentication token
    *
    * @param {string} token - The authentication token
+   * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
    * @returns {Promise<void>}
    * @throws {DomainServiceError}
    */
-  async logout(token: string): Promise<void> {
+  async logout(token: string, transactionOptions?: TransactionOptions): Promise<void> {
     if (!token) {
       throw new DomainServiceError(ErrorResponseMessages.NO_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
     }
@@ -147,7 +155,7 @@ export class LoginService extends BaseDomainService {
     }
 
     loginRecord.status = 'cancelled';
-    await this.loginRecordRepository.update(loginRecord.id, loginRecord);
+    await this.loginRecordRepository.update(loginRecord.id, loginRecord, transactionOptions);
   }
 }
 

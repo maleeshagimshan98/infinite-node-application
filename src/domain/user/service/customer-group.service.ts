@@ -9,6 +9,7 @@ import type { UserRepository } from '@/infrastructure/persistance/database/repos
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import type { INewCustomerGroup } from '@/domain/user/models/customer-group';
+import type { TransactionOptions } from '@/application/interfaces/database-mapper.interface';
 
 /**
  * Customer Group Service
@@ -83,10 +84,14 @@ export class CustomerGroupService extends BaseDomainService {
    * Create a new customer group
    *
    * @param {INewCustomerGroup} groupData - Customer group data
+   * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
    * @returns {Promise<{ id: string; name: string }>}
    * @throws {DomainServiceError}
    */
-  async create(groupData: INewCustomerGroup): Promise<{ id: string; name: string }> {
+  async create(
+    groupData: INewCustomerGroup,
+    transactionOptions?: TransactionOptions,
+  ): Promise<{ id: string; name: string }> {
     // Check if group with same name already exists
     const existingGroup = await this.getByName(groupData.name);
 
@@ -110,7 +115,7 @@ export class CustomerGroupService extends BaseDomainService {
 
     // Create new customer group
     const newGroup = new NewCustomerGroup(groupData);
-    const createdGroup = await this.customerGroupRepository.create(newGroup);
+    const createdGroup = await this.customerGroupRepository.create(newGroup, transactionOptions);
 
     return {
       id: createdGroup.id,
@@ -123,10 +128,15 @@ export class CustomerGroupService extends BaseDomainService {
    *
    * @param {string} id - Customer group ID
    * @param {Partial<INewCustomerGroup>} updateData - Data to update
+   * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
    * @returns {Promise<{ id: string; name: string }>}
    * @throws {DomainServiceError}
    */
-  async update(id: string, updateData: Partial<INewCustomerGroup>): Promise<{ id: string; name: string }> {
+  async update(
+    id: string,
+    updateData: Partial<INewCustomerGroup>,
+    transactionOptions?: TransactionOptions,
+  ): Promise<{ id: string; name: string }> {
     // Get existing group
     const existingGroup = await this.getById(id);
 
@@ -150,13 +160,13 @@ export class CustomerGroupService extends BaseDomainService {
       const currentDefault = await this.getDefaultGroup();
       if (currentDefault && currentDefault.id !== id) {
         currentDefault.default = false;
-        await this.customerGroupRepository.update(currentDefault.id, currentDefault);
+        await this.customerGroupRepository.update(currentDefault.id, currentDefault, transactionOptions);
       }
     }
 
     // Update the group
     Object.assign(existingGroup, updateData);
-    await this.customerGroupRepository.update(id, existingGroup);
+    await this.customerGroupRepository.update(id, existingGroup, transactionOptions);
 
     return {
       id: existingGroup.id,
@@ -168,10 +178,11 @@ export class CustomerGroupService extends BaseDomainService {
    * Delete a customer group
    *
    * @param {string} id - Customer group ID
+   * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
    * @returns {Promise<void>}
    * @throws {DomainServiceError}
    */
-  async delete(id: string): Promise<void> {
+  async delete(id: string, transactionOptions?: TransactionOptions): Promise<void> {
     // Get the group
     const group = await this.getById(id);
 
@@ -198,17 +209,18 @@ export class CustomerGroupService extends BaseDomainService {
     }
 
     // Delete the group
-    await this.customerGroupRepository.delete(id);
+    await this.customerGroupRepository.delete(id, transactionOptions);
   }
 
   /**
    * Set a customer group as default (and unset others)
    *
    * @param {string} id - Customer group ID to set as default
+   * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
    * @returns {Promise<{ id: string; name: string }>}
    * @throws {DomainServiceError}
    */
-  async setAsDefault(id: string): Promise<{ id: string; name: string }> {
+  async setAsDefault(id: string, transactionOptions?: TransactionOptions): Promise<{ id: string; name: string }> {
     // Get the group
     const group = await this.getById(id);
 
@@ -228,12 +240,12 @@ export class CustomerGroupService extends BaseDomainService {
     const currentDefault = await this.getDefaultGroup();
     if (currentDefault) {
       currentDefault.default = false;
-      await this.customerGroupRepository.update(currentDefault.id, currentDefault);
+      await this.customerGroupRepository.update(currentDefault.id, currentDefault, transactionOptions);
     }
 
     // Set new default
     group.default = true;
-    await this.customerGroupRepository.update(group.id, group);
+    await this.customerGroupRepository.update(group.id, group, transactionOptions);
 
     return {
       id: group.id,
