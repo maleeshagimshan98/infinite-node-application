@@ -2,6 +2,8 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import { DomainEntity } from '../../base/DomainEntity';
+
 export interface INewCustomerGroup {
   id?: string;
   name: string;
@@ -14,7 +16,7 @@ export interface ICustomerGroup extends INewCustomerGroup {
   id: string;
 }
 
-export class NewCustomerGroup {
+export class NewCustomerGroup extends DomainEntity {
   protected _id?: string;
   protected _name: string;
   protected _description: string;
@@ -22,6 +24,7 @@ export class NewCustomerGroup {
   protected _default: boolean;
 
   constructor(data: INewCustomerGroup) {
+    super();
     if (data.id) {
       this._id = data.id;
     }

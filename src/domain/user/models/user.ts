@@ -2,6 +2,8 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import { DomainEntity } from '../../base/DomainEntity';
+
 type UserStatus = 'pending_verification' | 'active' | 'suspended';
 
 export interface INewUser {
@@ -16,7 +18,7 @@ export interface IUser extends INewUser {
   id: string;
 }
 
-export class NewUser {
+export class NewUser extends DomainEntity {
   protected _id?: string;
   protected _email: string;
   protected _password: string;
@@ -24,6 +26,7 @@ export class NewUser {
   protected _cg_id: string;
 
   constructor(data: INewUser) {
+    super();
     if (data.id) {
       this._id = data.id;
     }

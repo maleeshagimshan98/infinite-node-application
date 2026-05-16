@@ -2,6 +2,8 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import { DomainEntity } from '../../base/DomainEntity';
+
 type LoginRecordStatus = 'active' | 'cancelled' | 'expired';
 
 export interface INewLoginRecord {
@@ -16,7 +18,7 @@ export interface ILoginRecord extends INewLoginRecord {
   id: string;
 }
 
-export class NewLoginRecord {
+export class NewLoginRecord extends DomainEntity {
   protected _id?: string;
   protected _user_id: string;
   protected _token: string;
@@ -24,6 +26,7 @@ export class NewLoginRecord {
   protected _status: LoginRecordStatus;
 
   constructor(data: INewLoginRecord) {
+    super();
     if (data.id) {
       this._id = data.id;
     }

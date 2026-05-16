@@ -2,6 +2,8 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import { DomainEntity } from '../../base/DomainEntity';
+
 type PasswordResetCodeStatus = 'active' | 'used' | 'cancelled' | 'expired';
 
 export interface INewPasswordResetCode {
@@ -16,7 +18,7 @@ export interface IPasswordResetCode extends INewPasswordResetCode {
   id: string;
 }
 
-export class NewPasswordResetCode {
+export class NewPasswordResetCode extends DomainEntity {
   protected _id?: string;
   protected _email: string;
   protected _code: string;
@@ -24,6 +26,7 @@ export class NewPasswordResetCode {
   protected _status: PasswordResetCodeStatus;
 
   constructor(data: INewPasswordResetCode) {
+    super();
     if (data.id) {
       this._id = data.id;
     }
