@@ -18,3 +18,4 @@ export * from './queue.interface';
 export * from './socket.interface';
 export * from './db.interface';
 export * from './database-mapper.interface';
+export * from './http-client.interface';
