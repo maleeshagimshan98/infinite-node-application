@@ -132,7 +132,7 @@ export async function clearAllSeeders(): Promise<void> {
 async function main(): Promise<void> {
   process.env.NODE_ENV = process.env.NODE_ENV || 'development';
   dotenv.config({
-    path: path.resolve(__dirname, `../../.env.${process.env.NODE_ENV}`),
+    path: path.resolve(__dirname, `../../../../../.env.${process.env.NODE_ENV}`),
   });
   dotenv.config(); // Load environment variables from .env file
   // Get command line arguments passed to ts-node
