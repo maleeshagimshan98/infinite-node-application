@@ -13,10 +13,10 @@ export class BaseApplicationService {
   /**
    * Executes a series of database operations within a transaction, if supported by the underlying mapper
    *
-   * @param {(options: TransactionOptions) => Promise<unknown>} callback
-   * @returns {Promise<unknown>}
+   * @param {(options: TransactionOptions) => Promise<T>} callback
+   * @returns {Promise<T>}
    */
-  async dbTransaction(callback: (options: TransactionOptions) => Promise<unknown>): Promise<unknown> {
+  async dbTransaction<T>(callback: (options: TransactionOptions) => Promise<T>): Promise<T> {
     return await this.databaseMapperService.transaction(({ session }) => {
       return callback({ session });
     });
