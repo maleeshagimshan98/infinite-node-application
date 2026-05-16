@@ -33,9 +33,13 @@ import type { ShutdownManager } from './core/shutdown/shutdown.manager';
 
 const debugLog = debug('server:server');
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
-dotenv.config({
-  path: path.resolve(__dirname, `../../.env.${process.env.NODE_ENV}`),
-});
+if (process.env.NODE_ENV !== 'production') {
+  const envPath = path.resolve(__dirname, `../../.env.${process.env.NODE_ENV}`);
+  dotenv.config({
+    path: envPath,
+    override: false,
+  });
+}
 
 const config: INodeApplicationConfig = configLoader();
 

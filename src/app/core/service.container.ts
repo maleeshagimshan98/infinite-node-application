@@ -34,16 +34,20 @@ export const registerService = (name: string, type: string, service: unknown): v
  * @returns {void}
  */
 export const autoRegisterApplicationComponents = (): void => {
+  // Determine if we're running from compiled (dist) or source (src)
+  const isCompiledCode = __dirname.includes('dist');
+  const baseDir = isCompiledCode ? 'dist' : 'src';
+
   container.loadModules(
     [
       // Application layer services
-      'src/application/services/**/*.service.{ts,js}',
+      `${baseDir}/application/services/**/*.service.{ts,js}`,
       // Domain services
-      'src/domain/**/service/*.service.{ts,js}',
+      `${baseDir}/domain/**/service/*.service.{ts,js}`,
       // Repositories
-      'src/infrastructure/persistance/database/repositories/**/*.repository.{ts,js}',
+      `${baseDir}/infrastructure/persistance/database/repositories/**/*.repository.{ts,js}`,
       // HTTP Controllers
-      'src/presentation/http/controllers/**/*.controller.{ts,js}',
+      `${baseDir}/presentation/http/controllers/**/*.controller.{ts,js}`,
     ],
     {
       formatName: 'camelCase', // UserService → userService
