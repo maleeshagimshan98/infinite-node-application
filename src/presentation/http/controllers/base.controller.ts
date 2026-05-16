@@ -46,11 +46,14 @@ class BaseController {
     if (serviceException.type === 'VALIDATION_ERROR') {
       return ApiResponseUtils.apiErrorResponse(400, serviceException.message, serviceException.data);
     }
+    if (serviceException.type === 'INVALID_OPERATION') {
+      return ApiResponseUtils.apiErrorResponse(400, serviceException.message, serviceException.data);
+    }
     if (serviceException.type === 'INCOMPLETE_MODEL') {
       return ApiResponseUtils.apiErrorResponse(400, serviceException.message);
     }
     if (serviceException.type === 'UNKNOWN_ERROR') {
-      return ApiResponseUtils.apiErrorResponse(500, serviceException.message);
+      return ApiResponseUtils.apiErrorResponse(500, serviceException.message, serviceException.data);
     }
     return ApiResponseUtils.apiErrorResponse(500, 'An unknown error occurred.');
   }
