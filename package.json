@@ -4,7 +4,11 @@
   "private": true,
   "scripts": {
     "start": "node dist/index.js",
+    "worker:start": "node dist/worker.js",
+    "start:all": "pm2 start ecosystem.config.js",
     "dev": "tsx watch ./src/index.ts",
+    "worker:dev": "tsx watch ./src/worker.ts",
+    "dev:all": "pm2 start ecosystem.config.js --env development",
     "test": "jest",
     "lint": "eslint src --ext .js,.ts",
     "lint:fix": "eslint src --ext .js,.ts --fix",
@@ -45,6 +49,7 @@
     "rate-limit-redis": "^4.2.2",
     "redis": "^5.6.1",
     "socket.io": "^4.8.1",
+    "stream-json": "^2.1.0",
     "winston": "^3.17.0",
     "winston-daily-rotate-file": "^5.0.0"
   },
