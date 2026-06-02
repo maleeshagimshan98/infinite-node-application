@@ -66,7 +66,7 @@ export class EmailServiceFactory implements IServiceFactory<IEmail> {
       //   return new MailgunEmailService();
 
       default:
-        throw new InfrastructureError(`Unsupported email type: ${emailType}`);
+        throw new InfrastructureError(`Unsupported email type: ${emailType}`, 'DRIVER_ERROR');
     }
   }
 }

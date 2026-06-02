@@ -3,6 +3,7 @@
  */
 
 import type { ICoreDriver } from '@/infrastructure/core/driver/core.driver';
+import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 import type { IInMemoryNotificationConfig } from './in-memory-notification.config';
 
@@ -67,8 +68,9 @@ export class InMemoryNotificationDriver implements ICoreDriver<unknown, IInMemor
         console.log('[InMemoryNotificationDriver] Initialized with config:', this._config);
       }
     } catch (err: unknown) {
-      throw new Error(
+      throw new InfrastructureError(
         `Failed to initialize InMemoryNotificationDriver: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        'DRIVER_ERROR',
       );
     }
   }

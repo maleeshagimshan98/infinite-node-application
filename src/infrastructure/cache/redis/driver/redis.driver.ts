@@ -33,7 +33,7 @@ export class RedisDriver implements ICoreDriver<RedisClientType, IRedisConfig> {
     this._client = createClient(this._config.params);
     //... TODO - check error types and see what can you do to handle them properly
     this._client.on('error', (err: Error) => {
-      throw new InfrastructureError(`Redis client error: ${err.message}`);
+      throw new InfrastructureError(`Redis client error: ${err.message}`, 'CONNECTION_ERROR');
     });
     await this._client.connect();
   }

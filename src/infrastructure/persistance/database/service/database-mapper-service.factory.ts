@@ -68,7 +68,7 @@ export class DatabaseMapperServiceFactory implements IServiceFactory<IDatabaseMa
   async create(): Promise<IDatabaseMapper> {
     const envDriver = process.env.DATABASE_MAPPER_DRIVER || 'mongoose';
     if (!this.isValidDatabaseMapperDriver(envDriver)) {
-      throw new InfrastructureError(`Invalid database mapper driver: ${envDriver}`);
+      throw new InfrastructureError(`Invalid database mapper driver: ${envDriver}`, 'DRIVER_ERROR');
     }
     const driver: DatabaseMapperDriverType = envDriver;
     switch (driver) {
@@ -76,16 +76,16 @@ export class DatabaseMapperServiceFactory implements IServiceFactory<IDatabaseMa
         return this.createMongooseService();
 
       case 'sequelize':
-        throw new InfrastructureError('Sequelize ORM service not yet implemented');
+        throw new InfrastructureError('Sequelize ORM service not yet implemented', 'DRIVER_ERROR');
 
       case 'typeorm':
-        throw new InfrastructureError('TypeORM service not yet implemented');
+        throw new InfrastructureError('TypeORM service not yet implemented', 'DRIVER_ERROR');
 
       case 'prisma':
-        throw new InfrastructureError('Prisma ORM service not yet implemented');
+        throw new InfrastructureError('Prisma ORM service not yet implemented', 'DRIVER_ERROR');
 
       default:
-        throw new InfrastructureError(`Unsupported ORM driver: ${driver}`);
+        throw new InfrastructureError(`Unsupported ORM driver: ${driver}`, 'DRIVER_ERROR');
     }
   }
 }

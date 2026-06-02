@@ -169,7 +169,10 @@ export class HTTPClientService implements IHTTPClient {
 
     const response = await axios(axiosConfig).catch((e: unknown) => {
       const errorMessage = e instanceof Error ? e.message : String(e);
-      throw new InfrastructureError(`Network request failed: ${config.method} ${config.url} - ${errorMessage}`);
+      throw new InfrastructureError(
+        `Network request failed: ${config.method} ${config.url} - ${errorMessage}`,
+        'NETWORK_ERROR',
+      );
     });
 
     return new APIResponse(

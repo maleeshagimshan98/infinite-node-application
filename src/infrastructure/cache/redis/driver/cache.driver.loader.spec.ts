@@ -87,7 +87,7 @@ describe('redisDriverLoader', () => {
   });
 
   it('should propagate errors from driver initialization', async () => {
-    const initError = new InfrastructureError('Connection failed');
+    const initError = new InfrastructureError('Connection failed', 'CONNECTION_ERROR');
     mockDriver.init.mockRejectedValue(initError);
 
     await expect(redisDriverLoader()).rejects.toThrow(InfrastructureError);
@@ -95,7 +95,7 @@ describe('redisDriverLoader', () => {
   });
 
   it('should propagate errors from driver construction', async () => {
-    const constructionError = new InfrastructureError('Invalid configuration');
+    const constructionError = new InfrastructureError('Invalid configuration', 'DRIVER_ERROR');
     MockedRedisDriver.mockImplementation(() => {
       throw constructionError;
     });

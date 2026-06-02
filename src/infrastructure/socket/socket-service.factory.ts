@@ -59,7 +59,7 @@ export class SocketServiceFactory implements IServiceFactory<ISocket> {
       //   return this.createPusherService(driver as PusherClient);
 
       default:
-        throw new InfrastructureError(`Unsupported socket type: ${socketType}`);
+        throw new InfrastructureError(`Unsupported socket type: ${socketType}`, 'SOCKET_ERROR');
     }
   }
 }

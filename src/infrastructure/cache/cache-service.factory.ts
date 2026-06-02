@@ -40,7 +40,7 @@ export class CacheServiceFactory implements IServiceFactory<ICache> {
     const envDriver = process.env.CACHE_DRIVER || 'redis';
 
     if (!this.isCacheDriverType(envDriver)) {
-      throw new InfrastructureError(`Invalid cache driver: ${envDriver}`);
+      throw new InfrastructureError(`Invalid cache driver: ${envDriver}`, 'DRIVER_ERROR');
     }
     const driverType: CacheDriverType = envDriver;
     switch (driverType) {
@@ -48,13 +48,13 @@ export class CacheServiceFactory implements IServiceFactory<ICache> {
         return this.createRedisCacheService();
 
       case 'memcached':
-        throw new InfrastructureError('Memcached cache service not yet implemented');
+        throw new InfrastructureError('Memcached cache service not yet implemented', 'DRIVER_ERROR');
 
       case 'inmemory':
-        throw new InfrastructureError('In-memory cache service not yet implemented');
+        throw new InfrastructureError('In-memory cache service not yet implemented', 'DRIVER_ERROR');
 
       default:
-        throw new InfrastructureError(`Unsupported cache driver: ${driverType}`);
+        throw new InfrastructureError(`Unsupported cache driver: ${driverType}`, 'DRIVER_ERROR');
     }
   }
 }

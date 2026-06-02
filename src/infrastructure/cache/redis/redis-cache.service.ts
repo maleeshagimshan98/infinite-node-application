@@ -3,6 +3,7 @@
  */
 
 import type { ICache } from '@/application/interfaces/cache.interface';
+import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 import type { RedisDriver } from './driver/redis.driver';
 import type { RedisClientType } from 'redis';
@@ -30,7 +31,7 @@ export class RedisCacheService implements ICache {
     this.driver = driver;
     const redisClient = this.driver.client();
     if (!redisClient || !(redisClient instanceof Object)) {
-      throw new Error('Invalid Redis client provided to RedisCacheService');
+      throw new InfrastructureError('Invalid Redis client provided to RedisCacheService', 'CONNECTION_ERROR');
     }
     this.redisClient = redisClient;
   }
