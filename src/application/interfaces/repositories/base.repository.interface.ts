@@ -20,6 +20,7 @@ export type RepositryFilter = {
  */
 export interface IBaseRepository<DBSchema, DomainModel, NewDomainModel> {
   create: (item: NewDomainModel, transactionOptions?: TransactionOptions) => Promise<DomainModel>;
+  bulkCreate: (items: NewDomainModel[], transactionOptions?: TransactionOptions) => Promise<DomainModel[]>;
   findById: (id: string, transactionOptions?: TransactionOptions) => Promise<DomainModel | null>;
   findOne: (
     filter: Partial<DBSchema>,

@@ -67,6 +67,24 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
   }
 
   /**
+   * Create multiple documents in the database
+   *
+   * @param {NewDomainModel[]} items
+   * @param {TransactionOptions | undefined} transactionOptions Optional MongoDB session for transaction support
+   * @returns {Promise<DomainModel[]>}
+   */
+  public async bulkCreate(items: NewDomainModel[], transactionOptions?: TransactionOptions): Promise<DomainModel[]> {
+    const models = items.map((item) => new this.mongooseModel(this.mapper.toPersistence(item)));
+    await this.mongooseModel.insertMany(
+      models,
+      transactionOptions && transactionOptions.session
+        ? { session: transactionOptions.session as mongoose.mongo.ClientSession }
+        : { ordered: true, rawResult: false },
+    );
+    return models.map((model) => this.mapper.toDomain(model));
+  }
+
+  /**
    * Find a document by its ID
    *
    * @param {string} id

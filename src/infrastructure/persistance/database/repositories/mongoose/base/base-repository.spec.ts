@@ -125,6 +125,111 @@ describe('BaseRepository', () => {
     });
   });
 
+  describe('bulkCreate', () => {
+    it('should create multiple documents in the database', async () => {
+      // Arrange
+      const newUsers = [
+        new NewUser({ email: 'bulk1@example.com', password: 'pass1', status: 'active', cg_id: 'cg-1' }),
+        new NewUser({ email: 'bulk2@example.com', password: 'pass2', status: 'pending_verification', cg_id: 'cg-2' }),
+        new NewUser({ email: 'bulk3@example.com', password: 'pass3', status: 'suspended', cg_id: 'cg-3' }),
+      ];
+
+      // Act
+      const createdUsers = await userRepository.bulkCreate(newUsers);
+
+      // Assert
+      expect(createdUsers).toHaveLength(3);
+      expect(createdUsers[0]?.email).toBe('bulk1@example.com');
+      expect(createdUsers[1]?.email).toBe('bulk2@example.com');
+      expect(createdUsers[2]?.email).toBe('bulk3@example.com');
+    });
+
+    it('should auto-generate unique IDs for each created document', async () => {
+      // Arrange
+      const newUsers = [
+        new NewUser({ email: 'id1@example.com', password: 'pass1', status: 'active', cg_id: 'cg-1' }),
+        new NewUser({ email: 'id2@example.com', password: 'pass2', status: 'active', cg_id: 'cg-2' }),
+      ];
+
+      // Act
+      const createdUsers = await userRepository.bulkCreate(newUsers);
+
+      // Assert
+      expect(createdUsers[0]?.id).toBeDefined();
+      expect(createdUsers[1]?.id).toBeDefined();
+      const uniqueIds = new Set(createdUsers.map((u) => u.id));
+      expect(uniqueIds.size).toBe(2);
+    });
+
+    it('should return domain model instances for each created document', async () => {
+      // Arrange
+      const newUsers = [
+        new NewUser({ email: 'domain1@example.com', password: 'pass1', status: 'active', cg_id: 'cg-1' }),
+        new NewUser({ email: 'domain2@example.com', password: 'pass2', status: 'active', cg_id: 'cg-2' }),
+      ];
+
+      // Act
+      const createdUsers = await userRepository.bulkCreate(newUsers);
+
+      // Assert - Verify each result is a domain model, not a Mongoose document
+      for (const user of createdUsers) {
+        expect(user).toBeInstanceOf(User);
+        expect((user as unknown as Record<string, unknown>)?.toObject).toBeUndefined();
+        expect((user as unknown as Record<string, unknown>)?.$__).toBeUndefined();
+      }
+    });
+
+    it('should persist all documents and make them findable by ID', async () => {
+      // Arrange
+      const newUsers = [
+        new NewUser({ email: 'persist1@example.com', password: 'pass1', status: 'active', cg_id: 'cg-1' }),
+        new NewUser({ email: 'persist2@example.com', password: 'pass2', status: 'active', cg_id: 'cg-2' }),
+      ];
+
+      // Act
+      const createdUsers = await userRepository.bulkCreate(newUsers);
+
+      // Assert - Each document should be retrievable from the database
+      for (const user of createdUsers) {
+        const found = await userRepository.findById(user.id);
+        expect(found).toBeDefined();
+        expect(found?.id).toBe(user.id);
+        expect(found?.email).toBe(user.email);
+      }
+    });
+
+    it('should handle an empty array and return an empty array', async () => {
+      // Act
+      const createdUsers = await userRepository.bulkCreate([]);
+
+      // Assert
+      expect(createdUsers).toHaveLength(0);
+      expect(Array.isArray(createdUsers)).toBe(true);
+    });
+
+    it('should preserve correct field values for each document', async () => {
+      // Arrange
+      const newUsers = [
+        new NewUser({ email: 'fields1@example.com', password: 'password1', status: 'active', cg_id: 'cg-a' }),
+        new NewUser({ email: 'fields2@example.com', password: 'password2', status: 'suspended', cg_id: 'cg-b' }),
+      ];
+
+      // Act
+      const createdUsers = await userRepository.bulkCreate(newUsers);
+
+      // Assert
+      expect(createdUsers[0]?.email).toBe('fields1@example.com');
+      expect(createdUsers[0]?.password).toBe('password1');
+      expect(createdUsers[0]?.status).toBe('active');
+      expect(createdUsers[0]?.cg_id).toBe('cg-a');
+
+      expect(createdUsers[1]?.email).toBe('fields2@example.com');
+      expect(createdUsers[1]?.password).toBe('password2');
+      expect(createdUsers[1]?.status).toBe('suspended');
+      expect(createdUsers[1]?.cg_id).toBe('cg-b');
+    });
+  });
+
   describe('findById', () => {
     it('should find a user by their ID', async () => {
       // Arrange

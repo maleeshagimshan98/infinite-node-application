@@ -4,7 +4,7 @@
 
 import type { IDatabaseMapper, TransactionOptions } from '@/application/interfaces/database-mapper.interface';
 
-import { PersistanceError } from '../../erros/persistance.error';
+import { PersistanceError } from '../../errors/persistance.error';
 
 import type { Connection } from 'mongoose';
 import type mongoose from 'mongoose';
