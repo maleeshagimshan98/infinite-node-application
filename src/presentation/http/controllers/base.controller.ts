@@ -7,6 +7,8 @@ import { Paginator } from '@/app/core/utils/pagination/paginator';
 import { PaginationException } from '@/app/core/utils/pagination/pagination-exception';
 import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
+import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { DomainEntityError } from '@/domain/base';
 
 import type { Request } from 'express';
 
@@ -22,6 +24,19 @@ class BaseController {
     callback();
     // DB.commit();
     return true;
+  }
+
+  /**
+   * Generates an API response based on the type of infrastructure exception.
+   *
+   * @param {InfrastructureError} infrastructureException The infrastructure exception to handle.
+   * @returns {APIResponse} The corresponding API response.
+   */
+  protected getInfrastructureErrorResponse(infrastructureException: InfrastructureError): APIResponse {
+    if (infrastructureException.type === 'NETWORK_ERROR' || infrastructureException.type === 'CONNECTION_ERROR') {
+      return ApiResponseUtils.apiErrorResponse(503, infrastructureException.message);
+    }
+    return ApiResponseUtils.apiErrorResponse(500, infrastructureException.message);
   }
 
   /**
@@ -52,8 +67,18 @@ class BaseController {
     if (serviceException.type === 'INCOMPLETE_MODEL') {
       return ApiResponseUtils.apiErrorResponse(400, serviceException.message);
     }
+    if (serviceException.type === 'MODEL_ALREADY_EXISTS') {
+      return ApiResponseUtils.apiErrorResponse(400, serviceException.message);
+    }
     if (serviceException.type === 'UNKNOWN_ERROR') {
       return ApiResponseUtils.apiErrorResponse(500, serviceException.message, serviceException.data);
+    }
+    if (serviceException.type === 'INFRASTRUCTURE_ERROR') {
+      const infraType = serviceException.data?.type as string | undefined;
+      if (infraType === 'NETWORK_ERROR' || infraType === 'CONNECTION_ERROR') {
+        return ApiResponseUtils.apiErrorResponse(503, serviceException.message);
+      }
+      return ApiResponseUtils.apiErrorResponse(500, serviceException.message);
     }
     return ApiResponseUtils.apiErrorResponse(500, 'An unknown error occurred.');
   }
@@ -72,9 +97,17 @@ class BaseController {
         this.logErrors(e);
         return ApiResponseUtils.apiErrorResponse(400, e.message);
       }
+      if (e instanceof DomainEntityError) {
+        this.logErrors(e);
+        return ApiResponseUtils.apiErrorResponse(400, e.message);
+      }
       if (e instanceof DomainServiceError) {
         this.logErrors(e);
         return this.getServiceErrorResponse(e);
+      }
+      if (e instanceof InfrastructureError) {
+        this.logErrors(e);
+        return this.getInfrastructureErrorResponse(e);
       }
       this.logErrors(e);
       return ApiResponseUtils.getServerErrorAPIResponse();
