@@ -17,11 +17,13 @@ export interface JobOptions {
 
 /**
  * Job interface representing a queue job
+ *
+ * @template T - Type of the job data payload
  */
 export interface Job<T> {
-  id: string | number;
+  id: string | number | undefined;
   data: T;
-  opts: JobOptions;
+  opts?: JobOptions;
   attemptsMade: number;
   processedOn?: number;
   finishedOn?: number;
@@ -36,24 +38,49 @@ export interface IQueue extends IBaseInfrastructureService {
   serviceName(): 'queue';
   singleton(): true;
   deferred(): false;
+
+  /**
+   * Checks if a queue with the given name exists
+   *
+   * @param {string} queueName - The name of the queue to check
+   * @returns {boolean} True if the queue exists, false otherwise
+   */
+  hasQueue(queueName: string): boolean;
+
+  /**
+   * Create a new queue instance with the given name
+   *
+   * @param {string} queueName - Name of the queue to create
+   * @returns {IQueue} Queue instance for the specified name
+   */
+  newQueue(queueName: string): IQueue;
+
   /**
    * Add a job to a queue
    *
    * @param {string} queueName - Name of the queue
    * @param {T} jobData - Job data/payload
    * @param {JobOptions} options - Optional job configuration
-   * @returns {Promise<string>} resolving to the job ID
+   * @returns {Promise<Job<T>>} resolving to the job instance
    */
-  addJob<T>(queueName: string, jobData: T, options?: JobOptions): Promise<string>;
+  addJob<T>(queueName: string, jobData: T, options?: JobOptions): Promise<Job<T>>;
 
   /**
    * Register a processor function for a queue
    *
    * @param {string} queueName - Name of the queue to process
    * @param {(job: Job<T>) => Promise<void>} processor - Function to process each job
-   * @returns {void}
+   * @returns {Promise<void>}
    */
-  processJobs<T>(queueName: string, processor: (job: Job<T>) => Promise<void>): void;
+  processJobs<T>(queueName: string, processor: (job: Job<T>) => Promise<void>): Promise<void>;
+
+  /**
+   * Retry all failed jobs on a queue
+   *
+   * @param {string} queueName - Name of the queue
+   * @returns {Promise<void>}
+   */
+  retryJobs(queueName: string): Promise<void>;
 
   /**
    * Get the status of a job by ID

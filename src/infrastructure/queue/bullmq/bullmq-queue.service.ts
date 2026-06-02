@@ -2,11 +2,14 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IQueue, Job, JobOptions, JobStatus } from '@/application/interfaces/queue.interface';
-import { PersistanceError } from '@/infrastructure/persistance/database/erros/persistance.error';
+import { Worker } from 'bullmq';
 
-import type { QueueDriver } from './driver/bullmq.driver';
-import type { Queue } from 'bullmq';
+import type { IQueue, Job, JobOptions, JobStatus } from '@/application/interfaces/queue.interface';
+
+import { QueueDriver } from './driver/bullmq.driver';
+import { QueueError } from '../errors/queue.error';
+
+import type { Queue, Job as BullMQJob } from 'bullmq';
 
 /**
  * BullMQ Queue Service Implementation
@@ -44,12 +47,20 @@ export class BullMQQueueService implements IQueue {
   private driver: QueueDriver;
 
   /**
-   * The BullMQ Queue client instance
+   * Map to store multiple queue instances by name (if needed)
    *
    * @private
-   * @type {Queue}
+   * @type {Map<string, Queue>}
    */
-  private client: Queue;
+  private queues: Map<string, Queue> = new Map();
+
+  /**
+   * Map to store Worker instances for processing jobs
+   *
+   * @private
+   * @type {Map<string, Worker[]>}
+   */
+  private workers: Map<string, Worker[]> = new Map();
 
   /**
    * Creates an instance of BullMQQueueService
@@ -60,9 +71,9 @@ export class BullMQQueueService implements IQueue {
     this.driver = driver;
     const client = driver.client();
     if (!client || !(client instanceof Object)) {
-      throw new PersistanceError('Invalid BullMQ client provided to BullMQQueueService');
+      throw new QueueError('Invalid BullMQ client provided to BullMQQueueService');
     }
-    this.client = client;
+    this.queues.set('default', client);
   }
 
   /**
@@ -100,6 +111,32 @@ export class BullMQQueueService implements IQueue {
   }
 
   /**
+   * Checks if a queue with the given name exists
+   *
+   * @param {string} queueName - The name of the queue to check
+   * @returns {boolean} True if the queue exists, false otherwise
+   */
+  hasQueue(queueName: string): boolean {
+    return this.queues.has(queueName);
+  }
+
+  /**
+   * Create a new queue instance for a specific queue name
+   *
+   * @param {string} queueName - The name of the queue to create
+   * @returns {IQueue} The queue service instance (for chaining)
+   * @throws {QueueError} If a queue with the given name already exists
+   */
+  newQueue(queueName: string): IQueue {
+    if (this.queues.has(queueName)) {
+      throw new QueueError(`Queue with name "${queueName}" already exists`);
+    }
+    const queue = QueueDriver.newQueue(queueName, this.driver.config());
+    this.queues.set(queueName, queue);
+    return this;
+  }
+
+  /**
    * Adds a new job to the queue
    *
    * @template T - The type of job data
@@ -116,10 +153,22 @@ export class BullMQQueueService implements IQueue {
    * );
    * ```
    */
-  async addJob<T>(queueName: string, data: T, options?: JobOptions): Promise<string> {
-    const job = await this.client.add(queueName, data, options);
+  async addJob<T>(queueName: string, data: T, options?: JobOptions): Promise<Job<T>> {
+    const queue = this.queues.get(queueName);
+    if (!queue) {
+      throw new QueueError(`Queue not found: ${queueName}`);
+    }
 
-    return job?.id ?? '';
+    const job = await queue.add(queueName, data, options);
+    const queueJob: Job<T> = {
+      id: job.id,
+      data,
+      opts: options || {},
+      attemptsMade: 0,
+      timestamp: Date.now(),
+    };
+
+    return queueJob;
   }
 
   /**
@@ -143,16 +192,67 @@ export class BullMQQueueService implements IQueue {
    * });
    * ```
    */
-  async processJobs<T>(queueName: string, processor: (job: Job<T>) => Promise<void>): Promise<void> {
-    // TODO: BullMQ requires a Worker instance for processing jobs
-    // The Queue instance is only for adding jobs
-    // This is a placeholder implementation
-    console.log('[BullMQ Queue] Job processing should be handled by a Worker instance');
+  /**
+   * Retry all failed jobs on the given queue.
+   *
+   * Creates a temporary Queue instance if the queue is not already registered
+   * (e.g. external queues owned by another service).
+   *
+   * @param {string} queueName - The name of the queue
+   * @returns {Promise<void>}
+   */
+  async retryJobs(queueName: string): Promise<void> {
+    const queue = this.queues.get(queueName) ?? QueueDriver.newQueue(queueName, this.driver.config());
+    await queue.retryJobs({ state: 'failed' });
+    // Close the temporary queue instance if it wasn't already tracked
+    if (!this.queues.has(queueName)) {
+      await queue.close();
+    }
+  }
 
-    // Example of what should be done in the core driver:
-    // const worker = new Worker(queueName, async (job) => {
-    //   await processor({ id: job.id, data: job.data as T });
-    // }, { connection: redisConnection });
+  async processJobs<T>(queueName: string, processor: (job: Job<T>) => Promise<void>): Promise<void> {
+    const driverConfig = this.driver.config();
+    const worker = new Worker<T>(
+      queueName,
+      async (job: BullMQJob<T>) => {
+        const queueJob: Job<T> = {
+          id: job.id,
+          data: job.data,
+          attemptsMade: job.attemptsMade,
+          timestamp: job.timestamp,
+        };
+        await processor(queueJob);
+      },
+      {
+        connection: {
+          host: driverConfig.params.host,
+          port: driverConfig.params.port,
+          username: driverConfig.params.username,
+          password: driverConfig.params.password,
+        },
+      },
+    );
+
+    worker.on('error', (err) => {
+      console.error(`Worker error on queue "${queueName}":`, err);
+    });
+
+    worker.on('active', (job) => {
+      console.log(`BullMQ: picked up job ${job.id} on queue "${queueName}"`);
+    });
+
+    worker.on('failed', (job, err) => {
+      console.error(`BullMQ: job ${job?.id} failed on queue "${queueName}":`, err.message);
+    });
+
+    await worker.waitUntilReady();
+    console.log(`  BullMQ Worker ready — listening on queue "${queueName}"`);
+
+    // Store the worker instance for later shutdown
+    if (!this.workers.has(queueName)) {
+      this.workers.set(queueName, []);
+    }
+    this.workers.get(queueName)?.push(worker);
   }
 
   /**
@@ -173,7 +273,12 @@ export class BullMQQueueService implements IQueue {
    * ```
    */
   async getJobStatus(jobId: string): Promise<JobStatus> {
-    const job = await this.client.getJob(jobId);
+    const queue = this.queues.get('default');
+    if (!queue) {
+      throw new QueueError('Default queue not found');
+    }
+
+    const job = await queue.getJob(jobId);
 
     if (!job) {
       return 'unknown';
@@ -206,9 +311,16 @@ export class BullMQQueueService implements IQueue {
    * @returns {Promise<void>}
    */
   async shutdown(): Promise<void> {
-    if (this.client) {
-      await this.client.close();
-      console.log('  BullMQ queue closed');
+    for (const queue of this.queues.values()) {
+      await queue.close();
     }
+    console.log('  BullMQ queues closed');
+
+    for (const workers of this.workers.values()) {
+      for (const worker of workers) {
+        await worker.close();
+      }
+    }
+    console.log('  BullMQ workers closed');
   }
 }

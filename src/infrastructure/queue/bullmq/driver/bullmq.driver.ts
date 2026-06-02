@@ -22,7 +22,7 @@ export class QueueDriver implements ICoreDriver<Queue, IQueueConfig> {
    *
    * @type {Queue | undefined}
    */
-  private _client: Queue | undefined;
+  private _default_client: Queue | undefined;
 
   constructor(config: IQueueConfig) {
     this._config = config;
@@ -39,9 +39,9 @@ export class QueueDriver implements ICoreDriver<Queue, IQueueConfig> {
         },
       });
 
-      //... TODO - check the queue is connected properly
+      await queue.waitUntilReady();
 
-      this._client = queue;
+      this._default_client = queue;
     } catch (err: unknown) {
       throw new DriverError(
         `Failed to initialize QueueDriver: ${err instanceof Error ? err.message : 'Unknown error'}`,
@@ -49,8 +49,27 @@ export class QueueDriver implements ICoreDriver<Queue, IQueueConfig> {
     }
   }
 
+  /**
+   * Create a new BullMQ Queue instance based on the provided queue name and configuration
+   *
+   * @param {string} queueName - The name of the queue to create
+   * @param {IQueueConfig} config - The configuration for the queue connection
+   * @returns {Queue} A new instance of BullMQ Queue configured for the specified queue
+   */
+  static newQueue(queueName: string, config: IQueueConfig): Queue {
+    const queue = new Queue(queueName, {
+      connection: {
+        host: config.params.host,
+        port: config.params.port,
+        username: config.params.username,
+        password: config.params.password,
+      },
+    });
+    return queue;
+  }
+
   client(): Queue | undefined {
-    return this._client;
+    return this._default_client;
   }
 
   config(): IQueueConfig {
@@ -58,13 +77,13 @@ export class QueueDriver implements ICoreDriver<Queue, IQueueConfig> {
   }
 
   async shutdown(): Promise<void> {
-    if (!this._client) return;
+    if (!this._default_client) return;
     try {
-      await this._client.close();
+      await this._default_client.close();
     } catch {
       //... TODO
     } finally {
-      this._client = undefined;
+      this._default_client = undefined;
     }
   }
 }
