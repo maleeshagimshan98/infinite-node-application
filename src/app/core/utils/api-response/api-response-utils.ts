@@ -1,8 +1,9 @@
-import type { ValidationError } from 'express-validator';
 import { ErrorResponseMessages } from '../error-response-messages';
+import { APIResponse } from './api-response';
+
+import type { ValidationError } from 'express-validator';
 import type { Paginator } from '../pagination/paginator';
 import type { APIResponseData } from './api-response';
-import { APIResponse } from './api-response';
 import type { Response } from 'express';
 
 const transformApiResponseData = (
@@ -80,6 +81,10 @@ const expiredAuthorizationHeaderResponse = (): APIResponse => {
   return apiErrorResponse(401, ErrorResponseMessages.EXPIRED_AUTHORIZATION_HEADER());
 };
 
+const authenticationErrorResponse = (message: string): APIResponse => {
+  return apiErrorResponse(401, message);
+};
+
 const requestValidationFailResponse = (validationErrors: ValidationError[]): APIResponse => {
   return apiErrorResponse(400, ErrorResponseMessages.REQUEST_VALIDATION_ERROR(), validationErrors);
 };
@@ -114,6 +119,7 @@ export default {
   invalidAuthorizationHeaderResponse,
   resourceNotFoundErrorResponse,
   expiredAuthorizationHeaderResponse,
+  authenticationErrorResponse,
   requestValidationFailResponse,
   userNotFoundError,
   userNotPermittedError,
