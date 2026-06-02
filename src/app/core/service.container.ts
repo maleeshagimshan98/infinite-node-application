@@ -59,3 +59,41 @@ export const autoRegisterApplicationComponents = (): void => {
     },
   );
 };
+
+/**
+ * Auto-register worker process components (no HTTP controllers)
+ *
+ * Used by InfiniteNodeWorker instead of autoRegisterApplicationComponents().
+ * Loads the same services and repositories, plus the workers glob, but
+ * excludes HTTP controllers which are not needed in the worker process.
+ *
+ * Convention:
+ * - ErpRecordImportWorker → 'erpRecordImportWorker'
+ *
+ * @returns {void}
+ */
+export const autoRegisterWorkerComponents = (): void => {
+  const isCompiledCode = __dirname.includes('dist');
+  const baseDir = isCompiledCode ? 'dist' : 'src';
+
+  container.loadModules(
+    [
+      // Application layer services
+      `${baseDir}/application/services/**/*.service.{ts,js}`,
+      // Domain services
+      `${baseDir}/domain/**/service/*.service.{ts,js}`,
+      // Repositories
+      `${baseDir}/infrastructure/persistance/database/repositories/**/*.repository.{ts,js}`,
+      // Background workers
+      `${baseDir}/application/workers/**/*.worker.{ts,js}`,
+    ],
+    {
+      formatName: 'camelCase', // ErpRecordImportWorker → erpRecordImportWorker
+      resolverOptions: {
+        lifetime: 'SINGLETON',
+        register: asClass,
+      },
+      cwd: path.resolve(__dirname, '../../..'),
+    },
+  );
+};
