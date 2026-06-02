@@ -3,3 +3,4 @@
  */
 
 export { DomainEntity } from './DomainEntity';
+export { DomainEntityError } from './DomainEntityError';
