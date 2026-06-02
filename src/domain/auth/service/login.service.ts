@@ -30,7 +30,9 @@ export class LoginService extends BaseDomainService {
    * @returns {Promise<LoginRecord | null>}
    */
   async getLoginRecordFromAuthToken(token: string): Promise<LoginRecord | null> {
-    return await this.loginRecordRepository.findOne({ token });
+    return this.wrapInfrastructureErrors(async () => {
+      return await this.loginRecordRepository.findOne({ token });
+    });
   }
 
   /**
@@ -40,7 +42,9 @@ export class LoginService extends BaseDomainService {
    * @returns {Promise<User | null>}
    */
   async getUserById(userId: string): Promise<User | null> {
-    return await this.userRepository.findById(userId);
+    return this.wrapInfrastructureErrors(async () => {
+      return await this.userRepository.findById(userId);
+    });
   }
 
   /**
@@ -61,36 +65,38 @@ export class LoginService extends BaseDomainService {
    * @throws {DomainServiceError}
    */
   async validateToken(token: string, transactionOptions?: TransactionOptions): Promise<{ id: string; status: string }> {
-    if (!token) {
-      throw new DomainServiceError(ErrorResponseMessages.NO_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
-    }
+    return this.wrapInfrastructureErrors(async () => {
+      if (!token) {
+        throw new DomainServiceError(ErrorResponseMessages.NO_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
+      }
 
-    const loginRecord = await this.getLoginRecordFromAuthToken(token);
+      const loginRecord = await this.getLoginRecordFromAuthToken(token);
 
-    if (!loginRecord) {
-      throw new DomainServiceError(ErrorResponseMessages.INVALID_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
-    }
+      if (!loginRecord) {
+        throw new DomainServiceError(ErrorResponseMessages.INVALID_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
+      }
 
-    if (loginRecord.status !== 'active') {
-      throw new DomainServiceError(ErrorResponseMessages.EXPIRED_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
-    }
+      if (loginRecord.status !== 'active') {
+        throw new DomainServiceError(ErrorResponseMessages.EXPIRED_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
+      }
 
-    if (loginRecord.valid_till < new Date(new Date().getTime())) {
-      loginRecord.status = 'expired';
-      await this.loginRecordRepository.update(loginRecord.id, loginRecord, transactionOptions);
-      throw new DomainServiceError(ErrorResponseMessages.EXPIRED_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
-    }
+      if (loginRecord.valid_till < new Date(new Date().getTime())) {
+        loginRecord.status = 'expired';
+        await this.loginRecordRepository.update(loginRecord.id, loginRecord, transactionOptions);
+        throw new DomainServiceError(ErrorResponseMessages.EXPIRED_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
+      }
 
-    const user = await this.getUserById(loginRecord.user_id);
+      const user = await this.getUserById(loginRecord.user_id);
 
-    if (!user) {
-      throw new DomainServiceError(ErrorResponseMessages.INVALID_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
-    }
+      if (!user) {
+        throw new DomainServiceError(ErrorResponseMessages.INVALID_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
+      }
 
-    return {
-      id: user.id,
-      status: user.status,
-    };
+      return {
+        id: user.id,
+        status: user.status,
+      };
+    });
   }
 
   /**
@@ -107,32 +113,34 @@ export class LoginService extends BaseDomainService {
     password: string,
     transactionOptions?: TransactionOptions,
   ): Promise<{ id: string; status: string; token: string }> {
-    const user = await this.userRepository.findOne({ email });
+    return this.wrapInfrastructureErrors(async () => {
+      const user = await this.userRepository.findOne({ email });
 
-    if (!user) {
-      throw new DomainServiceError('Invalid credentials', 'AUTHENTICATION_ERROR');
-    }
+      if (!user) {
+        throw new DomainServiceError('Invalid credentials', 'AUTHENTICATION_ERROR');
+      }
 
-    const isPasswordMatching = await argon2.verify(user.password, password);
-    if (!isPasswordMatching) {
-      throw new DomainServiceError('Invalid credentials', 'AUTHENTICATION_ERROR');
-    }
+      const isPasswordMatching = await argon2.verify(user.password, password);
+      if (!isPasswordMatching) {
+        throw new DomainServiceError('Invalid credentials', 'AUTHENTICATION_ERROR');
+      }
 
-    const token = this.generateToken();
-    const loginRecord = new NewLoginRecord({
-      user_id: user.id,
-      token,
-      valid_till: new Date(new Date().getTime() + 24 * 60 * 60 * 1000), // 1 day
-      status: 'active',
+      const token = this.generateToken();
+      const loginRecord = new NewLoginRecord({
+        user_id: user.id,
+        token,
+        valid_till: new Date(new Date().getTime() + 24 * 60 * 60 * 1000), // 1 day
+        status: 'active',
+      });
+
+      const createdLoginRecord = await this.loginRecordRepository.create(loginRecord, transactionOptions);
+
+      return {
+        id: user.id,
+        status: user.status,
+        token,
+      };
     });
-
-    const createdLoginRecord = await this.loginRecordRepository.create(loginRecord, transactionOptions);
-
-    return {
-      id: user.id,
-      status: user.status,
-      token,
-    };
   }
 
   /**
@@ -144,18 +152,20 @@ export class LoginService extends BaseDomainService {
    * @throws {DomainServiceError}
    */
   async logout(token: string, transactionOptions?: TransactionOptions): Promise<void> {
-    if (!token) {
-      throw new DomainServiceError(ErrorResponseMessages.NO_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
-    }
+    return this.wrapInfrastructureErrors(async () => {
+      if (!token) {
+        throw new DomainServiceError(ErrorResponseMessages.NO_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
+      }
 
-    const loginRecord = await this.getLoginRecordFromAuthToken(token);
+      const loginRecord = await this.getLoginRecordFromAuthToken(token);
 
-    if (!loginRecord) {
-      throw new DomainServiceError(ErrorResponseMessages.INVALID_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
-    }
+      if (!loginRecord) {
+        throw new DomainServiceError(ErrorResponseMessages.INVALID_AUTHORIZATION_HEADER(), 'AUTHENTICATION_ERROR');
+      }
 
-    loginRecord.status = 'cancelled';
-    await this.loginRecordRepository.update(loginRecord.id, loginRecord, transactionOptions);
+      loginRecord.status = 'cancelled';
+      await this.loginRecordRepository.update(loginRecord.id, loginRecord, transactionOptions);
+    });
   }
 }
 

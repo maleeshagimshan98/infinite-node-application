@@ -42,7 +42,9 @@ export class SignupService extends BaseDomainService {
    * @returns {Promise<User | null>}
    */
   async getUserByEmail(email: string): Promise<User | null> {
-    return await this.userRepository.findOne({ email });
+    return this.wrapInfrastructureErrors(async () => {
+      return await this.userRepository.findOne({ email });
+    });
   }
 
   /**
@@ -51,7 +53,9 @@ export class SignupService extends BaseDomainService {
    * @returns {Promise<CustomerGroup | null>}
    */
   async getDefaultCustomerGroup(): Promise<CustomerGroup | null> {
-    return await this.customerGroupRepository.findOne({ default: true });
+    return this.wrapInfrastructureErrors(async () => {
+      return await this.customerGroupRepository.findOne({ default: true });
+    });
   }
 
   /**
@@ -63,36 +67,38 @@ export class SignupService extends BaseDomainService {
    * @throws {DomainServiceError}
    */
   async register(userData: INewUser, transactionOptions?: TransactionOptions): Promise<{ id: string; status: string }> {
-    // Check if user already exists
-    const existingUser = await this.getUserByEmail(userData.email);
+    return this.wrapInfrastructureErrors(async () => {
+      // Check if user already exists
+      const existingUser = await this.getUserByEmail(userData.email);
 
-    if (existingUser) {
-      throw new DomainServiceError('This email is already associated with another account', 'VALIDATION_ERROR');
-    }
+      if (existingUser) {
+        throw new DomainServiceError('This email is already associated with another account', 'VALIDATION_ERROR');
+      }
 
-    // Hash password
-    const hashedPassword = await argon2.hash(userData.password);
+      // Hash password
+      const hashedPassword = await argon2.hash(userData.password);
 
-    // Get default customer group
-    const defaultCustomerGroup = await this.getDefaultCustomerGroup();
+      // Get default customer group
+      const defaultCustomerGroup = await this.getDefaultCustomerGroup();
 
-    if (!defaultCustomerGroup) {
-      throw new DomainServiceError('No default customer group is available', 'UNKNOWN_ERROR');
-    }
-    const newUser = new NewUser({
-      ...userData,
-      password: hashedPassword,
-      cg_id: defaultCustomerGroup.id,
-      status: 'pending_verification',
+      if (!defaultCustomerGroup) {
+        throw new DomainServiceError('No default customer group is available', 'UNKNOWN_ERROR');
+      }
+      const newUser = new NewUser({
+        ...userData,
+        password: hashedPassword,
+        cg_id: defaultCustomerGroup.id,
+        status: 'pending_verification',
+      });
+
+      // Create new user
+      const createdUser = await this.userRepository.create(newUser, transactionOptions);
+
+      return {
+        id: createdUser.id,
+        status: createdUser.status,
+      };
     });
-
-    // Create new user
-    const createdUser = await this.userRepository.create(newUser, transactionOptions);
-
-    return {
-      id: createdUser.id,
-      status: createdUser.status,
-    };
   }
 
   /**
@@ -104,14 +110,16 @@ export class SignupService extends BaseDomainService {
    * @throws {DomainServiceError}
    */
   async verifyEmail(email: string, transactionOptions?: TransactionOptions): Promise<void> {
-    const user: User | null = await this.getUserByEmail(email);
+    return this.wrapInfrastructureErrors(async () => {
+      const user: User | null = await this.getUserByEmail(email);
 
-    if (!user) {
-      throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'NOT_FOUND');
-    }
+      if (!user) {
+        throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'NOT_FOUND');
+      }
 
-    user.status = 'active';
-    await this.userRepository.update(user.id, user, transactionOptions);
+      user.status = 'active';
+      await this.userRepository.update(user.id, user, transactionOptions);
+    });
   }
 }
 

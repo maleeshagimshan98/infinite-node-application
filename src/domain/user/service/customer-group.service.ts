@@ -47,7 +47,9 @@ export class CustomerGroupService extends BaseDomainService {
    * @returns {Promise<CustomerGroup | null>}
    */
   async getById(id: string): Promise<CustomerGroup | null> {
-    return await this.customerGroupRepository.findById(id);
+    return this.wrapInfrastructureErrors(async () => {
+      return await this.customerGroupRepository.findById(id);
+    });
   }
 
   /**
@@ -57,7 +59,9 @@ export class CustomerGroupService extends BaseDomainService {
    * @returns {Promise<CustomerGroup | null>}
    */
   async getByName(name: string): Promise<CustomerGroup | null> {
-    return await this.customerGroupRepository.findOne({ name });
+    return this.wrapInfrastructureErrors(async () => {
+      return await this.customerGroupRepository.findOne({ name });
+    });
   }
 
   /**
@@ -66,7 +70,9 @@ export class CustomerGroupService extends BaseDomainService {
    * @returns {Promise<CustomerGroup | null>}
    */
   async getDefaultGroup(): Promise<CustomerGroup | null> {
-    return await this.customerGroupRepository.findOne({ default: true });
+    return this.wrapInfrastructureErrors(async () => {
+      return await this.customerGroupRepository.findOne({ default: true });
+    });
   }
 
   /**
@@ -77,7 +83,9 @@ export class CustomerGroupService extends BaseDomainService {
    * @returns {Promise<CustomerGroup[]>}
    */
   async list(limit?: number, offset?: number): Promise<CustomerGroup[]> {
-    return await this.customerGroupRepository.find({}, limit, offset);
+    return this.wrapInfrastructureErrors(async () => {
+      return await this.customerGroupRepository.find({}, limit, offset);
+    });
   }
 
   /**
@@ -92,35 +100,37 @@ export class CustomerGroupService extends BaseDomainService {
     groupData: INewCustomerGroup,
     transactionOptions?: TransactionOptions,
   ): Promise<{ id: string; name: string }> {
-    // Check if group with same name already exists
-    const existingGroup = await this.getByName(groupData.name);
+    return this.wrapInfrastructureErrors(async () => {
+      // Check if group with same name already exists
+      const existingGroup = await this.getByName(groupData.name);
 
-    if (existingGroup) {
-      throw new DomainServiceError(
-        ErrorResponseMessages.RESOURCE_ALREADY_EXISTS_ERROR('Customer Group', 'name', groupData.name),
-        'VALIDATION_ERROR',
-      );
-    }
-
-    // If this is marked as default, ensure no other default exists
-    if (groupData.default) {
-      const currentDefault = await this.getDefaultGroup();
-      if (currentDefault) {
+      if (existingGroup) {
         throw new DomainServiceError(
-          'A default customer group already exists. Please unset the current default before creating a new one.',
+          ErrorResponseMessages.RESOURCE_ALREADY_EXISTS_ERROR('Customer Group', 'name', groupData.name),
           'VALIDATION_ERROR',
         );
       }
-    }
 
-    // Create new customer group
-    const newGroup = new NewCustomerGroup(groupData);
-    const createdGroup = await this.customerGroupRepository.create(newGroup, transactionOptions);
+      // If this is marked as default, ensure no other default exists
+      if (groupData.default) {
+        const currentDefault = await this.getDefaultGroup();
+        if (currentDefault) {
+          throw new DomainServiceError(
+            'A default customer group already exists. Please unset the current default before creating a new one.',
+            'VALIDATION_ERROR',
+          );
+        }
+      }
 
-    return {
-      id: createdGroup.id,
-      name: createdGroup.name,
-    };
+      // Create new customer group
+      const newGroup = new NewCustomerGroup(groupData);
+      const createdGroup = await this.customerGroupRepository.create(newGroup, transactionOptions);
+
+      return {
+        id: createdGroup.id,
+        name: createdGroup.name,
+      };
+    });
   }
 
   /**
@@ -137,41 +147,43 @@ export class CustomerGroupService extends BaseDomainService {
     updateData: Partial<INewCustomerGroup>,
     transactionOptions?: TransactionOptions,
   ): Promise<{ id: string; name: string }> {
-    // Get existing group
-    const existingGroup = await this.getById(id);
+    return this.wrapInfrastructureErrors(async () => {
+      // Get existing group
+      const existingGroup = await this.getById(id);
 
-    if (!existingGroup) {
-      throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('Customer Group', 'id', id), 'NOT_FOUND');
-    }
-
-    // If updating name, check for duplicates
-    if (updateData.name && updateData.name !== existingGroup.name) {
-      const duplicateGroup = await this.getByName(updateData.name);
-      if (duplicateGroup) {
-        throw new DomainServiceError(
-          ErrorResponseMessages.RESOURCE_ALREADY_EXISTS_ERROR('Customer Group', 'name', updateData.name),
-          'VALIDATION_ERROR',
-        );
+      if (!existingGroup) {
+        throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('Customer Group', 'id', id), 'NOT_FOUND');
       }
-    }
 
-    // If setting as default, unset current default
-    if (updateData.default === true) {
-      const currentDefault = await this.getDefaultGroup();
-      if (currentDefault && currentDefault.id !== id) {
-        currentDefault.default = false;
-        await this.customerGroupRepository.update(currentDefault.id, currentDefault, transactionOptions);
+      // If updating name, check for duplicates
+      if (updateData.name && updateData.name !== existingGroup.name) {
+        const duplicateGroup = await this.getByName(updateData.name);
+        if (duplicateGroup) {
+          throw new DomainServiceError(
+            ErrorResponseMessages.RESOURCE_ALREADY_EXISTS_ERROR('Customer Group', 'name', updateData.name),
+            'VALIDATION_ERROR',
+          );
+        }
       }
-    }
 
-    // Update the group
-    Object.assign(existingGroup, updateData);
-    await this.customerGroupRepository.update(id, existingGroup, transactionOptions);
+      // If setting as default, unset current default
+      if (updateData.default === true) {
+        const currentDefault = await this.getDefaultGroup();
+        if (currentDefault && currentDefault.id !== id) {
+          currentDefault.default = false;
+          await this.customerGroupRepository.update(currentDefault.id, currentDefault, transactionOptions);
+        }
+      }
 
-    return {
-      id: existingGroup.id,
-      name: existingGroup.name,
-    };
+      // Update the group
+      Object.assign(existingGroup, updateData);
+      await this.customerGroupRepository.update(id, existingGroup, transactionOptions);
+
+      return {
+        id: existingGroup.id,
+        name: existingGroup.name,
+      };
+    });
   }
 
   /**
@@ -183,33 +195,35 @@ export class CustomerGroupService extends BaseDomainService {
    * @throws {DomainServiceError}
    */
   async delete(id: string, transactionOptions?: TransactionOptions): Promise<void> {
-    // Get the group
-    const group = await this.getById(id);
+    return this.wrapInfrastructureErrors(async () => {
+      // Get the group
+      const group = await this.getById(id);
 
-    if (!group) {
-      throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('Customer Group', 'id', id), 'NOT_FOUND');
-    }
+      if (!group) {
+        throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('Customer Group', 'id', id), 'NOT_FOUND');
+      }
 
-    // Don't allow deletion of default group
-    if (group.default) {
-      throw new DomainServiceError(
-        'Cannot delete the default customer group. Please set another group as default first.',
-        'VALIDATION_ERROR',
-      );
-    }
+      // Don't allow deletion of default group
+      if (group.default) {
+        throw new DomainServiceError(
+          'Cannot delete the default customer group. Please set another group as default first.',
+          'VALIDATION_ERROR',
+        );
+      }
 
-    // Check if any users belong to this group
-    const usersInGroup = await this.userRepository.find({ cg_id: id }, 1);
+      // Check if any users belong to this group
+      const usersInGroup = await this.userRepository.find({ cg_id: id }, 1);
 
-    if (usersInGroup.length > 0) {
-      throw new DomainServiceError(
-        'Cannot delete customer group because it has associated users. Please reassign users first.',
-        'VALIDATION_ERROR',
-      );
-    }
+      if (usersInGroup.length > 0) {
+        throw new DomainServiceError(
+          'Cannot delete customer group because it has associated users. Please reassign users first.',
+          'VALIDATION_ERROR',
+        );
+      }
 
-    // Delete the group
-    await this.customerGroupRepository.delete(id, transactionOptions);
+      // Delete the group
+      await this.customerGroupRepository.delete(id, transactionOptions);
+    });
   }
 
   /**
@@ -221,36 +235,38 @@ export class CustomerGroupService extends BaseDomainService {
    * @throws {DomainServiceError}
    */
   async setAsDefault(id: string, transactionOptions?: TransactionOptions): Promise<{ id: string; name: string }> {
-    // Get the group
-    const group = await this.getById(id);
+    return this.wrapInfrastructureErrors(async () => {
+      // Get the group
+      const group = await this.getById(id);
 
-    if (!group) {
-      throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('Customer Group', 'id', id), 'NOT_FOUND');
-    }
+      if (!group) {
+        throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('Customer Group', 'id', id), 'NOT_FOUND');
+      }
 
-    // If already default, nothing to do
-    if (group.default) {
+      // If already default, nothing to do
+      if (group.default) {
+        return {
+          id: group.id,
+          name: group.name,
+        };
+      }
+
+      // Unset current default
+      const currentDefault = await this.getDefaultGroup();
+      if (currentDefault) {
+        currentDefault.default = false;
+        await this.customerGroupRepository.update(currentDefault.id, currentDefault, transactionOptions);
+      }
+
+      // Set new default
+      group.default = true;
+      await this.customerGroupRepository.update(group.id, group, transactionOptions);
+
       return {
         id: group.id,
         name: group.name,
       };
-    }
-
-    // Unset current default
-    const currentDefault = await this.getDefaultGroup();
-    if (currentDefault) {
-      currentDefault.default = false;
-      await this.customerGroupRepository.update(currentDefault.id, currentDefault, transactionOptions);
-    }
-
-    // Set new default
-    group.default = true;
-    await this.customerGroupRepository.update(group.id, group, transactionOptions);
-
-    return {
-      id: group.id,
-      name: group.name,
-    };
+    });
   }
 }
 

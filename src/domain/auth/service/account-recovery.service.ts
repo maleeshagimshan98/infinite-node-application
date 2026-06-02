@@ -55,7 +55,9 @@ export class AccountRecoveryService extends BaseDomainService {
    * @returns {Promise<User | null>}
    */
   async getUserByEmail(email: string): Promise<User | null> {
-    return await this.userRepository.findOne({ email });
+    return this.wrapInfrastructureErrors(async () => {
+      return await this.userRepository.findOne({ email });
+    });
   }
 
   /**
@@ -66,20 +68,22 @@ export class AccountRecoveryService extends BaseDomainService {
    * @returns {Promise<void>}
    */
   async cancelOldResetCodes(email: string, transactionOptions?: TransactionOptions): Promise<void> {
-    const resetCodes: PasswordResetCode[] = await this.passwordResetCodeRepository.find(
-      { email },
-      undefined,
-      undefined,
-      {},
-      transactionOptions,
-    );
-    // TODO: Should use a transaction or bulkWrite
-    await Promise.all(
-      resetCodes.map(async (resetCode) => {
-        resetCode.status = 'cancelled';
-        await this.passwordResetCodeRepository.update(resetCode.id, resetCode, transactionOptions);
-      }),
-    );
+    return this.wrapInfrastructureErrors(async () => {
+      const resetCodes: PasswordResetCode[] = await this.passwordResetCodeRepository.find(
+        { email },
+        undefined,
+        undefined,
+        {},
+        transactionOptions,
+      );
+      // TODO: Should use a transaction or bulkWrite
+      await Promise.all(
+        resetCodes.map(async (resetCode) => {
+          resetCode.status = 'cancelled';
+          await this.passwordResetCodeRepository.update(resetCode.id, resetCode, transactionOptions);
+        }),
+      );
+    });
   }
 
   /**
@@ -100,22 +104,24 @@ export class AccountRecoveryService extends BaseDomainService {
    * @throws {DomainServiceError} NOT_FOUND if user doesn't exist
    */
   async forgotPassword(email: string, transactionOptions?: TransactionOptions): Promise<void> {
-    const user = await this.getUserByEmail(email);
+    return this.wrapInfrastructureErrors(async () => {
+      const user = await this.getUserByEmail(email);
 
-    if (!user) {
-      throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'NOT_FOUND');
-    }
+      if (!user) {
+        throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'NOT_FOUND');
+      }
 
-    await this.cancelOldResetCodes(email, transactionOptions);
+      await this.cancelOldResetCodes(email, transactionOptions);
 
-    const passwordResetCode = new NewPasswordResetCode({
-      email: email,
-      code: this.generateResetCode(),
-      valid_till: new Date(new Date().getTime() + 0.5 * 60 * 60 * 1000),
-      status: 'active',
+      const passwordResetCode = new NewPasswordResetCode({
+        email: email,
+        code: this.generateResetCode(),
+        valid_till: new Date(new Date().getTime() + 0.5 * 60 * 60 * 1000),
+        status: 'active',
+      });
+
+      await this.passwordResetCodeRepository.create(passwordResetCode, transactionOptions);
     });
-
-    await this.passwordResetCodeRepository.create(passwordResetCode, transactionOptions);
   }
 
   /**
@@ -134,51 +140,53 @@ export class AccountRecoveryService extends BaseDomainService {
     newPassword: string,
     transactionOptions?: TransactionOptions,
   ): Promise<void> {
-    const passwordResetCode = await this.passwordResetCodeRepository.findOne(
-      {
-        email: email,
-        code: verificationCode,
-        status: 'active',
-      },
-      {},
-      transactionOptions,
-    );
-
-    if (!passwordResetCode) {
-      throw new DomainServiceError(
-        ErrorResponseMessages.NOT_FOUND_ERROR('Password reset code', 'verification_code', verificationCode),
-        'NOT_FOUND',
+    return this.wrapInfrastructureErrors(async () => {
+      const passwordResetCode = await this.passwordResetCodeRepository.findOne(
+        {
+          email: email,
+          code: verificationCode,
+          status: 'active',
+        },
+        {},
+        transactionOptions,
       );
-    }
 
-    const user = await this.getUserByEmail(email);
+      if (!passwordResetCode) {
+        throw new DomainServiceError(
+          ErrorResponseMessages.NOT_FOUND_ERROR('Password reset code', 'verification_code', verificationCode),
+          'NOT_FOUND',
+        );
+      }
 
-    if (!user) {
-      throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'NOT_FOUND');
-    }
+      const user = await this.getUserByEmail(email);
 
-    // TODO: MUST USE A DATABASE TRANSACTION FOR ALL BELOW DATA MUTATIONS
-    const hashedPassword = await argon2.hash(newPassword);
-    user.password = hashedPassword;
-    passwordResetCode.status = 'used';
+      if (!user) {
+        throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'NOT_FOUND');
+      }
 
-    await this.passwordResetCodeRepository.update(passwordResetCode.id, passwordResetCode, transactionOptions);
-    await this.userRepository.update(user.id, user, transactionOptions);
+      // TODO: MUST USE A DATABASE TRANSACTION FOR ALL BELOW DATA MUTATIONS
+      const hashedPassword = await argon2.hash(newPassword);
+      user.password = hashedPassword;
+      passwordResetCode.status = 'used';
 
-    // TODO: Find all and modify all of the login records
-    const loginRecord: LoginRecord | null = await this.loginRecordRepository.findOne(
-      {
-        user_id: user.id,
-        status: 'active',
-      },
-      {},
-      transactionOptions,
-    );
+      await this.passwordResetCodeRepository.update(passwordResetCode.id, passwordResetCode, transactionOptions);
+      await this.userRepository.update(user.id, user, transactionOptions);
 
-    if (loginRecord) {
-      loginRecord.status = 'cancelled';
-      await this.loginRecordRepository.update(loginRecord.id, loginRecord, transactionOptions);
-    }
+      // TODO: Find all and modify all of the login records
+      const loginRecord: LoginRecord | null = await this.loginRecordRepository.findOne(
+        {
+          user_id: user.id,
+          status: 'active',
+        },
+        {},
+        transactionOptions,
+      );
+
+      if (loginRecord) {
+        loginRecord.status = 'cancelled';
+        await this.loginRecordRepository.update(loginRecord.id, loginRecord, transactionOptions);
+      }
+    });
   }
 }
 

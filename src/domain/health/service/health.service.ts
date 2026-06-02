@@ -30,7 +30,9 @@ export class HealthService extends BaseDomainService {
    * @returns {Promise<IHealthCheckResult>} Complete health status
    */
   async check(): Promise<IHealthCheckResult> {
-    return await this.healthCheck.checkHealth();
+    return this.wrapInfrastructureErrors(async () => {
+      return await this.healthCheck.checkHealth();
+    });
   }
 }
 
