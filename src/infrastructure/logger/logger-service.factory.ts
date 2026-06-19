@@ -80,7 +80,9 @@ export class LoggerServiceFactory implements IServiceFactory<ILogger> {
   async create(): Promise<ILogger> {
     const envDriver = process.env.LOGGING_DRIVER || 'winston';
     if (!this.isValidLoggerDriver(envDriver)) {
-      throw new InfrastructureError(`Invalid logger driver: ${envDriver}`, 'DRIVER_ERROR');
+      throw new InfrastructureError(`Invalid logger driver: ${envDriver}`, 'DRIVER_ERROR', {
+        envDriver,
+      });
     }
     const driver: LoggerDriverType = envDriver;
     switch (driver) {
@@ -88,13 +90,19 @@ export class LoggerServiceFactory implements IServiceFactory<ILogger> {
         return await this.createWinstonLoggerService();
 
       case 'bunyan':
-        throw new InfrastructureError('Bunyan logger service not yet implemented', 'DRIVER_ERROR');
+        throw new InfrastructureError('Bunyan logger service not yet implemented', 'DRIVER_ERROR', {
+          driver,
+        });
 
       case 'pino':
-        throw new InfrastructureError('Pino logger service not yet implemented', 'DRIVER_ERROR');
+        throw new InfrastructureError('Pino logger service not yet implemented', 'DRIVER_ERROR', {
+          driver,
+        });
 
       default:
-        throw new InfrastructureError(`Unsupported logger driver: ${driver}`, 'DRIVER_ERROR');
+        throw new InfrastructureError(`Unsupported logger driver: ${driver}`, 'DRIVER_ERROR', {
+          driver,
+        });
     }
   }
 }

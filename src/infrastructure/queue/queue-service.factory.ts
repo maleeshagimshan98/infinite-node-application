@@ -51,7 +51,9 @@ export class QueueServiceFactory implements IServiceFactory<IQueue> {
       //   return this.createKafkaQueueService(driver as KafkaClient);
 
       default:
-        throw new InfrastructureError(`Unsupported queue type: ${queueType}`, 'DRIVER_ERROR');
+        throw new InfrastructureError(`Unsupported queue type: ${queueType}`, 'DRIVER_ERROR', {
+          queueType,
+        });
     }
   }
 }
