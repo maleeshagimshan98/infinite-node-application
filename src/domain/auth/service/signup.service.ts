@@ -7,8 +7,8 @@ import argon2 from 'argon2';
 import { ErrorResponseMessages } from '@/app/core/utils/error-response-messages';
 import type { CustomerGroup } from '@/domain/user/models/customer-group';
 import { NewUser, type User } from '@/domain/user/models/user';
-import type { UserRepository } from '@/infrastructure/persistance/database/repositories/mongoose/user/user.repository';
-import type { CustomerGroupRepository } from '@/infrastructure/persistance/database/repositories/mongoose/customer-groups/customer-group.repository';
+import type { IUserRepository } from '@/application/interfaces/repositories/user/user.repository.interface';
+import type { ICustomerGroupRepository } from '@/application/interfaces/repositories/customer-groups/customer-group.repository.interface';
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import type { INewUser } from '@/domain/user/models/user';
@@ -20,16 +20,16 @@ export class SignupService extends BaseDomainService {
    *
    * @private
    */
-  private readonly userRepository: UserRepository;
+  private readonly userRepository: IUserRepository;
 
   /**
    * Customer group repository instance
    *
    * @private
    */
-  private readonly customerGroupRepository: CustomerGroupRepository;
+  private readonly customerGroupRepository: ICustomerGroupRepository;
 
-  constructor(userRepository: UserRepository, customerGroupRepository: CustomerGroupRepository) {
+  constructor(userRepository: IUserRepository, customerGroupRepository: ICustomerGroupRepository) {
     super();
     this.userRepository = userRepository;
     this.customerGroupRepository = customerGroupRepository;

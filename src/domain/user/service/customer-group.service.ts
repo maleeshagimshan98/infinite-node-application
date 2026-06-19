@@ -4,8 +4,8 @@
 
 import { ErrorResponseMessages } from '@/app/core/utils/error-response-messages';
 import { NewCustomerGroup, type CustomerGroup } from '@/domain/user/models/customer-group';
-import type { CustomerGroupRepository } from '@/infrastructure/persistance/database/repositories/mongoose/customer-groups/customer-group.repository';
-import type { UserRepository } from '@/infrastructure/persistance/database/repositories/mongoose/user/user.repository';
+import type { ICustomerGroupRepository } from '@/application/interfaces/repositories/customer-groups/customer-group.repository.interface';
+import type { IUserRepository } from '@/application/interfaces/repositories/user/user.repository.interface';
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import type { INewCustomerGroup } from '@/domain/user/models/customer-group';
@@ -25,16 +25,16 @@ export class CustomerGroupService extends BaseDomainService {
    *
    * @private
    */
-  private readonly customerGroupRepository: CustomerGroupRepository;
+  private readonly customerGroupRepository: ICustomerGroupRepository;
 
   /**
    * User repository instance (needed for validation)
    *
    * @private
    */
-  private readonly userRepository: UserRepository;
+  private readonly userRepository: IUserRepository;
 
-  constructor(customerGroupRepository: CustomerGroupRepository, userRepository: UserRepository) {
+  constructor(customerGroupRepository: ICustomerGroupRepository, userRepository: IUserRepository) {
     super();
     this.customerGroupRepository = customerGroupRepository;
     this.userRepository = userRepository;

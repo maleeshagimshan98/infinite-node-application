@@ -9,15 +9,15 @@ import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import { NewLoginRecord, type LoginRecord } from '@/domain/auth/models/login-record';
 import type { User } from '@/domain/user/models/user';
 import { ErrorResponseMessages } from '@/app/core/utils/error-response-messages';
-import type { UserRepository } from '@/infrastructure/persistance/database/repositories/mongoose/user/user.repository';
-import type { LoginRecordRepository } from '@/infrastructure/persistance/database/repositories/mongoose/auth/login-record.repository';
+import type { IUserRepository } from '@/application/interfaces/repositories/user/user.repository.interface';
+import type { ILoginRecordRepository } from '@/application/interfaces/repositories/auth/login-record.repository.interface';
 import type { TransactionOptions } from '@/application/interfaces/database-mapper.interface';
 
 export class LoginService extends BaseDomainService {
-  private userRepository: UserRepository;
-  private loginRecordRepository: LoginRecordRepository;
+  private userRepository: IUserRepository;
+  private loginRecordRepository: ILoginRecordRepository;
 
-  constructor(userRepository: UserRepository, loginRecordRepository: LoginRecordRepository) {
+  constructor(userRepository: IUserRepository, loginRecordRepository: ILoginRecordRepository) {
     super();
     this.userRepository = userRepository;
     this.loginRecordRepository = loginRecordRepository;

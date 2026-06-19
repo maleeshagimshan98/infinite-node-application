@@ -10,9 +10,9 @@ import { ErrorResponseMessages } from '@/app/core/utils/error-response-messages'
 import type { User } from '@/domain/user/models/user';
 import { NewPasswordResetCode, type PasswordResetCode } from '@/domain/auth/models/password-reset-code';
 import type { LoginRecord } from '@/domain/auth/models/login-record';
-import type { UserRepository } from '@/infrastructure/persistance/database/repositories/mongoose/user/user.repository';
-import type { PasswordResetCodeRepository } from '@/infrastructure/persistance/database/repositories/mongoose/auth/password-reset-code.repository';
-import type { LoginRecordRepository } from '@/infrastructure/persistance/database/repositories/mongoose/auth/login-record.repository';
+import type { IUserRepository } from '@/application/interfaces/repositories/user/user.repository.interface';
+import type { IPasswordResetCodeRepository } from '@/application/interfaces/repositories/auth/password-reset-code.repository.interface';
+import type { ILoginRecordRepository } from '@/application/interfaces/repositories/auth/login-record.repository.interface';
 import type { TransactionOptions } from '@/application/interfaces/database-mapper.interface';
 
 export class AccountRecoveryService extends BaseDomainService {
@@ -21,26 +21,26 @@ export class AccountRecoveryService extends BaseDomainService {
    *
    * @private
    */
-  private readonly userRepository: UserRepository;
+  private readonly userRepository: IUserRepository;
 
   /**
    * Password reset code repository instance
    *
    * @private
    */
-  private readonly passwordResetCodeRepository: PasswordResetCodeRepository;
+  private readonly passwordResetCodeRepository: IPasswordResetCodeRepository;
 
   /**
    * Login record repository instance
    *
    * @private
    */
-  private readonly loginRecordRepository: LoginRecordRepository;
+  private readonly loginRecordRepository: ILoginRecordRepository;
 
   constructor(
-    userRepository: UserRepository,
-    passwordResetCodeRepository: PasswordResetCodeRepository,
-    loginRecordRepository: LoginRecordRepository,
+    userRepository: IUserRepository,
+    passwordResetCodeRepository: IPasswordResetCodeRepository,
+    loginRecordRepository: ILoginRecordRepository,
   ) {
     super();
     this.userRepository = userRepository;
