@@ -41,7 +41,13 @@ export const coreMiddleware = async (container: AwilixContainer): Promise<Record
         max: middlewareConfigInstance.rateLimit.max!,
       }),
     morgan: (): RequestHandler => morgan(middlewareConfigInstance.morgan.format),
-    json: (): RequestHandler => express.json({ limit: '10mb' }),
+    json: (): RequestHandler =>
+      express.json({
+        limit: '10mb',
+        verify: (req: any, _res, buf) => {
+          req.rawBody = buf;
+        },
+      }),
     urlencoded: (): RequestHandler => express.urlencoded({ extended: true, limit: '10mb' }),
     contentType: (): RequestHandler => (req, res, next) => {
       res.contentType('application/json');
