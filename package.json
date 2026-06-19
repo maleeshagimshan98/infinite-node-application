@@ -1,6 +1,6 @@
 {
   "name": "infinite-node-application",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "scripts": {
     "start": "node dist/index.js",
@@ -92,7 +92,9 @@
     "typescript-eslint": "^8.25.0"
   },
   "overrides": {
-    "minimatch": "^10.2.1"
+    "eslint-plugin-import": {
+      "minimatch": "^3.1.2"
+    }
   },
   "author": {
     "name": "Maleesha Gimshan",
