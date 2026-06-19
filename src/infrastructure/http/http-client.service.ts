@@ -5,12 +5,13 @@
 import axios from 'axios';
 
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
-import { APIResponse } from '@/app/core/utils/api-response/api-response';
 import type { IHTTPClient, RequestConfig } from '@/application/interfaces/http-client.interface';
+
+import { HTTPResponse } from './http-response';
 
 /**
  * HTTP Client service for making external API requests.
- * Uses axios under the hood and returns APIResponse objects.
+ * Uses axios under the hood and returns HTTPResponse objects.
  *
  * @class HTTPClientService
  * @implements {IHTTPClient}
@@ -72,9 +73,9 @@ export class HTTPClientService implements IHTTPClient {
    * Make a GET request
    *
    * @param {Omit<RequestConfig, 'method'>} config - Request configuration
-   * @returns {Promise<APIResponse>}
+   * @returns {Promise<HTTPResponse>}
    */
-  public get(config: Omit<RequestConfig, 'method'>): Promise<APIResponse> {
+  public get(config: Omit<RequestConfig, 'method'>): Promise<HTTPResponse> {
     return this.createRequest({
       ...config,
       method: 'GET',
@@ -85,10 +86,10 @@ export class HTTPClientService implements IHTTPClient {
    * Make a POST request
    *
    * @param {Omit<RequestConfig, 'method'>} config - Request configuration
-   * @returns {Promise<APIResponse>}
+   * @returns {Promise<HTTPResponse>}
    * @throws {InfrastructureError}
    */
-  public post(config: Omit<RequestConfig, 'method'>): Promise<APIResponse> {
+  public post(config: Omit<RequestConfig, 'method'>): Promise<HTTPResponse> {
     return this.createRequest({
       ...config,
       method: 'POST',
@@ -99,10 +100,10 @@ export class HTTPClientService implements IHTTPClient {
    * Make a PUT request
    *
    * @param {Omit<RequestConfig, 'method'>} config - Request configuration
-   * @returns {Promise<APIResponse>}
+   * @returns {Promise<HTTPResponse>}
    * @throws {InfrastructureError}
    */
-  public put(config: Omit<RequestConfig, 'method'>): Promise<APIResponse> {
+  public put(config: Omit<RequestConfig, 'method'>): Promise<HTTPResponse> {
     return this.createRequest({
       ...config,
       method: 'PUT',
@@ -113,10 +114,10 @@ export class HTTPClientService implements IHTTPClient {
    * Make a PATCH request
    *
    * @param {Omit<RequestConfig, 'method'>} config - Request configuration
-   * @returns {Promise<APIResponse>}
+   * @returns {Promise<HTTPResponse>}
    * @throws {InfrastructureError}
    */
-  public patch(config: Omit<RequestConfig, 'method'>): Promise<APIResponse> {
+  public patch(config: Omit<RequestConfig, 'method'>): Promise<HTTPResponse> {
     return this.createRequest({
       ...config,
       method: 'PATCH',
@@ -127,10 +128,10 @@ export class HTTPClientService implements IHTTPClient {
    * Make a DELETE request
    *
    * @param {Omit<RequestConfig, 'method'>} config - Request configuration
-   * @returns {Promise<APIResponse>}
+   * @returns {Promise<HTTPResponse>}
    * @throws {InfrastructureError}
    */
-  public delete(config: Omit<RequestConfig, 'method'>): Promise<APIResponse> {
+  public delete(config: Omit<RequestConfig, 'method'>): Promise<HTTPResponse> {
     return this.createRequest({
       ...config,
       method: 'DELETE',
@@ -142,7 +143,7 @@ export class HTTPClientService implements IHTTPClient {
    *
    * @private
    * @param {RequestConfig} config - Request configuration
-   * @returns {Promise<APIResponse>}
+   * @returns {Promise<HTTPResponse>}
    * @throws {InfrastructureError}
    */
   private async createRequest(config: {
@@ -152,7 +153,7 @@ export class HTTPClientService implements IHTTPClient {
     params?: Record<string, string>;
     data?: Record<string, unknown>;
     timeout?: number;
-  }): Promise<APIResponse> {
+  }): Promise<HTTPResponse> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const axiosConfig: any = {
       url: config.url ?? '',
@@ -172,17 +173,15 @@ export class HTTPClientService implements IHTTPClient {
       throw new InfrastructureError(
         `Network request failed: ${config.method} ${config.url} - ${errorMessage}`,
         'NETWORK_ERROR',
+        {
+          method: config.method,
+          url: config.url,
+          error: errorMessage,
+        },
       );
     });
 
-    return new APIResponse(
-      response.data.status,
-      response.data.code,
-      response.data.paginated,
-      response.data.page,
-      response.data.message,
-      response.data.data,
-    );
+    return new HTTPResponse(response.data.status, response.data.code, response.data.message, response.data.data);
   }
 }
 
