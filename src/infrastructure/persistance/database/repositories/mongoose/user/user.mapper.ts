@@ -35,4 +35,9 @@ export class UserMapper implements IBaseMapper<INewUserSchema, User, NewUser> {
           cg_id: data.cg_id,
         };
   }
+
+  toFilter(filter: Partial<NewUser>): Partial<INewUserSchema> {
+    const { id, ...rest } = filter;
+    return id !== undefined ? { _id: id, ...rest } : { ...rest };
+  }
 }

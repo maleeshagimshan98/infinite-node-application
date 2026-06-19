@@ -39,4 +39,9 @@ export class PasswordResetCodeMapper
           status: data.status,
         };
   }
+
+  toFilter(filter: Partial<NewPasswordResetCode>): Partial<IPasswordResetCodeSchema> {
+    const { id, ...rest } = filter;
+    return id !== undefined ? { _id: id, ...rest } : { ...rest };
+  }
 }

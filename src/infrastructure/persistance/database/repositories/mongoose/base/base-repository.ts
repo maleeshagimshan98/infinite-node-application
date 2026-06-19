@@ -26,7 +26,7 @@ type MongooseModel<DBModel> = Model<
  * It uses a Mongoose model for database interactions and a mapper to convert between persistence and domain models.
  */
 export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
-  implements IBaseRepository<DBModel, DomainModel, NewDomainModel>
+  implements IBaseRepository<DomainModel, NewDomainModel>
 {
   /**
    * mongoose model instance for the schema DBModel
@@ -109,17 +109,18 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
   /**
    * Find a single document matching the provided filter
    *
-   * @param {Partial<DBModel>} filter Partial filter object to match documents against
+   * @param {Partial<NewDomainModel>} filter Partial new domain model fields to match documents against
    * @param {Record<string, 1 | -1>} sort Optional sort order for the document
    * @param {TransactionOptions | undefined} transactionOptions Optional MongoDB session for transaction support
    * @returns {Promise<DomainModel | null>} Resolves to the found document or null if not found
    */
   public async findOne(
-    filter: Partial<DBModel>,
+    filter: Partial<NewDomainModel>,
     sort?: Record<string, 1 | -1>,
     transactionOptions?: TransactionOptions,
   ): Promise<DomainModel | null> {
-    let query = this.mongooseModel.findOne(filter);
+    const dbFilter = this.mapper.toFilter(filter);
+    let query = this.mongooseModel.findOne(dbFilter);
 
     if (sort) {
       query = query.sort(sort);
@@ -139,7 +140,7 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
   /**
    * Find all documents matching the provided filter
    *
-   * @param {Partial<DBModel>} filter Partial filter object to match documents against
+   * @param {Partial<NewDomainModel>} filter Partial new domain model fields to match documents against
    * @param {number | undefined} limit Optional maximum number of documents to return
    * @param {number | undefined} offset Optional number of documents to skip (for pagination)
    * @param {Record<string, 1 | -1> | undefined} sort Optional sort order for the documents
@@ -147,13 +148,14 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
    * @returns {Promise<DomainModel[]>} Resolves to an array of found documents
    */
   public async find(
-    filter: Partial<DBModel>,
+    filter: Partial<NewDomainModel>,
     limit?: number,
     offset?: number,
     sort?: Record<string, 1 | -1>,
     transactionOptions?: TransactionOptions,
   ): Promise<DomainModel[]> {
-    let query = this.mongooseModel.find(filter);
+    const dbFilter = this.mapper.toFilter(filter);
+    let query = this.mongooseModel.find(dbFilter);
 
     if (offset !== undefined && offset > 0) {
       query = query.skip(offset);
@@ -178,13 +180,13 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
   /**
    * Count documents matching the provided filter
    *
-   * @param {Partial<DBModel>} filter Partial filter object to match documents against
+   * @param {Partial<NewDomainModel>} filter Partial new domain model fields to match documents against
    * @param {TransactionOptions | undefined} transactionOptions Optional MongoDB session for transaction support
    * @returns {Promise<number>} Resolves to the count of matching documents
    */
-  public async count(filter: Partial<DBModel>, transactionOptions?: TransactionOptions): Promise<number> {
+  public async count(filter: Partial<NewDomainModel>, transactionOptions?: TransactionOptions): Promise<number> {
     return await this.mongooseModel
-      .countDocuments(filter)
+      .countDocuments(this.mapper.toFilter(filter))
       .session(
         transactionOptions && transactionOptions.session
           ? (transactionOptions.session as mongoose.mongo.ClientSession)

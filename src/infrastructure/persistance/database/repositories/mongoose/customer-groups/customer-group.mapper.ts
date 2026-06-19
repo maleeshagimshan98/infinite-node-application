@@ -37,4 +37,9 @@ export class CustomerGroupMapper implements IBaseMapper<INewCustomerGroupSchema,
           default: data.default,
         };
   }
+
+  toFilter(filter: Partial<NewCustomerGroup>): Partial<INewCustomerGroupSchema> {
+    const { id, ...rest } = filter;
+    return id !== undefined ? { _id: id, ...rest } : { ...rest };
+  }
 }

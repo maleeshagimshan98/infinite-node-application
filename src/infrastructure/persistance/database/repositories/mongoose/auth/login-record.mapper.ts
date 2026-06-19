@@ -37,4 +37,9 @@ export class LoginRecordMapper implements IBaseMapper<ILoginRecordSchema, LoginR
           status: data.status,
         };
   }
+
+  toFilter(filter: Partial<NewLoginRecord>): Partial<ILoginRecordSchema> {
+    const { id, ...rest } = filter;
+    return id !== undefined ? { _id: id, ...rest } : { ...rest };
+  }
 }
