@@ -144,6 +144,70 @@ export class RedisCacheService implements ICache {
   }
 
   /**
+   * Set a single field of a hash. The value is JSON-serialized before storage.
+   *
+   * @param {string} key - Hash key
+   * @param {string} field - Field name within the hash
+   * @param {T} value - Value to store for the field
+   * @returns {Promise<void>} resolving when the field is set
+   */
+  async hSet<T>(key: string, field: string, value: T): Promise<void> {
+    await this.redisClient.hSet(key, field, JSON.stringify(value));
+  }
+
+  /**
+   * Get a single field of a hash. The stored value is JSON-parsed.
+   *
+   * @param {string} key - Hash key
+   * @param {string} field - Field name within the hash
+   * @returns {Promise<T | null>} resolving to the parsed value or null if key/field not found
+   */
+  async hGet<T>(key: string, field: string): Promise<T | null> {
+    const value = await this.redisClient.hGet(key, field);
+    if (!value) {
+      return null;
+    }
+    return JSON.parse(value) as T;
+  }
+
+  /**
+   * Get all fields of a hash as a map. Each value is JSON-parsed.
+   *
+   * @param {string} key - Hash key
+   * @returns {Promise<Record<string, T>>} resolving to a map of fields to parsed values ({} if empty)
+   */
+  async hGetAll<T>(key: string): Promise<Record<string, T>> {
+    const entries = await this.redisClient.hGetAll(key);
+    const result: Record<string, T> = {};
+    for (const [field, value] of Object.entries(entries)) {
+      result[field] = JSON.parse(value) as T;
+    }
+    return result;
+  }
+
+  /**
+   * Delete a single field from a hash.
+   *
+   * @param {string} key - Hash key
+   * @param {string} field - Field name to delete
+   * @returns {Promise<void>} resolving when the field is deleted
+   */
+  async hDel(key: string, field: string): Promise<void> {
+    await this.redisClient.hDel(key, field);
+  }
+
+  /**
+   * Check whether a field exists in a hash.
+   *
+   * @param {string} key - Hash key
+   * @param {string} field - Field name to check
+   * @returns {Promise<boolean>} resolving to true if the field exists, false otherwise
+   */
+  async hExists(key: string, field: string): Promise<boolean> {
+    return Boolean(await this.redisClient.hExists(key, field));
+  }
+
+  /**
    * Gracefully shutdown the Redis connection
    *
    * @returns {Promise<void>}
