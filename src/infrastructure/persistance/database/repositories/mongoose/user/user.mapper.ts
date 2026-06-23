@@ -5,17 +5,19 @@
 import type { NewUser } from '@/domain/user/models/user';
 import { User } from '@/domain/user/models/user';
 
-import type { IBaseMapper } from '../base/base.mapper.interface';
+import { BaseMapper } from '../base/base.mapper';
+
+import type { Types } from 'mongoose';
 import type { INewUserSchema } from './user.model';
 
-export class UserMapper implements IBaseMapper<INewUserSchema, User, NewUser> {
-  toDomain(data: INewUserSchema & { _id: string }): User {
+export class UserMapper extends BaseMapper<INewUserSchema, User, NewUser> {
+  toDomain(data: INewUserSchema & { _id: string | Types.ObjectId }): User {
     return new User({
-      id: data._id,
+      id: data._id.toString(),
       email: data.email,
       password: data.password,
       status: data.status,
-      cg_id: data.cg_id,
+      ug_id: data.ug_id,
     });
   }
 
@@ -25,19 +27,14 @@ export class UserMapper implements IBaseMapper<INewUserSchema, User, NewUser> {
           email: data.email,
           password: data.password,
           status: data.status,
-          cg_id: data.cg_id,
+          ug_id: data.ug_id,
         }
       : {
           _id: data.id,
           email: data.email,
           password: data.password,
           status: data.status,
-          cg_id: data.cg_id,
+          ug_id: data.ug_id,
         };
-  }
-
-  toFilter(filter: Partial<NewUser>): Partial<INewUserSchema> {
-    const { id, ...rest } = filter;
-    return id !== undefined ? { _id: id, ...rest } : { ...rest };
   }
 }

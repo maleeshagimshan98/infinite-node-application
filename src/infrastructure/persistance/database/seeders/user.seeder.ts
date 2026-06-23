@@ -1,7 +1,7 @@
 import { container } from '@/app/core/service.container';
 import { UserModel } from '@/infrastructure/persistance/database/repositories/mongoose/user/user.model';
 import type { SignupService } from '@/domain/auth/service/signup.service';
-import type { CustomerGroupService } from '@/domain/user/service/customer-group.service';
+import type { UserGroupService } from '@/domain/user/service/user-group.service';
 import type { INewUser } from '@/domain/user/models/user';
 
 /**
@@ -12,10 +12,10 @@ export async function seedUsers(): Promise<boolean> {
   try {
     // Resolve services from the container
     const signupService = container.resolve<SignupService>('signupService');
-    const customerGroupService = container.resolve<CustomerGroupService>('customerGroupService');
+    const userGroupService = container.resolve<UserGroupService>('userGroupService');
 
     // Ensure default customer group exists
-    const defaultGroup = await customerGroupService.getDefaultGroup();
+    const defaultGroup = await userGroupService.getDefaultGroup();
     if (!defaultGroup) {
       console.log('   ⚠️  No default customer group found. Please seed customer groups first.');
       return false;
@@ -27,19 +27,19 @@ export async function seedUsers(): Promise<boolean> {
         email: 'john@example.com',
         password: 'password123',
         status: 'pending_verification',
-        cg_id: defaultGroup.id,
+        ug_id: defaultGroup.id,
       },
       {
         email: 'jane@example.com',
         password: 'password123',
         status: 'pending_verification',
-        cg_id: defaultGroup.id,
+        ug_id: defaultGroup.id,
       },
       {
         email: 'bob@example.com',
         password: 'password123',
         status: 'pending_verification',
-        cg_id: defaultGroup.id,
+        ug_id: defaultGroup.id,
       },
     ];
 

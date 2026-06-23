@@ -6,7 +6,7 @@ export interface INewUserSchema {
   email: string;
   password: string;
   status: UserStatus;
-  cg_id: string;
+  ug_id: string;
 }
 
 export const UserSchema = new Schema<INewUserSchema>(
@@ -19,7 +19,7 @@ export const UserSchema = new Schema<INewUserSchema>(
       required: true,
       default: 'pending_verification',
     },
-    cg_id: { type: String, required: true },
+    ug_id: { type: String, required: true },
   },
   { timestamps: true },
 );
