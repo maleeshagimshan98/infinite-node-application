@@ -183,7 +183,7 @@ export class AccountRecoveryService extends BaseDomainService {
       );
 
       if (loginRecord) {
-        loginRecord.status = 'cancelled';
+        loginRecord.status = 'revoked';
         await this.loginRecordRepository.update(loginRecord.id, loginRecord, transactionOptions);
       }
     });

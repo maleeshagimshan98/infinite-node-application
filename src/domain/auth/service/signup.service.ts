@@ -5,10 +5,10 @@
 import argon2 from 'argon2';
 
 import { ErrorResponseMessages } from '@/app/core/utils/error-response-messages';
-import type { CustomerGroup } from '@/domain/user/models/customer-group';
+import type { UserGroup } from '@/domain/user/models/user-group';
 import { NewUser, type User } from '@/domain/user/models/user';
 import type { IUserRepository } from '@/application/interfaces/repositories/user/user.repository.interface';
-import type { ICustomerGroupRepository } from '@/application/interfaces/repositories/customer-groups/customer-group.repository.interface';
+import type { IUserGroupRepository } from '@/application/interfaces/repositories/user-groups/user-group.repository.interface';
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import type { INewUser } from '@/domain/user/models/user';
@@ -27,12 +27,12 @@ export class SignupService extends BaseDomainService {
    *
    * @private
    */
-  private readonly customerGroupRepository: ICustomerGroupRepository;
+  private readonly userGroupRepository: IUserGroupRepository;
 
-  constructor(userRepository: IUserRepository, customerGroupRepository: ICustomerGroupRepository) {
+  constructor(userRepository: IUserRepository, userGroupRepository: IUserGroupRepository) {
     super();
     this.userRepository = userRepository;
-    this.customerGroupRepository = customerGroupRepository;
+    this.userGroupRepository = userGroupRepository;
   }
 
   /**
@@ -50,11 +50,11 @@ export class SignupService extends BaseDomainService {
   /**
    * Get default customer group
    *
-   * @returns {Promise<CustomerGroup | null>}
+   * @returns {Promise<UserGroup | null>}
    */
-  async getDefaultCustomerGroup(): Promise<CustomerGroup | null> {
+  async getDefaultUserGroup(): Promise<UserGroup | null> {
     return this.wrapInfrastructureErrors(async () => {
-      return await this.customerGroupRepository.findOne({ default: true });
+      return await this.userGroupRepository.findOne({ default: true });
     });
   }
 
@@ -79,15 +79,15 @@ export class SignupService extends BaseDomainService {
       const hashedPassword = await argon2.hash(userData.password);
 
       // Get default customer group
-      const defaultCustomerGroup = await this.getDefaultCustomerGroup();
+      const defaultUserGroup = await this.getDefaultUserGroup();
 
-      if (!defaultCustomerGroup) {
+      if (!defaultUserGroup) {
         throw new DomainServiceError('No default customer group is available', 'UNKNOWN_ERROR');
       }
       const newUser = new NewUser({
         ...userData,
         password: hashedPassword,
-        cg_id: defaultCustomerGroup.id,
+        ug_id: defaultUserGroup.id,
         status: 'pending_verification',
       });
 
