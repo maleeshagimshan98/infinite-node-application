@@ -7,7 +7,7 @@ import { container, autoRegisterApplicationComponents } from '@/app/core/service
 import { DatabaseMapperServiceFactory } from '@/infrastructure/persistance/database/service/database-mapper-service.factory';
 
 import { seedUsers } from './user.seeder';
-import { seedCustomerGroups } from './customer-group.seeder';
+import { seedUserGroups } from './user-group.seeder';
 
 /**
  * Initialize service container and infrastructure services
@@ -56,8 +56,8 @@ export async function runAllSeeders(): Promise<void> {
     console.log('📍 Step 2/2: Running Seeders');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    console.log('🔹 Seeding Customer Groups...');
-    const groupsSeeded = await seedCustomerGroups();
+    console.log('🔹 Seeding User Groups...');
+    const groupsSeeded = await seedUserGroups();
     const groupStatus = groupsSeeded ? '✅ Successfully Seeded' : '⏭️  Skipped (Already Exists)';
     console.log(`   ${groupStatus}\n`);
 
@@ -99,15 +99,15 @@ export async function clearAllSeeders(): Promise<void> {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     const { clearUsers } = await import('./user.seeder');
-    const { clearCustomerGroups } = await import('./customer-group.seeder');
+    const { clearUserGroups } = await import('./user-group.seeder');
 
     console.log('🔹 Clearing Users...');
     await clearUsers();
     console.log('✅ Users Cleared Successfully\n');
 
-    console.log('🔹 Clearing Customer Groups...');
-    await clearCustomerGroups();
-    console.log('✅ Customer Groups Cleared Successfully\n');
+    console.log('🔹 Clearing User Groups...');
+    await clearUserGroups();
+    console.log('✅ User Groups Cleared Successfully\n');
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('╔═══════════════════════════════════════════════════════════╗');
