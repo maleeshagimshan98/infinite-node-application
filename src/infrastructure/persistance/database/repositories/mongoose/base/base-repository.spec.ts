@@ -38,7 +38,7 @@ describe('BaseRepository', () => {
         email: 'test@example.com',
         password: 'hashedPassword123',
         status: 'pending_verification',
-        cg_id: 'customer-group-1',
+        ug_id: 'user-group-1',
       });
 
       // Act
@@ -49,7 +49,7 @@ describe('BaseRepository', () => {
       expect(createdUser.email).toBe(newUser.email);
       expect(createdUser.password).toBe(newUser.password);
       expect(createdUser.status).toBe(newUser.status);
-      expect(createdUser.cg_id).toBe(newUser.cg_id);
+      expect(createdUser.ug_id).toBe(newUser.ug_id);
     });
 
     it('should auto-generate an id for the created document', async () => {
@@ -58,7 +58,7 @@ describe('BaseRepository', () => {
         email: 'test2@example.com',
         password: 'hashedPassword456',
         status: 'active',
-        cg_id: 'customer-group-2',
+        ug_id: 'user-group-2',
       });
 
       // Act
@@ -74,7 +74,7 @@ describe('BaseRepository', () => {
         email: 'test3@example.com',
         password: 'hashedPassword789',
         status: 'pending_verification',
-        cg_id: 'customer-group-3',
+        ug_id: 'user-group-3',
       });
 
       // Act
@@ -88,10 +88,10 @@ describe('BaseRepository', () => {
       // Arrange
       const invalidUser = new NewUser({
         email: 'invalid@example.com',
-        // Missing password, status, and cg_id - TypeScript will catch this
+        // Missing password, status, and ug_id - TypeScript will catch this
         password: '',
         status: 'pending_verification',
-        cg_id: '',
+        ug_id: '',
       });
 
       // Act & Assert
@@ -105,13 +105,13 @@ describe('BaseRepository', () => {
           email: 'user1@example.com',
           password: 'pass1',
           status: 'active',
-          cg_id: 'cg-1',
+          ug_id: 'ug-1',
         }),
         new NewUser({
           email: 'user2@example.com',
           password: 'pass2',
           status: 'suspended',
-          cg_id: 'cg-2',
+          ug_id: 'ug-2',
         }),
       ];
 
@@ -129,9 +129,9 @@ describe('BaseRepository', () => {
     it('should create multiple documents in the database', async () => {
       // Arrange
       const newUsers = [
-        new NewUser({ email: 'bulk1@example.com', password: 'pass1', status: 'active', cg_id: 'cg-1' }),
-        new NewUser({ email: 'bulk2@example.com', password: 'pass2', status: 'pending_verification', cg_id: 'cg-2' }),
-        new NewUser({ email: 'bulk3@example.com', password: 'pass3', status: 'suspended', cg_id: 'cg-3' }),
+        new NewUser({ email: 'bulk1@example.com', password: 'pass1', status: 'active', ug_id: 'ug-1' }),
+        new NewUser({ email: 'bulk2@example.com', password: 'pass2', status: 'pending_verification', ug_id: 'ug-2' }),
+        new NewUser({ email: 'bulk3@example.com', password: 'pass3', status: 'suspended', ug_id: 'ug-3' }),
       ];
 
       // Act
@@ -147,8 +147,8 @@ describe('BaseRepository', () => {
     it('should auto-generate unique IDs for each created document', async () => {
       // Arrange
       const newUsers = [
-        new NewUser({ email: 'id1@example.com', password: 'pass1', status: 'active', cg_id: 'cg-1' }),
-        new NewUser({ email: 'id2@example.com', password: 'pass2', status: 'active', cg_id: 'cg-2' }),
+        new NewUser({ email: 'id1@example.com', password: 'pass1', status: 'active', ug_id: 'ug-1' }),
+        new NewUser({ email: 'id2@example.com', password: 'pass2', status: 'active', ug_id: 'ug-2' }),
       ];
 
       // Act
@@ -164,8 +164,8 @@ describe('BaseRepository', () => {
     it('should return domain model instances for each created document', async () => {
       // Arrange
       const newUsers = [
-        new NewUser({ email: 'domain1@example.com', password: 'pass1', status: 'active', cg_id: 'cg-1' }),
-        new NewUser({ email: 'domain2@example.com', password: 'pass2', status: 'active', cg_id: 'cg-2' }),
+        new NewUser({ email: 'domain1@example.com', password: 'pass1', status: 'active', ug_id: 'ug-1' }),
+        new NewUser({ email: 'domain2@example.com', password: 'pass2', status: 'active', ug_id: 'ug-2' }),
       ];
 
       // Act
@@ -182,8 +182,8 @@ describe('BaseRepository', () => {
     it('should persist all documents and make them findable by ID', async () => {
       // Arrange
       const newUsers = [
-        new NewUser({ email: 'persist1@example.com', password: 'pass1', status: 'active', cg_id: 'cg-1' }),
-        new NewUser({ email: 'persist2@example.com', password: 'pass2', status: 'active', cg_id: 'cg-2' }),
+        new NewUser({ email: 'persist1@example.com', password: 'pass1', status: 'active', ug_id: 'ug-1' }),
+        new NewUser({ email: 'persist2@example.com', password: 'pass2', status: 'active', ug_id: 'ug-2' }),
       ];
 
       // Act
@@ -210,8 +210,8 @@ describe('BaseRepository', () => {
     it('should preserve correct field values for each document', async () => {
       // Arrange
       const newUsers = [
-        new NewUser({ email: 'fields1@example.com', password: 'password1', status: 'active', cg_id: 'cg-a' }),
-        new NewUser({ email: 'fields2@example.com', password: 'password2', status: 'suspended', cg_id: 'cg-b' }),
+        new NewUser({ email: 'fields1@example.com', password: 'password1', status: 'active', ug_id: 'ug-a' }),
+        new NewUser({ email: 'fields2@example.com', password: 'password2', status: 'suspended', ug_id: 'ug-b' }),
       ];
 
       // Act
@@ -221,12 +221,12 @@ describe('BaseRepository', () => {
       expect(createdUsers[0]?.email).toBe('fields1@example.com');
       expect(createdUsers[0]?.password).toBe('password1');
       expect(createdUsers[0]?.status).toBe('active');
-      expect(createdUsers[0]?.cg_id).toBe('cg-a');
+      expect(createdUsers[0]?.ug_id).toBe('ug-a');
 
       expect(createdUsers[1]?.email).toBe('fields2@example.com');
       expect(createdUsers[1]?.password).toBe('password2');
       expect(createdUsers[1]?.status).toBe('suspended');
-      expect(createdUsers[1]?.cg_id).toBe('cg-b');
+      expect(createdUsers[1]?.ug_id).toBe('ug-b');
     });
   });
 
@@ -237,7 +237,7 @@ describe('BaseRepository', () => {
         email: 'findme@example.com',
         password: 'password123',
         status: 'active',
-        cg_id: 'cg-find',
+        ug_id: 'ug-find',
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -278,7 +278,7 @@ describe('BaseRepository', () => {
         email: 'object@example.com',
         password: 'password123',
         status: 'active',
-        cg_id: 'cg-object',
+        ug_id: 'ug-object',
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -302,7 +302,7 @@ describe('BaseRepository', () => {
         email: 'update@example.com',
         password: 'oldPassword',
         status: 'pending_verification',
-        cg_id: 'cg-update',
+        ug_id: 'ug-update',
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -311,7 +311,7 @@ describe('BaseRepository', () => {
         email: createdUser.email,
         status: 'active',
         password: 'newPassword',
-        cg_id: createdUser.cg_id,
+        ug_id: createdUser.ug_id,
       });
 
       // Act
@@ -330,7 +330,7 @@ describe('BaseRepository', () => {
         email: 'partial@example.com',
         password: 'password123',
         status: 'active',
-        cg_id: 'cg-partial',
+        ug_id: 'ug-partial',
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -339,7 +339,7 @@ describe('BaseRepository', () => {
         email: 'newemail@example.com',
         password: newUser.password,
         status: newUser.status,
-        cg_id: newUser.cg_id,
+        ug_id: newUser.ug_id,
       });
 
       // Act
@@ -349,7 +349,7 @@ describe('BaseRepository', () => {
       expect(updatedUser.email).toBe('newemail@example.com');
       expect(updatedUser.password).toBe(newUser.password); // Unchanged
       expect(updatedUser.status).toBe(newUser.status); // Unchanged
-      expect(updatedUser.cg_id).toBe(newUser.cg_id); // Unchanged
+      expect(updatedUser.ug_id).toBe(newUser.ug_id); // Unchanged
     });
 
     it('should throw an error when updating a non-existent user', async () => {
@@ -359,7 +359,7 @@ describe('BaseRepository', () => {
         email: 'test@example.com',
         password: 'password',
         status: 'active',
-        cg_id: 'cg-1',
+        ug_id: 'ug-1',
       });
 
       // Act & Assert
@@ -372,7 +372,7 @@ describe('BaseRepository', () => {
         email: 'return@example.com',
         password: 'password123',
         status: 'pending_verification',
-        cg_id: 'cg-return',
+        ug_id: 'ug-return',
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -381,7 +381,7 @@ describe('BaseRepository', () => {
         email: createdUser.email,
         password: createdUser.password,
         status: 'active',
-        cg_id: createdUser.cg_id,
+        ug_id: createdUser.ug_id,
       });
 
       // Act
@@ -397,7 +397,7 @@ describe('BaseRepository', () => {
         email: 'convert@example.com',
         password: 'password123',
         status: 'pending_verification',
-        cg_id: 'cg-convert',
+        ug_id: 'ug-convert',
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -406,7 +406,7 @@ describe('BaseRepository', () => {
         email: createdUser.email,
         password: createdUser.password,
         status: 'active',
-        cg_id: createdUser.cg_id,
+        ug_id: createdUser.ug_id,
       });
 
       // Act
@@ -426,7 +426,7 @@ describe('BaseRepository', () => {
         email: 'delete@example.com',
         password: 'password123',
         status: 'active',
-        cg_id: 'cg-delete',
+        ug_id: 'ug-delete',
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -453,13 +453,13 @@ describe('BaseRepository', () => {
         email: 'user1@example.com',
         password: 'pass1',
         status: 'active',
-        cg_id: 'cg-1',
+        ug_id: 'ug-1',
       });
       const user2 = new NewUser({
         email: 'user2@example.com',
         password: 'pass2',
         status: 'active',
-        cg_id: 'cg-2',
+        ug_id: 'ug-2',
       });
 
       const createdUser1 = await userRepository.create(user1);
@@ -487,7 +487,7 @@ describe('BaseRepository', () => {
         email: 'workflow@example.com',
         password: 'initialPassword',
         status: 'pending_verification',
-        cg_id: 'cg-workflow',
+        ug_id: 'ug-workflow',
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -504,7 +504,7 @@ describe('BaseRepository', () => {
         email: createdUser.email,
         password: createdUser.password,
         status: 'active',
-        cg_id: createdUser.cg_id,
+        ug_id: createdUser.ug_id,
       });
       const updatedUser = await userRepository.update(userId, updates);
       expect(updatedUser.status).toBe('active');
@@ -530,7 +530,7 @@ describe('BaseRepository', () => {
             email: `concurrent${i}@example.com`,
             password: `password${i}`,
             status: 'active',
-            cg_id: `cg-${i}`,
+            ug_id: `ug-${i}`,
           }),
       );
 
