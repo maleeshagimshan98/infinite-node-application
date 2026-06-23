@@ -1,12 +1,12 @@
 import type { AuthenticatedRequest } from '@/app/core/utils/request/authenticated-request';
 import APIResponseUtils from '@/app/core/utils/api-response/api-response-utils';
-import type { LoginService } from '@/domain/auth/service/login.service';
+import type { LoginApplicationService } from '@/application/services/auth/login.application.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 
 import type { NextFunction, Response } from 'express';
 
 export const UserValidatorMiddleware =
-  (loginServiceProvider: () => LoginService) =>
+  (loginApplicationServiceProvider: () => LoginApplicationService) =>
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     const token = req.headers.authorization?.split(' ')[1];
 
@@ -17,17 +17,16 @@ export const UserValidatorMiddleware =
     }
 
     try {
-      const loginService = loginServiceProvider();
-      if (!loginService) {
+      const loginApplicationService = loginApplicationServiceProvider();
+      if (!loginApplicationService) {
         const apiResponse = APIResponseUtils.getServerErrorAPIResponse();
         res.status(apiResponse.getCode()).send(apiResponse.toJson());
         return;
       }
-      // Use LoginService to validate token and get user data
-      const userData = await loginService.validateToken(token);
+      // Validate the token (cache-backed) and resolve the full user object
+      const userData = await loginApplicationService.validate(token);
 
-      // Get full user object
-      const user = await loginService.getUserById(userData.id);
+      const user = await loginApplicationService.getUserById(userData.id);
 
       if (!user) {
         const apiResponse = APIResponseUtils.invalidAuthorizationHeaderResponse();

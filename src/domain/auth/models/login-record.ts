@@ -4,13 +4,15 @@
 
 import { DomainEntity } from '../../base/DomainEntity';
 
-type LoginRecordStatus = 'active' | 'cancelled' | 'expired';
+export type LoginRecordStatus = 'active' | 'expired' | 'revoked';
 
 export interface INewLoginRecord {
   id?: string;
   user_id: string;
   token: string;
-  valid_till: Date;
+  refresh_token: string;
+  access_token_valid_till: Date;
+  refresh_token_valid_till: Date;
   status: LoginRecordStatus;
 }
 
@@ -22,7 +24,9 @@ export class NewLoginRecord extends DomainEntity {
   protected _id?: string;
   protected _user_id: string;
   protected _token: string;
-  protected _valid_till: Date;
+  protected _refresh_token: string;
+  protected _access_token_valid_till: Date;
+  protected _refresh_token_valid_till: Date;
   protected _status: LoginRecordStatus;
 
   constructor(data: INewLoginRecord) {
@@ -32,11 +36,12 @@ export class NewLoginRecord extends DomainEntity {
     }
     this._user_id = data.user_id;
     this._token = data.token;
-    this._valid_till = data.valid_till;
+    this._refresh_token = data.refresh_token;
+    this._access_token_valid_till = data.access_token_valid_till;
+    this._refresh_token_valid_till = data.refresh_token_valid_till;
     this._status = data.status;
   }
 
-  // Getters
   get id(): string | undefined {
     return this._id;
   }
@@ -49,29 +54,40 @@ export class NewLoginRecord extends DomainEntity {
     return this._token;
   }
 
-  get valid_till(): Date {
-    return this._valid_till;
+  get refresh_token(): string {
+    return this._refresh_token;
+  }
+
+  get access_token_valid_till(): Date {
+    return this._access_token_valid_till;
+  }
+
+  get refresh_token_valid_till(): Date {
+    return this._refresh_token_valid_till;
   }
 
   get status(): LoginRecordStatus {
     return this._status;
   }
 
-  // Setters
   set id(value: string) {
     this._id = value;
-  }
-
-  set user_id(value: string) {
-    this._user_id = value;
   }
 
   set token(value: string) {
     this._token = value;
   }
 
-  set valid_till(value: Date) {
-    this._valid_till = value;
+  set refresh_token(value: string) {
+    this._refresh_token = value;
+  }
+
+  set access_token_valid_till(value: Date) {
+    this._access_token_valid_till = value;
+  }
+
+  set refresh_token_valid_till(value: Date) {
+    this._refresh_token_valid_till = value;
   }
 
   set status(value: LoginRecordStatus) {
@@ -87,11 +103,9 @@ export class LoginRecord extends NewLoginRecord {
     this._id = data.id;
   }
 
-  // Override id getter to return required string
   get id(): string {
     return this._id;
   }
-
-  // All other getters and setters are inherited from NewLoginRecord
-  // Business logic methods can be added here
 }
+
+export default LoginRecord;

@@ -9,10 +9,10 @@ import { BaseRepository } from '../base/base-repository';
 import { LoginRecordMapper } from './login-record.mapper';
 import { LoginRecordModel } from './login-record.model';
 
-import type { ILoginRecordSchema } from './login-record.model';
+import type { INewLoginRecordSchema } from './login-record.model';
 
 export class LoginRecordRepository
-  extends BaseRepository<ILoginRecordSchema, LoginRecord, NewLoginRecord>
+  extends BaseRepository<INewLoginRecordSchema, LoginRecord, NewLoginRecord>
   implements ILoginRecordRepository
 {
   constructor() {

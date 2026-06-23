@@ -5,41 +5,42 @@
 import type { NewLoginRecord } from '@/domain/auth/models/login-record';
 import { LoginRecord } from '@/domain/auth/models/login-record';
 
-import type { IBaseMapper } from '../base/base.mapper.interface';
-import type { ILoginRecordSchema } from './login-record.model';
+import { BaseMapper } from '../base/base.mapper';
 
-export class LoginRecordMapper implements IBaseMapper<ILoginRecordSchema, LoginRecord, NewLoginRecord> {
-  toDomain(data: ILoginRecordSchema & { _id: string }): LoginRecord {
+import type { Types } from 'mongoose';
+import type { INewLoginRecordSchema } from './login-record.model';
+
+export class LoginRecordMapper extends BaseMapper<INewLoginRecordSchema, LoginRecord, NewLoginRecord> {
+  toDomain(data: INewLoginRecordSchema & { _id: string | Types.ObjectId }): LoginRecord {
     return new LoginRecord({
-      id: data._id,
+      id: data._id.toString(),
       user_id: data.user_id,
       token: data.token,
-      valid_till: data.valid_till,
+      refresh_token: data.refresh_token,
+      access_token_valid_till: data.access_token_valid_till,
+      refresh_token_valid_till: data.refresh_token_valid_till,
       status: data.status,
     });
   }
 
-  toPersistence(data: NewLoginRecord): ILoginRecordSchema {
+  toPersistence(data: NewLoginRecord): INewLoginRecordSchema {
     return !data.id
       ? {
-          // New entity (no ID yet)
           user_id: data.user_id,
           token: data.token,
-          valid_till: data.valid_till,
+          refresh_token: data.refresh_token,
+          access_token_valid_till: data.access_token_valid_till,
+          refresh_token_valid_till: data.refresh_token_valid_till,
           status: data.status,
         }
       : {
-          // Existing entity (has ID)
           _id: data.id,
           user_id: data.user_id,
           token: data.token,
-          valid_till: data.valid_till,
+          refresh_token: data.refresh_token,
+          access_token_valid_till: data.access_token_valid_till,
+          refresh_token_valid_till: data.refresh_token_valid_till,
           status: data.status,
         };
-  }
-
-  toFilter(filter: Partial<NewLoginRecord>): Partial<ILoginRecordSchema> {
-    const { id, ...rest } = filter;
-    return id !== undefined ? { _id: id, ...rest } : { ...rest };
   }
 }
