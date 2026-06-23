@@ -25,9 +25,10 @@ type MongooseModel<DBModel> = Model<
  * BaseRepository provides common CRUD operations for any schema type DBModel (model schema interface) and DomainModel (domain model).
  * It uses a Mongoose model for database interactions and a mapper to convert between persistence and domain models.
  */
-export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel>
-  implements IBaseRepository<DomainModel, NewDomainModel>
-{
+export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> implements IBaseRepository<
+  DomainModel,
+  NewDomainModel
+> {
   /**
    * mongoose model instance for the schema DBModel
    *
