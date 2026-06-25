@@ -3,7 +3,7 @@
  */
 
 import type { IHTTPResponse } from './http-response.interface';
-import type { IBaseInfrastructureService } from './base.interface';
+import type { IBaseInfrastructureService } from './base-infrastructure-service.interface';
 
 export type RequestConfig = {
   url: string;
