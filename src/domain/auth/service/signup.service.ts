@@ -4,7 +4,6 @@
 
 import argon2 from 'argon2';
 
-import { ErrorResponseMessages } from '@/app/core/utils/error-response-messages';
 import type { UserGroup } from '@/domain/user/models/user-group';
 import { NewUser, type User } from '@/domain/user/models/user';
 import type { IUserRepository } from '@/application/interfaces/repositories/user/user.repository.interface';
@@ -114,11 +113,15 @@ export class SignupService extends BaseDomainService {
       const user: User | null = await this.getUserByEmail(email);
 
       if (!user) {
-        throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'NOT_FOUND');
+        throw new DomainServiceError(`The User with the email equal to ${email} could not be found.`, 'NOT_FOUND');
       }
 
       user.status = 'active';
-      await this.userRepository.update(user.id, user, transactionOptions);
+      const updatedUser = await this.userRepository.update(user.id, user, transactionOptions);
+
+      if (!updatedUser) {
+        throw new DomainServiceError(`The User with the id equal to ${user.id} could not be found.`, 'NOT_FOUND');
+      }
     });
   }
 }

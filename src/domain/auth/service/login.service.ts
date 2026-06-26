@@ -259,7 +259,14 @@ export class LoginService extends BaseDomainService {
   async expireLoginRecord(loginRecord: LoginRecord, transactionOptions?: TransactionOptions): Promise<void> {
     return this.wrapInfrastructureErrors(async () => {
       loginRecord.status = 'expired';
-      await this.loginRecordRepository.update(loginRecord.id, loginRecord, transactionOptions);
+      const updated = await this.loginRecordRepository.update(loginRecord.id, loginRecord, transactionOptions);
+
+      if (!updated) {
+        throw new DomainServiceError(
+          `The Login record with the id equal to ${loginRecord.id} could not be found.`,
+          'NOT_FOUND',
+        );
+      }
     });
   }
 
@@ -275,7 +282,14 @@ export class LoginService extends BaseDomainService {
     return this.wrapInfrastructureErrors(async () => {
       loginRecord.status = 'revoked';
       loginRecord.access_token_valid_till = new Date();
-      await this.loginRecordRepository.update(loginRecord.id, loginRecord, transactionOptions);
+      const updated = await this.loginRecordRepository.update(loginRecord.id, loginRecord, transactionOptions);
+
+      if (!updated) {
+        throw new DomainServiceError(
+          `The Login record with the id equal to ${loginRecord.id} could not be found.`,
+          'NOT_FOUND',
+        );
+      }
     });
   }
 

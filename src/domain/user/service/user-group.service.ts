@@ -2,7 +2,6 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import { ErrorResponseMessages } from '@/app/core/utils/error-response-messages';
 import { NewUserGroup, type UserGroup } from '@/domain/user/models/user-group';
 import type { IUserGroupRepository } from '@/application/interfaces/repositories/user-groups/user-group.repository.interface';
 import type { IUserRepository } from '@/application/interfaces/repositories/user/user.repository.interface';
@@ -62,7 +61,7 @@ export class UserGroupService extends BaseDomainService {
 
       if (existingGroup) {
         throw new DomainServiceError(
-          ErrorResponseMessages.RESOURCE_ALREADY_EXISTS_ERROR('User Group', 'name', groupData.name),
+          `The User Group with the name equal to ${groupData.name} already exists.`,
           'VALIDATION_ERROR',
         );
       }
@@ -96,14 +95,14 @@ export class UserGroupService extends BaseDomainService {
       const existingGroup = await this.getById(id);
 
       if (!existingGroup) {
-        throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User Group', 'id', id), 'NOT_FOUND');
+        throw new DomainServiceError(`The User Group with the id equal to ${id} could not be found.`, 'NOT_FOUND');
       }
 
       if (updateData.name && updateData.name !== existingGroup.name) {
         const duplicateGroup = await this.getByName(updateData.name);
         if (duplicateGroup) {
           throw new DomainServiceError(
-            ErrorResponseMessages.RESOURCE_ALREADY_EXISTS_ERROR('User Group', 'name', updateData.name),
+            `The User Group with the name equal to ${updateData.name} already exists.`,
             'VALIDATION_ERROR',
           );
         }
@@ -113,16 +112,30 @@ export class UserGroupService extends BaseDomainService {
         const currentDefault = await this.getDefaultGroup();
         if (currentDefault && currentDefault.id !== id) {
           currentDefault.default = false;
-          await this.userGroupRepository.update(currentDefault.id, currentDefault, transactionOptions);
+          const unsetDefault = await this.userGroupRepository.update(
+            currentDefault.id,
+            currentDefault,
+            transactionOptions,
+          );
+          if (!unsetDefault) {
+            throw new DomainServiceError(
+              `The User Group with the id equal to ${currentDefault.id} could not be found.`,
+              'NOT_FOUND',
+            );
+          }
         }
       }
 
       Object.assign(existingGroup, updateData);
-      await this.userGroupRepository.update(id, existingGroup, transactionOptions);
+      const updatedGroup = await this.userGroupRepository.update(id, existingGroup, transactionOptions);
+
+      if (!updatedGroup) {
+        throw new DomainServiceError(`The User Group with the id equal to ${id} could not be found.`, 'NOT_FOUND');
+      }
 
       return {
-        id: existingGroup.id,
-        name: existingGroup.name,
+        id: updatedGroup.id,
+        name: updatedGroup.name,
       };
     });
   }
@@ -132,7 +145,7 @@ export class UserGroupService extends BaseDomainService {
       const group = await this.getById(id);
 
       if (!group) {
-        throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User Group', 'id', id), 'NOT_FOUND');
+        throw new DomainServiceError(`The User Group with the id equal to ${id} could not be found.`, 'NOT_FOUND');
       }
 
       if (group.default) {
@@ -160,7 +173,7 @@ export class UserGroupService extends BaseDomainService {
       const group = await this.getById(id);
 
       if (!group) {
-        throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User Group', 'id', id), 'NOT_FOUND');
+        throw new DomainServiceError(`The User Group with the id equal to ${id} could not be found.`, 'NOT_FOUND');
       }
 
       if (group.default) {
@@ -173,15 +186,32 @@ export class UserGroupService extends BaseDomainService {
       const currentDefault = await this.getDefaultGroup();
       if (currentDefault) {
         currentDefault.default = false;
-        await this.userGroupRepository.update(currentDefault.id, currentDefault, transactionOptions);
+        const unsetDefault = await this.userGroupRepository.update(
+          currentDefault.id,
+          currentDefault,
+          transactionOptions,
+        );
+        if (!unsetDefault) {
+          throw new DomainServiceError(
+            `The User Group with the id equal to ${currentDefault.id} could not be found.`,
+            'NOT_FOUND',
+          );
+        }
       }
 
       group.default = true;
-      await this.userGroupRepository.update(group.id, group, transactionOptions);
+      const updatedGroup = await this.userGroupRepository.update(group.id, group, transactionOptions);
+
+      if (!updatedGroup) {
+        throw new DomainServiceError(
+          `The User Group with the id equal to ${group.id} could not be found.`,
+          'NOT_FOUND',
+        );
+      }
 
       return {
-        id: group.id,
-        name: group.name,
+        id: updatedGroup.id,
+        name: updatedGroup.name,
       };
     });
   }

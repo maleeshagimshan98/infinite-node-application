@@ -6,7 +6,6 @@ import argon2 from 'argon2';
 
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
-import { ErrorResponseMessages } from '@/app/core/utils/error-response-messages';
 import type { User } from '@/domain/user/models/user';
 import { NewPasswordResetCode, type PasswordResetCode } from '@/domain/auth/models/password-reset-code';
 import type { LoginRecord } from '@/domain/auth/models/login-record';
@@ -80,7 +79,13 @@ export class AccountRecoveryService extends BaseDomainService {
       await Promise.all(
         resetCodes.map(async (resetCode) => {
           resetCode.status = 'cancelled';
-          await this.passwordResetCodeRepository.update(resetCode.id, resetCode, transactionOptions);
+          const updated = await this.passwordResetCodeRepository.update(resetCode.id, resetCode, transactionOptions);
+          if (!updated) {
+            throw new DomainServiceError(
+              `The Password reset code with the id equal to ${resetCode.id} could not be found.`,
+              'NOT_FOUND',
+            );
+          }
         }),
       );
     });
@@ -108,7 +113,7 @@ export class AccountRecoveryService extends BaseDomainService {
       const user = await this.getUserByEmail(email);
 
       if (!user) {
-        throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'NOT_FOUND');
+        throw new DomainServiceError(`The User with the email equal to ${email} could not be found.`, 'NOT_FOUND');
       }
 
       await this.cancelOldResetCodes(email, transactionOptions);
@@ -153,7 +158,7 @@ export class AccountRecoveryService extends BaseDomainService {
 
       if (!passwordResetCode) {
         throw new DomainServiceError(
-          ErrorResponseMessages.NOT_FOUND_ERROR('Password reset code', 'verification_code', verificationCode),
+          `The Password reset code with the verification_code equal to ${verificationCode} could not be found.`,
           'NOT_FOUND',
         );
       }
@@ -161,7 +166,7 @@ export class AccountRecoveryService extends BaseDomainService {
       const user = await this.getUserByEmail(email);
 
       if (!user) {
-        throw new DomainServiceError(ErrorResponseMessages.NOT_FOUND_ERROR('User', 'email', email), 'NOT_FOUND');
+        throw new DomainServiceError(`The User with the email equal to ${email} could not be found.`, 'NOT_FOUND');
       }
 
       // TODO: MUST USE A DATABASE TRANSACTION FOR ALL BELOW DATA MUTATIONS
@@ -169,8 +174,22 @@ export class AccountRecoveryService extends BaseDomainService {
       user.password = hashedPassword;
       passwordResetCode.status = 'used';
 
-      await this.passwordResetCodeRepository.update(passwordResetCode.id, passwordResetCode, transactionOptions);
-      await this.userRepository.update(user.id, user, transactionOptions);
+      const updatedResetCode = await this.passwordResetCodeRepository.update(
+        passwordResetCode.id,
+        passwordResetCode,
+        transactionOptions,
+      );
+      if (!updatedResetCode) {
+        throw new DomainServiceError(
+          `The Password reset code with the id equal to ${passwordResetCode.id} could not be found.`,
+          'NOT_FOUND',
+        );
+      }
+
+      const updatedUser = await this.userRepository.update(user.id, user, transactionOptions);
+      if (!updatedUser) {
+        throw new DomainServiceError(`The User with the id equal to ${user.id} could not be found.`, 'NOT_FOUND');
+      }
 
       // TODO: Find all and modify all of the login records
       const loginRecord: LoginRecord | null = await this.loginRecordRepository.findOne(
@@ -184,7 +203,17 @@ export class AccountRecoveryService extends BaseDomainService {
 
       if (loginRecord) {
         loginRecord.status = 'revoked';
-        await this.loginRecordRepository.update(loginRecord.id, loginRecord, transactionOptions);
+        const updatedLoginRecord = await this.loginRecordRepository.update(
+          loginRecord.id,
+          loginRecord,
+          transactionOptions,
+        );
+        if (!updatedLoginRecord) {
+          throw new DomainServiceError(
+            `The Login record with the id equal to ${loginRecord.id} could not be found.`,
+            'NOT_FOUND',
+          );
+        }
       }
     });
   }

@@ -82,6 +82,23 @@ export class LoginApplicationService extends BaseApplicationService {
   }
 
   /**
+   * Run a login-record state mutation (expire/revoke) that may target a record whose cached copy
+   * outlived its database row. If the record no longer exists, the mutation now fails with a
+   * NOT_FOUND domain error; surface it as an authentication error so the failed update is visible
+   * to the caller instead of passing silently. Any other error propagates unchanged.
+   */
+  private async mutateLoginRecord(op: () => Promise<void>): Promise<void> {
+    try {
+      await op();
+    } catch (e: unknown) {
+      if (e instanceof DomainServiceError && e.type === 'NOT_FOUND') {
+        throw this.authError(INVALID_TOKEN_MESSAGE);
+      }
+      throw e;
+    }
+  }
+
+  /**
    * Fetch a user by id. Thin delegation so callers (e.g. middleware) need only this service.
    */
   async getUserById(userId: string): Promise<User | null> {
@@ -119,7 +136,7 @@ export class LoginApplicationService extends BaseApplicationService {
 
     if (this.loginService.isAccessTokenExpired(record)) {
       await this.evictLoginRecord(token);
-      await this.loginService.expireLoginRecord(record);
+      await this.mutateLoginRecord(() => this.loginService.expireLoginRecord(record));
       throw this.authError(EXPIRED_TOKEN_MESSAGE);
     }
 
@@ -139,12 +156,12 @@ export class LoginApplicationService extends BaseApplicationService {
 
     if (!this.loginService.isRefreshTokenValid(record, refreshToken)) {
       await this.evictLoginRecord(accessToken);
-      await this.loginService.expireLoginRecord(record);
+      await this.mutateLoginRecord(() => this.loginService.expireLoginRecord(record));
       throw this.authError(EXPIRED_TOKEN_MESSAGE);
     }
 
     const next = await this.dbTransaction(async (session: TransactionOptions) => {
-      await this.loginService.expireLoginRecord(record, session);
+      await this.mutateLoginRecord(() => this.loginService.expireLoginRecord(record, session));
       return this.loginService.createLoginRecord(identity.id, identity.groups, session);
     });
 
@@ -170,7 +187,7 @@ export class LoginApplicationService extends BaseApplicationService {
     }
 
     await this.evictLoginRecord(token);
-    await this.loginService.revokeLoginRecord(record);
+    await this.mutateLoginRecord(() => this.loginService.revokeLoginRecord(record));
   }
 }
 
