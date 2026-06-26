@@ -88,6 +88,7 @@ export interface IBaseRepository<DomainModel, NewDomainModel> {
    * Delete an entity by ID
    * @param id - Entity identifier
    * @param transactionOptions - Optional database transaction session
+   * @returns The deleted domain model, or null if not found
    */
-  delete(id: string, transactionOptions?: TransactionOptions): Promise<void>;
+  delete(id: string, transactionOptions?: TransactionOptions): Promise<DomainModel | null>;
 }

@@ -202,13 +202,20 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
    * @param {string} id - The ID of the document to update
    * @param {NewDomainModel} item - The partial data to update the document with
    * @param {TransactionOptions | undefined} transactionOptions - Optional MongoDB session for transaction support
-   * @returns {Promise<DomainModel>} Resolves to the updated document
-   * @throws {Error} If no document with the given ID is found
+   * @returns {Promise<DomainModel | null>} Resolves to the updated document, or null if no document with the given ID is found
    */
-  public async update(id: string, item: NewDomainModel, transactionOptions?: TransactionOptions): Promise<DomainModel> {
+  public async update(
+    id: string,
+    item: NewDomainModel,
+    transactionOptions?: TransactionOptions,
+  ): Promise<DomainModel | null> {
     const persistenceData = this.mapper.toPersistence(item);
     const model = await this.mongooseModel
-      .findByIdAndUpdate(id, { $set: persistenceData as unknown as Record<string, unknown> }, { new: true })
+      .findByIdAndUpdate(
+        id,
+        { $set: persistenceData as unknown as Record<string, unknown> },
+        { new: true, runValidators: true },
+      )
       .session(
         transactionOptions && transactionOptions.session
           ? (transactionOptions.session as mongoose.mongo.ClientSession)
@@ -216,8 +223,7 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
       )
       .exec();
     if (!model) {
-      //... throw specific error class
-      throw new Error('Document not found');
+      return null;
     }
     return this.mapper.toDomain(model);
   }
@@ -227,10 +233,10 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
    *
    * @param {string} id
    * @param {TransactionOptions | undefined} transactionOptions Optional MongoDB session for transaction support
-   * @returns {Promise<void>} Resolves when the document is deleted
+   * @returns {Promise<DomainModel | null>} Resolves to the deleted document, or null if not found
    */
-  public async delete(id: string, transactionOptions?: TransactionOptions): Promise<void> {
-    await this.mongooseModel
+  public async delete(id: string, transactionOptions?: TransactionOptions): Promise<DomainModel | null> {
+    const model = await this.mongooseModel
       .findByIdAndDelete(id)
       .session(
         transactionOptions && transactionOptions.session
@@ -238,5 +244,9 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
           : null,
       )
       .exec();
+    if (!model) {
+      return null;
+    }
+    return this.mapper.toDomain(model);
   }
 }

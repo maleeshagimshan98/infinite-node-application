@@ -318,10 +318,10 @@ describe('BaseRepository', () => {
       const updatedUser = await userRepository.update(userId, updates);
 
       // Assert
-      expect(updatedUser).toBeDefined();
-      expect(updatedUser.status).toBe('active');
-      expect(updatedUser.password).toBe('newPassword');
-      expect(updatedUser.email).toBe(newUser.email); // Unchanged field
+      expect(updatedUser).not.toBeNull();
+      expect(updatedUser?.status).toBe('active');
+      expect(updatedUser?.password).toBe('newPassword');
+      expect(updatedUser?.email).toBe(newUser.email); // Unchanged field
     });
 
     it('should update only the specified fields', async () => {
@@ -346,13 +346,14 @@ describe('BaseRepository', () => {
       const updatedUser = await userRepository.update(userId, updates);
 
       // Assert
-      expect(updatedUser.email).toBe('newemail@example.com');
-      expect(updatedUser.password).toBe(newUser.password); // Unchanged
-      expect(updatedUser.status).toBe(newUser.status); // Unchanged
-      expect(updatedUser.ug_id).toBe(newUser.ug_id); // Unchanged
+      expect(updatedUser).not.toBeNull();
+      expect(updatedUser?.email).toBe('newemail@example.com');
+      expect(updatedUser?.password).toBe(newUser.password); // Unchanged
+      expect(updatedUser?.status).toBe(newUser.status); // Unchanged
+      expect(updatedUser?.ug_id).toBe(newUser.ug_id); // Unchanged
     });
 
-    it('should throw an error when updating a non-existent user', async () => {
+    it('should return null when updating a non-existent user', async () => {
       // Arrange
       const nonExistentId = '507f1f77bcf86cd799439011';
       const updates = new NewUser({
@@ -362,8 +363,11 @@ describe('BaseRepository', () => {
         ug_id: 'ug-1',
       });
 
-      // Act & Assert
-      await expect(userRepository.update(nonExistentId, updates)).rejects.toThrow('Document not found');
+      // Act
+      const updatedUser = await userRepository.update(nonExistentId, updates);
+
+      // Assert
+      expect(updatedUser).toBeNull();
     });
 
     it('should return updated document with new: true option', async () => {
@@ -388,7 +392,8 @@ describe('BaseRepository', () => {
       const updatedUser = await userRepository.update(userId, updates);
 
       // Assert - The returned user should have the updated status
-      expect(updatedUser.status).toBe('active');
+      expect(updatedUser).not.toBeNull();
+      expect(updatedUser?.status).toBe('active');
     });
 
     it('should convert mongoose document to domain model after update', async () => {
@@ -432,19 +437,26 @@ describe('BaseRepository', () => {
       const userId = createdUser.id;
 
       // Act
-      await userRepository.delete(userId);
+      const deleted = await userRepository.delete(userId);
 
-      // Assert - Verify user no longer exists
+      // Assert - Returns the deleted domain model
+      expect(deleted).not.toBeNull();
+      expect(deleted?.id).toBe(userId);
+
+      // Verify user no longer exists
       const deletedUser = await userRepository.findById(userId);
       expect(deletedUser).toBeNull();
     });
 
-    it('should not throw an error when deleting a non-existent user', async () => {
+    it('should return null when deleting a non-existent user', async () => {
       // Arrange
       const nonExistentId = '507f1f77bcf86cd799439011';
 
-      // Act & Assert - Should complete without error
-      await expect(userRepository.delete(nonExistentId)).resolves.not.toThrow();
+      // Act
+      const deleted = await userRepository.delete(nonExistentId);
+
+      // Assert - No throw, resolves to null
+      expect(deleted).toBeNull();
     });
 
     it('should delete the correct user and leave others intact', async () => {
@@ -507,7 +519,8 @@ describe('BaseRepository', () => {
         ug_id: createdUser.ug_id,
       });
       const updatedUser = await userRepository.update(userId, updates);
-      expect(updatedUser.status).toBe('active');
+      expect(updatedUser).not.toBeNull();
+      expect(updatedUser?.status).toBe('active');
 
       // Verify update persisted
       const verifyUser = await userRepository.findById(userId);
