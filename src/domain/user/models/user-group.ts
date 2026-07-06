@@ -4,7 +4,7 @@
 
 import { DomainEntity } from '../../base/DomainEntity';
 
-export interface INewCustomerGroup {
+export interface INewUserGroup {
   id?: string;
   name: string;
   description: string;
@@ -12,18 +12,18 @@ export interface INewCustomerGroup {
   default: boolean;
 }
 
-export interface ICustomerGroup extends INewCustomerGroup {
+export interface IUserGroup extends INewUserGroup {
   id: string;
 }
 
-export class NewCustomerGroup extends DomainEntity {
+export class NewUserGroup extends DomainEntity {
   protected _id?: string;
   protected _name: string;
   protected _description: string;
   protected _discount: number;
   protected _default: boolean;
 
-  constructor(data: INewCustomerGroup) {
+  constructor(data: INewUserGroup) {
     super();
     if (data.id) {
       this._id = data.id;
@@ -77,10 +77,10 @@ export class NewCustomerGroup extends DomainEntity {
   }
 }
 
-export class CustomerGroup extends NewCustomerGroup {
+export class UserGroup extends NewUserGroup {
   protected _id: string;
 
-  constructor(data: ICustomerGroup) {
+  constructor(data: IUserGroup) {
     super(data);
     this._id = data.id;
   }
@@ -89,7 +89,6 @@ export class CustomerGroup extends NewCustomerGroup {
   get id(): string {
     return this._id;
   }
-
-  // All other getters and setters are inherited from NewCustomerGroup
-  // Business logic methods can be added here
 }
+
+export default UserGroup;

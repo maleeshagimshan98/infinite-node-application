@@ -1,13 +1,13 @@
 {
   "name": "infinite-node-application",
-  "version": "0.5.0",
+  "version": "0.7.0",
   "private": true,
   "scripts": {
     "start": "node dist/index.js",
     "worker:start": "node dist/worker.js",
     "start:all": "pm2 start ecosystem.config.js",
-    "dev": "tsx watch ./src/index.ts",
-    "worker:dev": "tsx watch ./src/worker.ts",
+    "dev": "tsc --noEmit && tsx watch ./src/index.ts",
+    "worker:dev": "tsc --noEmit && tsx watch ./src/worker.ts",
     "dev:all": "pm2 start ecosystem.config.js --env development",
     "test": "jest",
     "lint": "eslint src --ext .js,.ts",
@@ -43,6 +43,7 @@
     "express-validator": "^7.2.1",
     "helmet": "^8.1.0",
     "http-errors": "~1.6.3",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.14.0",
     "morgan": "^1.10.1",
     "mysql": "^2.18.1",
@@ -66,6 +67,7 @@
     "@types/express": "^5.0.1",
     "@types/express-session": "^1.18.2",
     "@types/jest": "^29.5.14",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/mongoose": "^5.11.96",
     "@types/morgan": "^1.9.9",
     "@types/mysql": "^2.15.27",
@@ -92,7 +94,9 @@
     "typescript-eslint": "^8.25.0"
   },
   "overrides": {
-    "minimatch": "^10.2.1"
+    "eslint-plugin-import": {
+      "minimatch": "^3.1.2"
+    }
   },
   "author": {
     "name": "Maleesha Gimshan",

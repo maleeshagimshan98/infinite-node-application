@@ -1,6 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
 
-export interface INewCustomerGroupSchema {
+export interface INewUserGroupSchema {
   _id?: string;
   name: string;
   description: string;
@@ -8,11 +8,11 @@ export interface INewCustomerGroupSchema {
   default: boolean;
 }
 
-export const CustomerGroupSchema: Schema = new Schema<INewCustomerGroupSchema>({
+export const UserGroupSchema: Schema = new Schema<INewUserGroupSchema>({
   name: { type: String, required: true },
   description: { type: String, required: true },
   discount: { type: Number, required: true },
   default: { type: Boolean, required: true },
 });
 
-export const CustomerGroupModel = mongoose.model<INewCustomerGroupSchema>('customer-group', CustomerGroupSchema);
+export const UserGroupModel = mongoose.model<INewUserGroupSchema>('user-group', UserGroupSchema);

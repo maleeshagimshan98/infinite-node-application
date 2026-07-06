@@ -71,6 +71,10 @@ export class InMemoryNotificationDriver implements ICoreDriver<unknown, IInMemor
       throw new InfrastructureError(
         `Failed to initialize InMemoryNotificationDriver: ${err instanceof Error ? err.message : 'Unknown error'}`,
         'DRIVER_ERROR',
+        {
+          error: err instanceof Error ? err.message : 'Unknown error',
+          config: this._config,
+        },
       );
     }
   }

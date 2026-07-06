@@ -20,4 +20,13 @@ export interface IBaseMapper<DBSchema, DomainModel, NewDomainModel> {
    * @return {DBSchema} A plain object representing the data to be stored in the database
    */
   toPersistence: (data: NewDomainModel) => DBSchema;
+
+  /**
+   * Translate a partial domain model filter into a partial database schema filter.
+   * Maps domain field names (e.g. `id`) to database field names (e.g. `_id`).
+   *
+   * @param {Partial<NewDomainModel>} filter Partial domain model fields used as query criteria
+   * @return {Partial<DBSchema>} Partial database schema object for use in Mongoose queries
+   */
+  toFilter: (filter: Partial<NewDomainModel>) => Partial<DBSchema>;
 }

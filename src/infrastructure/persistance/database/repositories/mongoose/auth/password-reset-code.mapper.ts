@@ -5,15 +5,19 @@
 import { PasswordResetCode } from '@/domain/auth/models/password-reset-code';
 import type { NewPasswordResetCode } from '@/domain/auth/models/password-reset-code';
 
-import type { IPasswordResetCodeSchema } from './password-reset-code.model';
-import type { IBaseMapper } from '../base/base.mapper.interface';
+import { BaseMapper } from '../base/base.mapper';
 
-export class PasswordResetCodeMapper
-  implements IBaseMapper<IPasswordResetCodeSchema, PasswordResetCode, NewPasswordResetCode>
-{
-  toDomain(data: IPasswordResetCodeSchema & { _id: string }): PasswordResetCode {
+import type { Types } from 'mongoose';
+import type { IPasswordResetCodeSchema } from './password-reset-code.model';
+
+export class PasswordResetCodeMapper extends BaseMapper<
+  IPasswordResetCodeSchema,
+  PasswordResetCode,
+  NewPasswordResetCode
+> {
+  toDomain(data: IPasswordResetCodeSchema & { _id: string | Types.ObjectId }): PasswordResetCode {
     return new PasswordResetCode({
-      id: data._id,
+      id: data._id.toString(),
       email: data.email,
       code: data.code,
       valid_till: data.valid_till,

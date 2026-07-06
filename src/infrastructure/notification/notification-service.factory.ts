@@ -79,7 +79,9 @@ export class NotificationServiceFactory implements IServiceFactory<INotification
       //   return await this.createOneSignalNotificationService();
 
       default:
-        throw new InfrastructureError(`Unsupported notification type: ${notificationType}`, 'DRIVER_ERROR');
+        throw new InfrastructureError(`Unsupported notification type: ${notificationType}`, 'DRIVER_ERROR', {
+          notificationType,
+        });
     }
   }
 }

@@ -14,7 +14,7 @@ export const newUserValidator = (): Schema => {
         options: [['pending_verification', 'active', 'suspended']],
       },
     },
-    cg_id: {
+    ug_id: {
       optional: true,
       notEmpty: true,
     },
@@ -34,7 +34,7 @@ export const userValidator = (): Schema => {
         options: [['pending_verification', 'active', 'suspended']],
       },
     },
-    cg_id: {
+    ug_id: {
       notEmpty: true,
     },
   };

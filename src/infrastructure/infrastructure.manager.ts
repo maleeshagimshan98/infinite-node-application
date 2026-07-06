@@ -4,7 +4,7 @@
 
 import { asValue } from 'awilix';
 
-import type { IBaseInfrastructureService } from '@/application/interfaces/base.interface';
+import type { IBaseInfrastructureService } from '@/application/interfaces/base-infrastructure-service.interface';
 
 import { InfrastructureHealthCheckService } from './health/infrastructure-health-check.service';
 import { infrastructureLoader } from './infrastructure.loader';

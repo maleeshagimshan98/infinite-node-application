@@ -12,10 +12,12 @@ export type InfrastructureErrorType =
 
 export class InfrastructureError extends Error {
   public type: InfrastructureErrorType;
+  public data: Record<string, unknown> | undefined;
 
-  constructor(message: string, type: InfrastructureErrorType, options?: ErrorOptions) {
+  constructor(message: string, type: InfrastructureErrorType, data?: Record<string, unknown>, options?: ErrorOptions) {
     super(message, options);
     this.name = 'InfrastructureError';
     this.type = type;
+    this.data = data;
   }
 }

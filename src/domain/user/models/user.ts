@@ -11,7 +11,7 @@ export interface INewUser {
   email: string;
   password: string;
   status: UserStatus;
-  cg_id: string;
+  ug_id: string;
 }
 
 export interface IUser extends INewUser {
@@ -23,7 +23,7 @@ export class NewUser extends DomainEntity {
   protected _email: string;
   protected _password: string;
   protected _status: UserStatus;
-  protected _cg_id: string;
+  protected _ug_id: string;
 
   constructor(data: INewUser) {
     super();
@@ -33,7 +33,7 @@ export class NewUser extends DomainEntity {
     this._email = data.email;
     this._password = data.password;
     this._status = data.status;
-    this._cg_id = data.cg_id;
+    this._ug_id = data.ug_id;
   }
 
   // Getters
@@ -53,8 +53,8 @@ export class NewUser extends DomainEntity {
     return this._status;
   }
 
-  get cg_id(): string {
-    return this._cg_id;
+  get ug_id(): string {
+    return this._ug_id;
   }
 
   // Setters
@@ -74,8 +74,8 @@ export class NewUser extends DomainEntity {
     this._status = value;
   }
 
-  set cg_id(value: string) {
-    this._cg_id = value;
+  set ug_id(value: string) {
+    this._ug_id = value;
   }
 }
 
@@ -96,3 +96,5 @@ export class User extends NewUser {
   // Business logic methods can be added here
   // Example: isActive(): boolean { return this._status === 'active'; }
 }
+
+export default User;

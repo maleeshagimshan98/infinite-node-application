@@ -35,16 +35,24 @@ export class StorageServiceFactory implements IServiceFactory<IStorage> {
         return new LocalStorageService();
 
       case 'aws':
-        throw new InfrastructureError('AWS S3 storage service not yet implemented', 'DRIVER_ERROR');
+        throw new InfrastructureError('AWS S3 storage service not yet implemented', 'DRIVER_ERROR', {
+          provider: 'aws',
+        });
 
       case 'gcp':
-        throw new InfrastructureError('Google Cloud Storage service not yet implemented', 'DRIVER_ERROR');
+        throw new InfrastructureError('Google Cloud Storage service not yet implemented', 'DRIVER_ERROR', {
+          provider: 'gcp',
+        });
 
       case 'azure':
-        throw new InfrastructureError('Azure Blob Storage service not yet implemented', 'DRIVER_ERROR');
+        throw new InfrastructureError('Azure Blob Storage service not yet implemented', 'DRIVER_ERROR', {
+          provider: 'azure',
+        });
 
       default:
-        throw new InfrastructureError(`Unsupported storage driver: ${driver}`, 'DRIVER_ERROR');
+        throw new InfrastructureError(`Unsupported storage driver: ${driver}`, 'DRIVER_ERROR', {
+          driver,
+        });
     }
   }
 }

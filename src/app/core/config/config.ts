@@ -23,9 +23,11 @@ export const configLoader: () => INodeApplicationConfig = () => {
     global_middleware: coreMiddlewareConfig,
     app: appConfig(),
     jwt: {
-      secret: process.env.JWT_SECRET || 'your_jwt_secret',
-      expiresIn: process.env.JWT_EXPIRES_IN || '1h',
+      privateKey: process.env.JWT_PRIVATE_KEY ?? '',
+      publicKey: process.env.JWT_PUBLIC_KEY ?? '',
+      expiresIn: '1h',
     },
+    refreshTokenTtlMs: parseInt(process.env.REFRESH_TOKEN_TTL_MS ?? String(7 * 24 * 60 * 60 * 1000), 10),
     logging: {},
   };
 };

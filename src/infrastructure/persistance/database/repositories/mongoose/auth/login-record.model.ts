@@ -1,21 +1,29 @@
+/**
+ * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
+ */
+
 import mongoose, { Schema } from 'mongoose';
 
-type LoginRecordStatus = 'active' | 'cancelled' | 'expired';
+import type { LoginRecordStatus } from '@/domain/auth/models/login-record';
 
-export interface ILoginRecordSchema {
+export interface INewLoginRecordSchema {
   _id?: string;
   user_id: string;
   token: string;
-  valid_till: Date;
+  refresh_token: string;
+  access_token_valid_till: Date;
+  refresh_token_valid_till: Date;
   status: LoginRecordStatus;
 }
 
-export const loginRecordSchema = new Schema<ILoginRecordSchema>(
+export const loginRecordSchema = new Schema<INewLoginRecordSchema>(
   {
     user_id: { type: String, required: true },
-    token: { type: String, required: true },
-    valid_till: { type: Date, required: true },
-    status: { type: String, enum: ['active', 'cancelled', 'expired'], required: true },
+    token: { type: String, required: true, unique: true },
+    refresh_token: { type: String, required: true },
+    access_token_valid_till: { type: Date, required: true },
+    refresh_token_valid_till: { type: Date, required: true },
+    status: { type: String, enum: ['active', 'expired', 'revoked'], required: true },
   },
   { timestamps: true },
 );

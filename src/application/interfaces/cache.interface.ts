@@ -2,7 +2,7 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IBaseInfrastructureService } from './base.interface';
+import type { IBaseInfrastructureService } from './base-infrastructure-service.interface';
 export interface ICache extends IBaseInfrastructureService {
   serviceName(): 'cache';
   singleton(): true;
@@ -40,4 +40,49 @@ export interface ICache extends IBaseInfrastructureService {
    * @returns {Promise<void>} resolving when cache is cleared
    */
   clear(): Promise<void>;
+
+  /**
+   * Set a single field of a hash. The value is JSON-serialized before storage.
+   *
+   * @param {string} key - Hash key
+   * @param {string} field - Field name within the hash
+   * @param {T} value - Value to store for the field
+   * @returns {Promise<void>} resolving when the field is set
+   */
+  hSet<T>(key: string, field: string, value: T): Promise<void>;
+
+  /**
+   * Get a single field of a hash. The stored value is JSON-parsed.
+   *
+   * @param {string} key - Hash key
+   * @param {string} field - Field name within the hash
+   * @returns {Promise<T | null>} resolving to the parsed value or null if key/field not found
+   */
+  hGet<T>(key: string, field: string): Promise<T | null>;
+
+  /**
+   * Get all fields of a hash as a map. Each value is JSON-parsed.
+   *
+   * @param {string} key - Hash key
+   * @returns {Promise<Record<string, T>>} resolving to a map of fields to parsed values ({} if empty)
+   */
+  hGetAll<T>(key: string): Promise<Record<string, T>>;
+
+  /**
+   * Delete a single field from a hash.
+   *
+   * @param {string} key - Hash key
+   * @param {string} field - Field name to delete
+   * @returns {Promise<void>} resolving when the field is deleted
+   */
+  hDel(key: string, field: string): Promise<void>;
+
+  /**
+   * Check whether a field exists in a hash.
+   *
+   * @param {string} key - Hash key
+   * @param {string} field - Field name to check
+   * @returns {Promise<boolean>} resolving to true if the field exists, false otherwise
+   */
+  hExists(key: string, field: string): Promise<boolean>;
 }

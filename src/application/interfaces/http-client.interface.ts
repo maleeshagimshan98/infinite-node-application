@@ -2,9 +2,8 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { APIResponse } from '@/app/core/utils/api-response/api-response';
-
-import type { IBaseInfrastructureService } from './base.interface';
+import type { IHTTPResponse } from './http-response.interface';
+import type { IBaseInfrastructureService } from './base-infrastructure-service.interface';
 
 export type RequestConfig = {
   url: string;
@@ -24,43 +23,43 @@ export interface IHTTPClient extends IBaseInfrastructureService {
    * Make a GET request
    *
    * @param {Omit<RequestConfig, 'method'>} config - Request configuration
-   * @returns {Promise<APIResponse>}
+   * @returns {Promise<IHTTPResponse>}
    */
-  get(config: Omit<RequestConfig, 'method'>): Promise<APIResponse>;
+  get(config: Omit<RequestConfig, 'method'>): Promise<IHTTPResponse>;
 
   /**
    * Make a POST request
    *
    * @param {Omit<RequestConfig, 'method'>} config - Request configuration
-   * @returns {Promise<APIResponse>}
+   * @returns {Promise<IHTTPResponse>}
    * @throws {InfrastructureError}
    */
-  post(config: Omit<RequestConfig, 'method'>): Promise<APIResponse>;
+  post(config: Omit<RequestConfig, 'method'>): Promise<IHTTPResponse>;
 
   /**
    * Make a PUT request
    *
    * @param {Omit<RequestConfig, 'method'>} config - Request configuration
-   * @returns {Promise<APIResponse>}
+   * @returns {Promise<IHTTPResponse>}
    * @throws {InfrastructureError}
    */
-  put(config: Omit<RequestConfig, 'method'>): Promise<APIResponse>;
+  put(config: Omit<RequestConfig, 'method'>): Promise<IHTTPResponse>;
 
   /**
    * Make a PATCH request
    *
    * @param {Omit<RequestConfig, 'method'>} config - Request configuration
-   * @returns {Promise<APIResponse>}
+   * @returns {Promise<IHTTPResponse>}
    * @throws {InfrastructureError}
    */
-  patch(config: Omit<RequestConfig, 'method'>): Promise<APIResponse>;
+  patch(config: Omit<RequestConfig, 'method'>): Promise<IHTTPResponse>;
 
   /**
    * Make a DELETE request
    *
    * @param {Omit<RequestConfig, 'method'>} config - Request configuration
-   * @returns {Promise<APIResponse>}
+   * @returns {Promise<IHTTPResponse>}
    * @throws {InfrastructureError}
    */
-  delete(config: Omit<RequestConfig, 'method'>): Promise<APIResponse>;
+  delete(config: Omit<RequestConfig, 'method'>): Promise<IHTTPResponse>;
 }
