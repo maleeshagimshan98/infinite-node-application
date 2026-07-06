@@ -96,3 +96,5 @@ export class User extends NewUser {
   // Business logic methods can be added here
   // Example: isActive(): boolean { return this._status === 'active'; }
 }
+
+export default User;

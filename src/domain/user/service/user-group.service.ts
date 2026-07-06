@@ -46,7 +46,7 @@ export class UserGroupService extends BaseDomainService {
     });
   }
 
-  async list(limit?: number, offset?: number): Promise<UserGroup[]> {
+  async getAll(limit?: number, offset?: number): Promise<UserGroup[]> {
     return this.wrapInfrastructureErrors(async () => {
       return await this.userGroupRepository.find({}, limit, offset);
     });

@@ -75,7 +75,7 @@ export async function clearUserGroups(): Promise<void> {
   try {
     const userGroupService = container.resolve<UserGroupService>('userGroupService');
 
-    const allGroups = await userGroupService.list();
+    const allGroups = await userGroupService.getAll();
 
     let deletedCount = 0;
 
