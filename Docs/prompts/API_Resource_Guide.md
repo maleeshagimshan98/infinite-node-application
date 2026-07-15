@@ -423,6 +423,7 @@ export default Model;
 Create this file only when TypeScript narrowing is genuinely needed — for example, narrowing `INewModel` to `IModel`, or narrowing a discriminated union on a `type` or `status` field.
 
 **Rules:**
+
 - Strictly `is` predicate functions — zero business logic
 - No imports from infrastructure, application, or other domain services
 - One file per model, co-located with that model's folder
@@ -1210,16 +1211,24 @@ const loginApplicationServiceProvider = (): LoginApplicationService =>
   container.resolve<LoginApplicationService>('loginApplicationService');
 
 // Get all models (paginated)
-router.get('/', UserValidatorMiddleware(loginApplicationServiceProvider), (req: AuthenticatedRequest, res: Response) => {
-  const controller = container.resolve<ModelController>('modelController');
-  controller.getAll(req, res);
-});
+router.get(
+  '/',
+  UserValidatorMiddleware(loginApplicationServiceProvider),
+  (req: AuthenticatedRequest, res: Response) => {
+    const controller = container.resolve<ModelController>('modelController');
+    controller.getAll(req, res);
+  },
+);
 
 // Get model by ID
-router.get('/:id', UserValidatorMiddleware(loginApplicationServiceProvider), (req: AuthenticatedRequest, res: Response) => {
-  const controller = container.resolve<ModelController>('modelController');
-  controller.getById(req, res);
-});
+router.get(
+  '/:id',
+  UserValidatorMiddleware(loginApplicationServiceProvider),
+  (req: AuthenticatedRequest, res: Response) => {
+    const controller = container.resolve<ModelController>('modelController');
+    controller.getById(req, res);
+  },
+);
 
 // Create new model
 router.post(
@@ -1244,10 +1253,14 @@ router.put(
 );
 
 // Delete model
-router.delete('/:id', UserValidatorMiddleware(loginApplicationServiceProvider), (req: AuthenticatedRequest, res: Response) => {
-  const controller = container.resolve<ModelController>('modelController');
-  controller.delete(req, res);
-});
+router.delete(
+  '/:id',
+  UserValidatorMiddleware(loginApplicationServiceProvider),
+  (req: AuthenticatedRequest, res: Response) => {
+    const controller = container.resolve<ModelController>('modelController');
+    controller.delete(req, res);
+  },
+);
 
 export { router as ModelRoutes };
 ```
@@ -2198,7 +2211,12 @@ export class PostService extends BaseDomainService {
    * @throws {DomainServiceError} NOT_FOUND when the post does not exist
    * @throws {DomainServiceError} USER_PERMISSION_ERROR when the requester is not the author
    */
-  async update(id: string, data: Partial<INewPost>, authorId: string, transactionOptions?: TransactionOptions): Promise<Post> {
+  async update(
+    id: string,
+    data: Partial<INewPost>,
+    authorId: string,
+    transactionOptions?: TransactionOptions,
+  ): Promise<Post> {
     return this.wrapInfrastructureErrors<Post>(async () => {
       const existing = await this.getById(id, transactionOptions);
 
@@ -2474,28 +2492,44 @@ const router = Router();
 const loginServiceProvider = () => container.resolve<LoginService>('loginService');
 
 // Get all posts (paginated)
-router.get('/', UserValidatorMiddleware(loginApplicationServiceProvider), (req: AuthenticatedRequest, res: Response) => {
-  const controller = container.resolve<PostController>('postController');
-  controller.getAll(req, res);
-});
+router.get(
+  '/',
+  UserValidatorMiddleware(loginApplicationServiceProvider),
+  (req: AuthenticatedRequest, res: Response) => {
+    const controller = container.resolve<PostController>('postController');
+    controller.getAll(req, res);
+  },
+);
 
 // Get published posts
-router.get('/published', UserValidatorMiddleware(loginApplicationServiceProvider), (req: AuthenticatedRequest, res: Response) => {
-  const controller = container.resolve<PostController>('postController');
-  controller.getPublished(req, res);
-});
+router.get(
+  '/published',
+  UserValidatorMiddleware(loginApplicationServiceProvider),
+  (req: AuthenticatedRequest, res: Response) => {
+    const controller = container.resolve<PostController>('postController');
+    controller.getPublished(req, res);
+  },
+);
 
 // Get my posts
-router.get('/my/posts', UserValidatorMiddleware(loginApplicationServiceProvider), (req: AuthenticatedRequest, res: Response) => {
-  const controller = container.resolve<PostController>('postController');
-  controller.getMyPosts(req, res);
-});
+router.get(
+  '/my/posts',
+  UserValidatorMiddleware(loginApplicationServiceProvider),
+  (req: AuthenticatedRequest, res: Response) => {
+    const controller = container.resolve<PostController>('postController');
+    controller.getMyPosts(req, res);
+  },
+);
 
 // Get post by ID
-router.get('/:id', UserValidatorMiddleware(loginApplicationServiceProvider), (req: AuthenticatedRequest, res: Response) => {
-  const controller = container.resolve<PostController>('postController');
-  controller.getById(req, res);
-});
+router.get(
+  '/:id',
+  UserValidatorMiddleware(loginApplicationServiceProvider),
+  (req: AuthenticatedRequest, res: Response) => {
+    const controller = container.resolve<PostController>('postController');
+    controller.getById(req, res);
+  },
+);
 
 // Create new post
 router.post(
@@ -2530,10 +2564,14 @@ router.put(
 );
 
 // Delete post
-router.delete('/:id', UserValidatorMiddleware(loginApplicationServiceProvider), (req: AuthenticatedRequest, res: Response) => {
-  const controller = container.resolve<PostController>('postController');
-  controller.delete(req, res);
-});
+router.delete(
+  '/:id',
+  UserValidatorMiddleware(loginApplicationServiceProvider),
+  (req: AuthenticatedRequest, res: Response) => {
+    const controller = container.resolve<PostController>('postController');
+    controller.delete(req, res);
+  },
+);
 
 export { router as BlogRoutes };
 ```

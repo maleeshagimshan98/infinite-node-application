@@ -35,10 +35,10 @@ dotenv.config(); // Load environment variables from .env file
 
 ## Running the Seeders
 
-| Command | Script | Effect |
-|---|---|---|
-| `npm run seed` | `tsx src/infrastructure/persistance/database/seeders/seeder.ts` | Seeds all default data (skips existing) |
-| `npm run seed:clear` | same file with `--clear` | Clears seeded data (users first, then non-default groups) |
+| Command              | Script                                                          | Effect                                                    |
+| -------------------- | --------------------------------------------------------------- | --------------------------------------------------------- |
+| `npm run seed`       | `tsx src/infrastructure/persistance/database/seeders/seeder.ts` | Seeds all default data (skips existing)                   |
+| `npm run seed:clear` | same file with `--clear`                                        | Clears seeded data (users first, then non-default groups) |
 
 The process exits with code `0` on success and `1` on failure. Existing data is reported as
 `⏭️ Skipped (Already Exists)` — running `npm run seed` twice is safe.

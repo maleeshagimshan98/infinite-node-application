@@ -37,13 +37,13 @@ Two worked examples run through the whole guide:
 
 File layout for the two worked examples (paths relative to the service root):
 
-| Artifact | Flat example (UserGroup) | Aggregate example (Order) |
-|---|---|---|
-| Domain model | `src/domain/user/models/user-group.ts` | `src/domain/order/models/order.ts`, `order-item.ts`, `discount-entry.ts`, … |
+| Artifact                   | Flat example (UserGroup)                                                                        | Aggregate example (Order)                                                                                    |
+| -------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Domain model               | `src/domain/user/models/user-group.ts`                                                          | `src/domain/order/models/order.ts`, `order-item.ts`, `discount-entry.ts`, …                                  |
 | Persistence model + schema | `src/infrastructure/persistance/database/repositories/mongoose/user-groups/user-group.model.ts` | `.../mongoose/order/order.model.ts` (root), `order-item.model.ts`, `discount-entry.model.ts` (sub-documents) |
-| Mapper | `.../mongoose/user-groups/user-group.mapper.ts` | `.../mongoose/order/order.mapper.ts` (root), `order-item.mapper.ts` (sub-document) |
-| Repository | `.../mongoose/user-groups/user-group.repository.ts` | `.../mongoose/order/order.repository.ts` |
-| Base classes | `.../mongoose/base/base.mapper.ts`, `base-repository.ts` | plus `base-subdocument.mapper.ts` for sub-documents |
+| Mapper                     | `.../mongoose/user-groups/user-group.mapper.ts`                                                 | `.../mongoose/order/order.mapper.ts` (root), `order-item.mapper.ts` (sub-document)                           |
+| Repository                 | `.../mongoose/user-groups/user-group.repository.ts`                                             | `.../mongoose/order/order.repository.ts`                                                                     |
+| Base classes               | `.../mongoose/base/base.mapper.ts`, `base-repository.ts`                                        | plus `base-subdocument.mapper.ts` for sub-documents                                                          |
 
 ---
 
@@ -470,11 +470,7 @@ The sub-document mapper composes its own child mappers the same way:
 
 ```typescript
 // src/infrastructure/persistance/database/repositories/mongoose/order/order-item.mapper.ts
-export class OrderItemMapper extends BaseSubDocumentMapper<
-  IOrderItemSchema,
-  INewOrderItem,
-  NewOrderItem
-> {
+export class OrderItemMapper extends BaseSubDocumentMapper<IOrderItemSchema, INewOrderItem, NewOrderItem> {
   private readonly discountMapper = new DiscountEntryMapper();
   private readonly taxLineMapper = new TaxLineMapper();
   private readonly fulfillmentPolicyMapper = new FulfillmentPolicyMapper();
