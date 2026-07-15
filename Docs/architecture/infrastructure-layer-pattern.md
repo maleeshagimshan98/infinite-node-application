@@ -109,7 +109,7 @@ src/
       storage.interface.ts            ← IStorage
       email.interface.ts              ← IEmail
       logger.interface.ts             ← ILogger
-      http-client.interface.ts        ← IHttpClient
+      http-client.interface.ts        ← IHTTPClient + RequestConfig type
       queue.interface.ts              ← IQueue
       socket.interface.ts             ← ISocket
       notification.interface.ts       ← INotification
@@ -283,6 +283,39 @@ export interface IDatabaseMapper extends IBaseInfrastructureService {
 ```
 
 > **IMPORTANT**: `TransactionOptions` (not `session?: unknown` directly) is the type passed through domain services and repositories for transaction support.
+
+```typescript
+// http-client.interface.ts
+import type { IHTTPResponse } from './http-response.interface';
+import type { IBaseInfrastructureService } from './base-infrastructure-service.interface';
+
+export type RequestConfig = {
+  url: string;
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  headers?: Record<string, string>;
+  params?: Record<string, string>;
+  data?: Record<string, unknown> | Record<string, unknown>[] | undefined;
+  timeout?: number;
+};
+
+export interface IHTTPClient extends IBaseInfrastructureService {
+  serviceName(): 'httpClient';
+  singleton(): true;
+  deferred(): false;
+
+  get(config: Omit<RequestConfig, 'method'>): Promise<IHTTPResponse>;
+  post(config: Omit<RequestConfig, 'method'>): Promise<IHTTPResponse>;
+  put(config: Omit<RequestConfig, 'method'>): Promise<IHTTPResponse>;
+  patch(config: Omit<RequestConfig, 'method'>): Promise<IHTTPResponse>;
+  delete(config: Omit<RequestConfig, 'method'>): Promise<IHTTPResponse>;
+}
+```
+
+> **NOTE**: `RequestConfig.data` accepts a single object **or an array of objects** — arrays enable
+> batch request bodies. The explicit `| undefined` in its type is required because the project
+> compiles with `exactOptionalPropertyTypes: true`; keep it when modifying the type. `GET`/`DELETE`
+> ignore `data`. `RequestConfig` is the single source of truth for the request shape —
+> `HTTPClientService.createRequest()` reuses it; never duplicate the shape inline.
 
 ---
 
