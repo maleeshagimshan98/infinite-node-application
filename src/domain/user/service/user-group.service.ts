@@ -176,7 +176,7 @@ export class UserGroupService extends BaseDomainService {
       const deletedGroup = await this.userGroupRepository.delete(id, transactionOptions);
 
       if (!deletedGroup) {
-        throw new DomainServiceError(`The User Group with the id equal to ${id} could not be found.`, 'NOT_FOUND');
+        throw new DomainServiceError(`The User Group with the id equal to ${id} could not be deleted.`, 'NOT_FOUND');
       }
 
       return deletedGroup;
