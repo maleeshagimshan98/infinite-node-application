@@ -2,12 +2,13 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import { Types } from 'mongoose';
+
 import type { NewLoginRecord } from '@/domain/auth/models/login-record';
 import { LoginRecord } from '@/domain/auth/models/login-record';
 
 import { BaseMapper } from '../base/base.mapper';
 
-import type { Types } from 'mongoose';
 import type { INewLoginRecordSchema } from './login-record.model';
 
 export class LoginRecordMapper extends BaseMapper<INewLoginRecordSchema, LoginRecord, NewLoginRecord> {
@@ -34,7 +35,7 @@ export class LoginRecordMapper extends BaseMapper<INewLoginRecordSchema, LoginRe
           status: data.status,
         }
       : {
-          _id: data.id,
+          _id: new Types.ObjectId(data.id),
           user_id: data.user_id,
           token: data.token,
           refresh_token: data.refresh_token,

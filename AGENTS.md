@@ -126,13 +126,13 @@ export class ModelMapper extends BaseMapper<INewModelSchema, Model, NewModel> {
     return new Model({ id: data._id.toString(), ... });
   }
   toPersistence(data: NewModel): INewModelSchema {
-    return !data.id ? { name: data.name } : { _id: data.id, name: data.name };
+    return !data.id ? { name: data.name } : { _id: new Types.ObjectId(data.id), name: data.name };
   }
 }
 ```
 
-- `toDomain` parameter type is always `INew{Model}Schema & { _id: Types.ObjectId }` — Mongoose documents read from the database always have a real `ObjectId`, never a plain string; never create a separate interface for it
-- `toPersistence` omits `_id` when `data.id` is falsy
+- `toDomain` parameter type is always `INew{Model}Schema & { _id: Types.ObjectId }` — the intersection narrows the schema's optional `_id` to required for a hydrated read; never create a separate interface for it
+- `toPersistence` omits `_id` when `data.id` is falsy; when present, convert with `new Types.ObjectId(data.id)` — the schema declares `_id?: Types.ObjectId`, so never assign the raw string
 - Concrete mappers **must extend `BaseMapper`**, not implement `IBaseMapper` directly — `toFilter` is inherited and must not be overridden
 - **Sub-document mappers** extend `BaseSubDocumentMapper<DBSchema, DomainModel, NewDomainModel>` instead (`toDomain(data: DBSchema)` — no `_id` intersection) — see §Sub-Documents in `Docs/prompts/Domain_Model_Repository_Mapper_Guide.md`
 

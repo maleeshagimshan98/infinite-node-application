@@ -1,8 +1,10 @@
 import { Schema, model } from 'mongoose';
 
+import type { Types } from 'mongoose';
+
 type UserStatus = 'pending_verification' | 'active' | 'suspended';
 export interface INewUserSchema {
-  _id?: string;
+  _id?: Types.ObjectId;
   email: string;
   password: string;
   status: UserStatus;

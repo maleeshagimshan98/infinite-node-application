@@ -2,12 +2,13 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import { Types } from 'mongoose';
+
 import type { NewUser } from '@/domain/user/models/user';
 import { User } from '@/domain/user/models/user';
 
 import { BaseMapper } from '../base/base.mapper';
 
-import type { Types } from 'mongoose';
 import type { INewUserSchema } from './user.model';
 
 export class UserMapper extends BaseMapper<INewUserSchema, User, NewUser> {
@@ -30,7 +31,7 @@ export class UserMapper extends BaseMapper<INewUserSchema, User, NewUser> {
           ug_id: data.ug_id,
         }
       : {
-          _id: data.id,
+          _id: new Types.ObjectId(data.id),
           email: data.email,
           password: data.password,
           status: data.status,

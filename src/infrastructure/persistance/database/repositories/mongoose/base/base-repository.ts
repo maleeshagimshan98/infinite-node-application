@@ -46,11 +46,11 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
   private mapper: IBaseMapper<DBModel, DomainModel, NewDomainModel>;
 
   constructor(model: Model<DBModel>, mapper: IBaseMapper<DBModel, DomainModel, NewDomainModel>) {
-    // Mongoose model constructors (e.g. `model<INewXSchema>(...)`) infer `_id` from the schema
-    // interface, which types it loosely as `string` for write-side flexibility (§6). Documents
-    // read back from MongoDB always carry `_id` as a real `Types.ObjectId`, which is what every
-    // mapper's `toDomain` relies on — this cast asserts that runtime guarantee at the one place
-    // a raw Mongoose model enters the repository.
+    // Schema interfaces declare `_id?: Types.ObjectId` (optional — omitted on fresh creates),
+    // but `DBModel` is an unconstrained generic here, so TypeScript cannot resolve Mongoose's
+    // conditional hydrated-document `_id` type for it. This cast only narrows optional →
+    // required `_id` for hydrated reads — the guarantee every mapper's `toDomain` relies on —
+    // at the one place a raw Mongoose model enters the repository.
     this.mongooseModel = model as MongooseModel<DBModel>;
     this.mapper = mapper;
   }

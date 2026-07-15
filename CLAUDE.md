@@ -182,7 +182,7 @@ File location: `src/infrastructure/persistance/database/repositories/mongoose/{f
 ```typescript
 // ✅ ONLY export INew{Model}Schema
 export interface INewCustomerSchema {
-  _id?: string;
+  _id?: Types.ObjectId;
   no: string;
   name: string;
 }
@@ -207,13 +207,13 @@ export class CustomerMapper extends BaseMapper<INewCustomerSchema, Customer, New
   toPersistence(data: NewCustomer): INewCustomerSchema {
     return !data.id
       ? { no: data.no, name: data.name }
-      : { _id: data.id, no: data.no, name: data.name };
+      : { _id: new Types.ObjectId(data.id), no: data.no, name: data.name };
   }
 }
 ```
 
-- `toDomain` parameter `_id` is always `Types.ObjectId` — Mongoose documents read from the database always have a real `ObjectId`, never a plain string; never create a separate interface for it; always call `.toString()` — never assign directly
-- `toPersistence` omits `_id` when `data.id` is falsy
+- `toDomain` parameter `_id` is always `Types.ObjectId` — the `& { _id: Types.ObjectId }` intersection narrows the schema's optional `_id` to required for a hydrated read; never create a separate interface for it; always call `.toString()` — never assign directly
+- `toPersistence` omits `_id` when `data.id` is falsy; when present, convert with `new Types.ObjectId(data.id)` — never assign the raw string (requires a value import: `import { Types } from 'mongoose';`)
 - Concrete mappers **must extend `BaseMapper`**, not implement `IBaseMapper` directly — `toFilter` is inherited; do not override it
 - **Sub-document mappers** use `BaseSubDocumentMapper<DBSchema, DomainModel, NewDomainModel>` (no `_id` intersection on `toDomain`) — see §Sub-Documents in `Docs/prompts/Domain_Model_Repository_Mapper_Guide.md`
 
@@ -471,8 +471,8 @@ Adding a new infrastructure service (e.g. new database, third-party API):
 | Default export | All services, repositories, controllers, and application services must `export default ClassName` |
 | No raw `Error` | Domain layer: `DomainEntityError` (in models) or `DomainServiceError` (in services) |
 | No CRUD duplication | Never add `create`/`findById`/`update`/`delete` to a repository — they are already in `BaseRepository` |
-| Mapper _id | Always use intersection type `INew{Model}Schema & { _id: Types.ObjectId }`; always call `.toString()` on `_id` — never create a separate interface or assign directly |
-| Schema interface | Only `INew{Model}Schema` in the model file — no extending interfaces |
+| Mapper _id | Always use intersection type `INew{Model}Schema & { _id: Types.ObjectId }`; always call `.toString()` on `_id` — never create a separate interface or assign directly. In `toPersistence`, convert with `new Types.ObjectId(data.id)` — never assign the raw string |
+| Schema interface | Only `INew{Model}Schema` in the model file — no extending interfaces; `_id` is `_id?: Types.ObjectId` |
 | Transaction flow | `ApplicationService.dbTransaction()` → passes `TransactionOptions` → DomainService → Repository |
 | Validation layer | Only in `src/presentation/http/validators/` using express-validator `Schema` |
 | Response format | Always `ApiResponseUtils` helpers — never manual response construction |
