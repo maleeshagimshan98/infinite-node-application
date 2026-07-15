@@ -451,11 +451,12 @@ export function isModel(value: INewModel): value is IModel {
 
 ```typescript
 import { Schema, model } from 'mongoose';
+import type { Types } from 'mongoose';
 
 type ModelStatus = 'active' | 'inactive' | 'pending';
 
 export interface INewModelSchema {
-  _id?: string;
+  _id?: Types.ObjectId;
   name: string;
   status: ModelStatus;
   // ... other fields
@@ -491,6 +492,7 @@ export const ModelModel = model('model', ModelSchema);
 
 ```typescript
 export interface INewModelSchema {
+  _id?: Types.ObjectId; // optional — omitted on fresh creates
   name: string;
   status: ModelStatus;
   // ... fields
@@ -501,7 +503,9 @@ export interface INewModelSchema {
 **❌ WRONG - Do NOT add extending interfaces:**
 
 ```typescript
-// ❌ WRONG - These should NOT exist in infrastructure
+// ❌ WRONG - These extending interfaces should NOT exist in infrastructure.
+// The problem is the extra interface, not the Types.ObjectId type — the schema
+// interface itself already declares `_id?: Types.ObjectId`.
 export interface IModel extends INewModelSchema {
   _id: Types.ObjectId;
 }
@@ -514,8 +518,8 @@ export interface IModelSchema extends INewModelSchema {
 **WHY THIS MATTERS:**
 
 - Extending interface pattern (`IModel extends INewModel`) is **ONLY for domain models**
-- Infrastructure schemas should **ONLY export `INew{Model}Schema`**
-- Mappers handle `_id` conversion without needing separate interfaces
+- Infrastructure schemas should **ONLY export `INew{Model}Schema`** (with an optional `_id?: Types.ObjectId`)
+- Mappers narrow `_id` to required via the intersection type — no separate interface needed
 - Adding extra interfaces creates confusion and violates clean architecture separation
 
 **If you see TypeScript errors about `_id` types:**
@@ -536,7 +540,7 @@ export interface IModelSchema extends INewModelSchema {
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { Types } from 'mongoose';
+import { Types } from 'mongoose';
 
 import type { NewModel } from '@/domain/{feature}/models/{model-name}';
 import { Model } from '@/domain/{feature}/models/{model-name}';
@@ -562,7 +566,7 @@ export class ModelMapper extends BaseMapper<INewModelSchema, Model, NewModel> {
           // ... other fields
         }
       : {
-          _id: data.id,
+          _id: new Types.ObjectId(data.id),
           name: data.name,
           status: data.status,
           // ... other fields
@@ -576,7 +580,7 @@ export class ModelMapper extends BaseMapper<INewModelSchema, Model, NewModel> {
 - `toDomain()`: Converts database schema (`INewModelSchema & { _id: Types.ObjectId }`) to domain model (`Model` with required id); always call `.toString()` on `_id` — never assign directly
 - `toPersistence()`: Converts domain model (`NewModel`) to database schema (`INewModelSchema`)
 - Handle `id` vs `_id` mapping (domain uses `id`, MongoDB uses `_id`)
-- Check if `data.id` exists to determine if `_id` should be included in persistence object
+- Check if `data.id` exists to determine if `_id` should be included in persistence object; when included, convert with `new Types.ObjectId(data.id)` — never assign the raw string (requires a value import of `Types`)
 - Concrete mappers **must extend `BaseMapper`**, not implement `IBaseMapper` directly — `toFilter` is inherited and must not be overridden
 - `toFilter` (inherited) maps the domain `id` field to `_id` and also **strips any key whose value is `undefined`**, so partial domain filter objects can be passed directly without risking Mongoose querying on `undefined` fields
 
@@ -1925,11 +1929,12 @@ export default Post;
 
 ```typescript
 import { Schema, model } from 'mongoose';
+import type { Types } from 'mongoose';
 
 type PostStatus = 'draft' | 'published' | 'archived';
 
 export interface INewPostSchema {
-  _id?: string;
+  _id?: Types.ObjectId;
   title: string;
   content: string;
   authorId: string;
@@ -1965,7 +1970,7 @@ export const PostModel = model('post', PostSchema);
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { Types } from 'mongoose';
+import { Types } from 'mongoose';
 
 import type { NewPost } from '@/domain/blog/models/post';
 import { Post } from '@/domain/blog/models/post';
@@ -1995,7 +2000,7 @@ export class PostMapper extends BaseMapper<INewPostSchema, Post, NewPost> {
           tags: data.tags,
         }
       : {
-          _id: data.id,
+          _id: new Types.ObjectId(data.id),
           title: data.title,
           content: data.content,
           authorId: data.authorId,
@@ -2586,7 +2591,7 @@ You've completed the step-by-step implementation. **Now validate everything**:
    - [ ] If you added extra interfaces → **WRONG - Remove them NOW**
 
 2. **Mapper Files** (`*.mapper.ts`):
-   - [ ] Uses `INew{Model}Schema & { _id: string }` parameter type
+   - [ ] Uses `INew{Model}Schema & { _id: Types.ObjectId }` parameter type
    - [ ] Does NOT reference `I{Model}Schema` from infrastructure
    - [ ] Imports domain interfaces only for return types
    - [ ] If you created infrastructure interfaces for this → **WRONG - Use intersection types**

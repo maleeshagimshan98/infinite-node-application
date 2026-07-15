@@ -683,10 +683,11 @@ class InfiniteNodeApplication {
 ```typescript
 // customer.model.ts
 import { Schema, model } from 'mongoose';
+import type { Types } from 'mongoose';
 
 // ⚠️ ONLY export INew{Model}Schema — do NOT add IModel or IModelSchema here
 export interface INewCustomerSchema {
-  _id?: string;
+  _id?: Types.ObjectId;
   no: string;
   name: string;
   balance_lcy: number;
@@ -714,7 +715,7 @@ export const CustomerModel = model('customer', CustomerSchema);
 
 ```typescript
 // customer.mapper.ts
-import type { Types } from 'mongoose';
+import { Types } from 'mongoose';
 
 import type { NewCustomer } from '@/domain/erp/customer-service/models/customer';
 import { Customer } from '@/domain/erp/customer-service/models/customer';
@@ -737,7 +738,7 @@ export class CustomerMapper implements IBaseMapper<INewCustomerSchema, Customer,
     // Only include _id if it exists on the domain model
     return !data.id
       ? { no: data.no, name: data.name, balance_lcy: data.balance_lcy }
-      : { _id: data.id, no: data.no, name: data.name, balance_lcy: data.balance_lcy };
+      : { _id: new Types.ObjectId(data.id), no: data.no, name: data.name, balance_lcy: data.balance_lcy };
   }
 }
 ```

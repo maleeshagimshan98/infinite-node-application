@@ -218,13 +218,14 @@ private initValues<T, K>(values: Record<string, T>, classRef: new (value: T) => 
 > add `I{Model}Schema extends INew{Model}Schema` or any other extending interface — the mapper
 > handles `_id` via an intersection type.
 
-> **RULE**: The persistence model interface may have an **optional `_id`** property. Sub-documents
+> **RULE**: The persistence model interface may have an **optional `_id`** property, typed
+> `Types.ObjectId` — the type MongoDB actually stores and Mongoose hydrates on read. Sub-documents
 > may or may not have an `_id` property, depending on whether the embedded entity needs identity.
 
 ```typescript
 // src/infrastructure/persistance/database/repositories/mongoose/user-groups/user-group.model.ts
 export interface INewUserGroupSchema {
-  _id?: string;
+  _id?: Types.ObjectId;
   name: string;
   description: string;
   discount: number;
@@ -343,8 +344,9 @@ export abstract class BaseMapper<DBSchema, DomainModel, NewDomainModel> implemen
 > directly. `toFilter` (the `id → _id` query translation) is inherited — do not override it.
 
 > **RULE**: `toDomain`'s parameter is always the intersection type
-> `INew{Model}Schema & { _id: Types.ObjectId }` — a document read back from the database always has
-> a real `ObjectId` `_id`, never a plain string. Never create a separate interface for it, and
+> `INew{Model}Schema & { _id: Types.ObjectId }` — the schema's own `_id` is optional (omitted on
+> fresh creates), but a document read back from the database always has one, so the intersection
+> narrows optional → required for a hydrated read. Never create a separate interface for it, and
 > always call `.toString()` on `_id` — never assign it directly.
 
 ### Flat Mapper Example
@@ -371,7 +373,7 @@ export class UserGroupMapper extends BaseMapper<INewUserGroupSchema, UserGroup, 
           default: data.default,
         }
       : {
-          _id: data.id,
+          _id: new Types.ObjectId(data.id),
           name: data.name,
           description: data.description,
           discount: data.discount,
@@ -382,6 +384,9 @@ export class UserGroupMapper extends BaseMapper<INewUserGroupSchema, UserGroup, 
 ```
 
 > **RULE**: `toPersistence` omits `_id` when `data.id` is falsy — MongoDB generates the id on insert.
+> When `data.id` is present, convert it with `new Types.ObjectId(data.id)` — the schema declares
+> `_id?: Types.ObjectId`, so never assign the raw string. This requires a value import
+> (`import { Types } from 'mongoose';`), not `import type`.
 
 ---
 
@@ -598,7 +603,7 @@ toPersistence(data: NewOrder): INewOrderSchema {
     Object.entries(data.items).map(([key, item]) => [key, this.itemMapper.toPersistence(item)]),
   );
   // ... assemble base object
-  return !data.id ? base : { ...base, _id: data.id };
+  return !data.id ? base : { ...base, _id: new Types.ObjectId(data.id) };
 }
 ```
 
@@ -611,7 +616,7 @@ toPersistence(data: NewOrder): INewOrderSchema {
 ☐ 2.  Domain invariants validated in constructors/setters → DomainEntityError
 ☐ 3.  Decide sub-documents: child domain model / class-instance property → sub-document model;
       primitive or Record<string, primitive> → plain schema field. Unclear? Ask the owner.
-☐ 4.  Persistence model interface: INew{Model}Schema ONLY, optional _id, snake_case names
+☐ 4.  Persistence model interface: INew{Model}Schema ONLY, optional _id typed Types.ObjectId, snake_case names
       (sub-documents: _id optional or absent as needed)
 ☐ 5.  Schema with the same property names as the interface; { timestamps: true } on the root
 ☐ 6.  model() on the ROOT document only — sub-document files export their Schema only
@@ -619,6 +624,7 @@ toPersistence(data: NewOrder): INewOrderSchema {
       (DBSchema = persistence model interface, DomainModel = constructor interface, NewDomainModel = child class)
 ☐ 8.  Root mapper extends BaseMapper; holds sub-document mappers as private readonly fields;
       toDomain uses the & { _id } intersection and ._id.toString(); toPersistence omits _id when id is falsy
+      and converts via new Types.ObjectId(data.id) when present
 ☐ 9.  Repository interface in application/interfaces/repositories/; class extends BaseRepository;
       no CRUD duplication; export default
 ☐ 10. JSDoc on every non-trivial method; npm run lint clean; npx tsc --noEmit passes
