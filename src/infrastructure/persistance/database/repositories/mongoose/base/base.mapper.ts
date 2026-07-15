@@ -3,7 +3,6 @@
  */
 
 import type { Types } from 'mongoose';
-
 import type { IBaseMapper } from './base.mapper.interface';
 
 export abstract class BaseMapper<DBSchema, DomainModel, NewDomainModel> implements IBaseMapper<
@@ -11,15 +10,19 @@ export abstract class BaseMapper<DBSchema, DomainModel, NewDomainModel> implemen
   DomainModel,
   NewDomainModel
 > {
-  abstract toDomain(data: DBSchema & { _id: string | Types.ObjectId }): DomainModel;
+  abstract toDomain(data: DBSchema & { _id: Types.ObjectId }): DomainModel;
   abstract toPersistence(data: NewDomainModel): DBSchema;
 
+  /**
+   * Translate a partial domain-model filter into a persistence filter by reusing the persistence mapper.
+   *
+   * @param {Partial<NewDomainModel>} filter - Partial domain model fields used as query criteria
+   * @returns {Partial<DBSchema>} Partial schema object for use in database queries
+   */
   toFilter(filter: Partial<NewDomainModel>): Partial<DBSchema> {
-    const { id, ...rest } = filter as Record<string, unknown>;
-    const result: Partial<DBSchema> = Object.fromEntries(
-      Object.entries(rest).filter(([, v]) => v !== undefined),
+    const persistenceFilter = this.toPersistence(filter as NewDomainModel) as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(persistenceFilter).filter(([, value]) => value !== undefined),
     ) as Partial<DBSchema>;
-    if (id !== undefined) (result as Record<string, unknown>)._id = id;
-    return result;
   }
 }

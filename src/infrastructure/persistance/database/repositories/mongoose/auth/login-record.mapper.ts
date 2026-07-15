@@ -11,7 +11,7 @@ import type { Types } from 'mongoose';
 import type { INewLoginRecordSchema } from './login-record.model';
 
 export class LoginRecordMapper extends BaseMapper<INewLoginRecordSchema, LoginRecord, NewLoginRecord> {
-  toDomain(data: INewLoginRecordSchema & { _id: string | Types.ObjectId }): LoginRecord {
+  toDomain(data: INewLoginRecordSchema & { _id: Types.ObjectId }): LoginRecord {
     return new LoginRecord({
       id: data._id.toString(),
       user_id: data.user_id,

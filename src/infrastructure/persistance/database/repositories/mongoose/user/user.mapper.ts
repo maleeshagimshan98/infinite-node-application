@@ -11,7 +11,7 @@ import type { Types } from 'mongoose';
 import type { INewUserSchema } from './user.model';
 
 export class UserMapper extends BaseMapper<INewUserSchema, User, NewUser> {
-  toDomain(data: INewUserSchema & { _id: string | Types.ObjectId }): User {
+  toDomain(data: INewUserSchema & { _id: Types.ObjectId }): User {
     return new User({
       id: data._id.toString(),
       email: data.email,

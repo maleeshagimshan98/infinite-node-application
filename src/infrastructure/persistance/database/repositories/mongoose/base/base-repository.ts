@@ -6,7 +6,7 @@ import type { IBaseRepository } from '@/application/interfaces/repositories/base
 import type { TransactionOptions } from '@/application/interfaces';
 
 import type mongoose from 'mongoose';
-import type { Model, Document } from 'mongoose';
+import type { Model, Document, Types } from 'mongoose';
 import type { IBaseMapper } from './base.mapper.interface';
 
 type MongooseModel<DBModel> = Model<
@@ -17,7 +17,7 @@ type MongooseModel<DBModel> = Model<
   Document<unknown, object, DBModel, object> &
     DBModel &
     Required<{
-      _id?: string;
+      _id?: Types.ObjectId;
     }>
 >;
 
@@ -45,8 +45,13 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
    */
   private mapper: IBaseMapper<DBModel, DomainModel, NewDomainModel>;
 
-  constructor(model: MongooseModel<DBModel>, mapper: IBaseMapper<DBModel, DomainModel, NewDomainModel>) {
-    this.mongooseModel = model;
+  constructor(model: Model<DBModel>, mapper: IBaseMapper<DBModel, DomainModel, NewDomainModel>) {
+    // Mongoose model constructors (e.g. `model<INewXSchema>(...)`) infer `_id` from the schema
+    // interface, which types it loosely as `string` for write-side flexibility (§6). Documents
+    // read back from MongoDB always carry `_id` as a real `Types.ObjectId`, which is what every
+    // mapper's `toDomain` relies on — this cast asserts that runtime guarantee at the one place
+    // a raw Mongoose model enters the repository.
+    this.mongooseModel = model as MongooseModel<DBModel>;
     this.mapper = mapper;
   }
 

@@ -11,7 +11,7 @@ import type { Types } from 'mongoose';
 import type { INewUserGroupSchema } from './user-group.model';
 
 export class UserGroupMapper extends BaseMapper<INewUserGroupSchema, UserGroup, NewUserGroup> {
-  toDomain(data: INewUserGroupSchema & { _id: string | Types.ObjectId }): UserGroup {
+  toDomain(data: INewUserGroupSchema & { _id: Types.ObjectId }): UserGroup {
     return new UserGroup({
       id: data._id.toString(),
       name: data.name,
