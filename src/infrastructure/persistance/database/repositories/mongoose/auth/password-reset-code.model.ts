@@ -1,9 +1,11 @@
 import { Schema, model } from 'mongoose';
 
+import type { Types } from 'mongoose';
+
 type PasswordResetCodeStatus = 'active' | 'used' | 'cancelled' | 'expired';
 
 export interface IPasswordResetCodeSchema {
-  _id?: string;
+  _id?: Types.ObjectId;
   email: string;
   code: string;
   valid_till: Date;

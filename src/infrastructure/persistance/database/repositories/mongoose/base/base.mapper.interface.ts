@@ -11,7 +11,7 @@ export interface IBaseMapper<DBSchema, DomainModel, NewDomainModel> {
    * @param {DBSchema} data An interface representing the raw data from the database
    * @return {DomainModel} An instance of type DomainModel representing the domain model
    */
-  toDomain: (data: DBSchema & { _id: string | Types.ObjectId }) => DomainModel;
+  toDomain: (data: DBSchema & { _id: Types.ObjectId }) => DomainModel;
 
   /**
    * Convert a domain model instance of type K to a format suitable for persistence in the database

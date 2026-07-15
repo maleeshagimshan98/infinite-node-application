@@ -6,8 +6,10 @@ import mongoose, { Schema } from 'mongoose';
 
 import type { LoginRecordStatus } from '@/domain/auth/models/login-record';
 
+import type { Types } from 'mongoose';
+
 export interface INewLoginRecordSchema {
-  _id?: string;
+  _id?: Types.ObjectId;
   user_id: string;
   token: string;
   refresh_token: string;

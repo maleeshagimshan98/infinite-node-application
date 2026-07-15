@@ -1,7 +1,9 @@
 import mongoose, { Schema } from 'mongoose';
 
+import type { Types } from 'mongoose';
+
 export interface INewUserGroupSchema {
-  _id?: string;
+  _id?: Types.ObjectId;
   name: string;
   description: string;
   discount: number;

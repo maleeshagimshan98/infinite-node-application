@@ -140,7 +140,16 @@ export class UserGroupService extends BaseDomainService {
     });
   }
 
-  async delete(id: string, transactionOptions?: TransactionOptions): Promise<void> {
+  /**
+   * Delete a user group by its ID.
+   *
+   * @param {string} id - The ID of the user group to delete.
+   * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
+   * @returns {Promise<UserGroup>} The deleted user group.
+   * @throws {DomainServiceError} NOT_FOUND when no user group exists with the given id.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the group is the default group or has associated users.
+   */
+  async delete(id: string, transactionOptions?: TransactionOptions): Promise<UserGroup> {
     return this.wrapInfrastructureErrors(async () => {
       const group = await this.getById(id);
 
@@ -164,7 +173,13 @@ export class UserGroupService extends BaseDomainService {
         );
       }
 
-      await this.userGroupRepository.delete(id, transactionOptions);
+      const deletedGroup = await this.userGroupRepository.delete(id, transactionOptions);
+
+      if (!deletedGroup) {
+        throw new DomainServiceError(`The User Group with the id equal to ${id} could not be deleted.`, 'NOT_FOUND');
+      }
+
+      return deletedGroup;
     });
   }
 
