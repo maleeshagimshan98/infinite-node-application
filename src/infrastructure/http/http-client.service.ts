@@ -146,14 +146,7 @@ export class HTTPClientService implements IHTTPClient {
    * @returns {Promise<HTTPResponse>}
    * @throws {InfrastructureError}
    */
-  private async createRequest(config: {
-    url: string;
-    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-    headers?: Record<string, string>;
-    params?: Record<string, string>;
-    data?: Record<string, unknown>;
-    timeout?: number;
-  }): Promise<HTTPResponse> {
+  private async createRequest(config: RequestConfig): Promise<HTTPResponse> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const axiosConfig: any = {
       url: config.url ?? '',

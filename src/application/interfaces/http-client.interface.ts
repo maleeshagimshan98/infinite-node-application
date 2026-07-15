@@ -10,7 +10,7 @@ export type RequestConfig = {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   headers?: Record<string, string>;
   params?: Record<string, string>;
-  data?: Record<string, unknown>;
+  data?: Record<string, unknown> | Record<string, unknown>[] | undefined;
   timeout?: number;
 };
 
