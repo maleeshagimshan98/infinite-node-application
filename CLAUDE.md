@@ -1,16 +1,18 @@
 # Infinite Node Application — CLAUDE.md
 
-> This file gives Claude Code the context it needs to work correctly in every service of this monorepo.
+> This file gives Claude Code the context it needs to work correctly in this service.
 > The **authoritative** pattern references are:
->
 > - `Docs/architecture/infrastructure-layer-pattern.md`
 > - `Docs/prompts/API_Resource_Guide.md`
+> - `Docs/prompts/Domain_Model_Repository_Mapper_Guide.md` — domain models, persistence models, data-mappers incl. sub-documents
+> - `Docs/prompts/Database_Seeding_Guide.md` — database seeding
 
 ---
 
 ## 1. Repository at a Glance
 
-**Infinite Node Application** is a clean-architecture Node.js/TypeScript service framework for building scalable, DDD-layered REST APIs.
+**Infinite Node Application** is a clean-architecture Node.js/TypeScript service framework for
+building scalable, DDD-layered REST APIs.
 
 ```
 src/
@@ -27,23 +29,23 @@ src/
 
 ## 2. Tech Stack
 
-| Concern        | Technology                                           |
-| -------------- | ---------------------------------------------------- |
-| Runtime        | Node.js                                              |
-| Language       | TypeScript (strict)                                  |
-| Framework      | Express.js                                           |
-| DI container   | Awilix (CLASSIC injection, SINGLETON lifetime)       |
-| Database       | MongoDB via Mongoose                                 |
-| Cache / queues | Redis + BullMQ                                       |
-| HTTP client    | Axios                                                |
-| Validation     | express-validator                                    |
-| Logging        | Winston                                              |
-| Auth           | RS256 JWT (access + refresh)                         |
-| Build          | tsc + tsc-alias                                      |
-| Dev server     | tsx watch (ERP), ts-node-dev (others)                |
-| Frontend       | React 18 + Vite + Tailwind CSS                       |
-| Deployment     | Docker Compose (local), AWS ECS Fargate (production) |
-| IaC            | Terraform                                            |
+| Concern | Technology |
+|---|---|
+| Runtime | Node.js |
+| Language | TypeScript (strict) |
+| Framework | Express.js |
+| DI container | Awilix (CLASSIC injection, SINGLETON lifetime) |
+| Database | MongoDB via Mongoose |
+| Cache / queues | Redis + BullMQ |
+| HTTP client | Axios |
+| Validation | express-validator |
+| Logging | Winston |
+| Auth | RS256 JWT (access + refresh) |
+| Build | tsc + tsc-alias |
+| Dev server | tsx watch |
+| Frontend | React 18 + Vite + Tailwind CSS |
+| Deployment | Docker Compose (local), AWS ECS Fargate (production) |
+| IaC | Terraform |
 
 ### Path alias
 
@@ -89,12 +91,12 @@ src/
 `InfrastructureManager.init()` → registers infrastructure services by `service.serviceName()`.  
 `autoRegisterApplicationComponents()` → auto-discovers by glob and registers as camelCase:
 
-| Glob pattern                                                              | Example class             | DI token                  |
-| ------------------------------------------------------------------------- | ------------------------- | ------------------------- |
-| `src/application/services/**/*.service.ts`                                | `OrderApplicationService` | `orderApplicationService` |
-| `src/domain/**/service/*.service.ts`                                      | `CustomerService`         | `customerService`         |
-| `src/infrastructure/persistance/database/repositories/**/*.repository.ts` | `CustomerRepository`      | `customerRepository`      |
-| `src/presentation/http/controllers/**/*.controller.ts`                    | `CustomerController`      | `customerController`      |
+| Glob pattern | Example class | DI token |
+|---|---|---|
+| `src/application/services/**/*.service.ts` | `OrderApplicationService` | `orderApplicationService` |
+| `src/domain/**/service/*.service.ts` | `CustomerService` | `customerService` |
+| `src/infrastructure/persistance/database/repositories/**/*.repository.ts` | `CustomerRepository` | `customerRepository` |
+| `src/presentation/http/controllers/**/*.controller.ts` | `CustomerController` | `customerController` |
 
 **CRITICAL: Every auto-registered class MUST have `export default ClassName;` at the bottom of the file.**
 
@@ -112,13 +114,13 @@ File location: `src/domain/{feature}/models/{model-name}.ts`
  */
 
 export interface INewModel {
-  id?: string; // optional — creation context
+  id?: string;      // optional — creation context
   name: string;
   status: ModelStatus;
 }
 
 export interface IModel extends INewModel {
-  id: string; // required — existing entity context
+  id: string;       // required — existing entity context
 }
 
 export class NewModel extends DomainEntity {
@@ -133,34 +135,22 @@ export class NewModel extends DomainEntity {
     this._status = data.status;
   }
 
-  get id(): string | undefined {
-    return this._id;
-  }
-  get name(): string {
-    return this._name;
-  }
-  get status(): ModelStatus {
-    return this._status;
-  }
+  get id(): string | undefined { return this._id; }
+  get name(): string { return this._name; }
+  get status(): ModelStatus { return this._status; }
   // setters only where mutation is needed
 }
 
 export class Model extends NewModel {
   protected _id: string;
-  constructor(data: IModel) {
-    super(data);
-    this._id = data.id;
-  }
-  get id(): string {
-    return this._id;
-  }
+  constructor(data: IModel) { super(data); this._id = data.id; }
+  get id(): string { return this._id; }
 }
 
 export default Model;
 ```
 
 **Rules:**
-
 - All fields are `protected _fieldName`; expose via getters (and setters only where needed)
 - Invariant violations in constructors/setters → throw `DomainEntityError` (NOT `DomainServiceError`, NOT `Error`)
 - `DomainEntity.toJSON()` auto-serializes all getters, stripping `_` prefix
@@ -210,20 +200,22 @@ File: `{feature}/{name}.mapper.ts`
 
 ```typescript
 export class CustomerMapper extends BaseMapper<INewCustomerSchema, Customer, NewCustomer> {
-  toDomain(data: INewCustomerSchema & { _id: string | Types.ObjectId }): Customer {
+  toDomain(data: INewCustomerSchema & { _id: Types.ObjectId }): Customer {
     return new Customer({ id: data._id.toString(), no: data.no, name: data.name });
   }
 
   toPersistence(data: NewCustomer): INewCustomerSchema {
-    return !data.id ? { no: data.no, name: data.name } : { _id: data.id, no: data.no, name: data.name };
+    return !data.id
+      ? { no: data.no, name: data.name }
+      : { _id: data.id, no: data.no, name: data.name };
   }
 }
 ```
 
-- `toDomain` parameter `_id` is always `string | Types.ObjectId` — never create a separate interface for it; always call `.toString()` — never assign directly
+- `toDomain` parameter `_id` is always `Types.ObjectId` — Mongoose documents read from the database always have a real `ObjectId`, never a plain string; never create a separate interface for it; always call `.toString()` — never assign directly
 - `toPersistence` omits `_id` when `data.id` is falsy
 - Concrete mappers **must extend `BaseMapper`**, not implement `IBaseMapper` directly — `toFilter` is inherited; do not override it
-- `toFilter` (inherited) maps the domain `id` field to `_id` and also **strips any key whose value is `undefined`**, so partial domain filter objects can be passed directly without risking Mongoose querying on `undefined` fields
+- **Sub-document mappers** use `BaseSubDocumentMapper<DBSchema, DomainModel, NewDomainModel>` (no `_id` intersection on `toDomain`) — see §Sub-Documents in `Docs/prompts/Domain_Model_Repository_Mapper_Guide.md`
 
 ---
 
@@ -234,13 +226,9 @@ File: `{feature}/{name}.repository.ts`
 ```typescript
 import type { ICustomerRepository } from '@/application/interfaces/repositories/erp/customer.repository.interface';
 
-export class CustomerRepository
-  extends BaseRepository<INewCustomerSchema, Customer, NewCustomer>
-  implements ICustomerRepository
-{
-  constructor() {
-    super(CustomerModel, new CustomerMapper());
-  }
+export class CustomerRepository extends BaseRepository<INewCustomerSchema, Customer, NewCustomer>
+  implements ICustomerRepository {
+  constructor() { super(CustomerModel, new CustomerMapper()); }
   // Only add domain-specific query methods beyond inherited CRUD
 }
 export default CustomerRepository;
@@ -259,9 +247,7 @@ File: `src/domain/{feature}/service/{name}.service.ts`
 import type { ICustomerRepository } from '@/application/interfaces/repositories/erp/customer.repository.interface';
 
 export class CustomerService extends BaseDomainService {
-  constructor(private readonly customerRepository: ICustomerRepository) {
-    super();
-  }
+  constructor(private readonly customerRepository: ICustomerRepository) { super(); }
 
   async create(data: INewCustomer, opts?: TransactionOptions): Promise<Customer> {
     return this.wrapInfrastructureErrors<Customer>(async () => {
@@ -276,6 +262,15 @@ export class CustomerService extends BaseDomainService {
       const customer = await this.customerRepository.findById(id, opts);
       if (!customer) throw new DomainServiceError(`Customer ${id} not found`, 'NOT_FOUND');
       return customer;
+    });
+  }
+
+  async delete(id: string, opts?: TransactionOptions): Promise<Customer> {
+    return this.wrapInfrastructureErrors<Customer>(async () => {
+      await this.getById(id, opts); // existence check — throws NOT_FOUND
+      const deleted = await this.customerRepository.delete(id, opts);
+      if (!deleted) throw new DomainServiceError(`Customer ${id} could not be deleted`, 'NOT_FOUND');
+      return deleted;
     });
   }
 }
@@ -295,13 +290,13 @@ protected async wrapInfrastructureErrors<T>(
 - `onError` — optional callback invoked with the raw `InfrastructureError` before it is re-thrown as `DomainServiceError`; use for per-call logging or alerting without altering error propagation
 
 **Rules:**
-
 - Extend `BaseDomainService`
 - All public async methods MUST be wrapped with `this.wrapInfrastructureErrors()`
 - All write/read methods inside transactions MUST accept `transactionOptions?: TransactionOptions`
 - Pass `transactionOptions` down to every repository call
 - Only throw `DomainServiceError` — never raw `Error`
 - Always check existence after `findById` / `findOne` and throw `'NOT_FOUND'`
+- `delete()` always returns the deleted domain object — **never `void`**. Check existence before deleting (throw `'NOT_FOUND'`), then null-check the repository's delete result too (throw `'NOT_FOUND'` again) — `BaseRepository.delete()` returns `null` if nothing matched
 
 ---
 
@@ -330,7 +325,6 @@ export default OrderApplicationService;
 ```
 
 **Rules:**
-
 - `IDatabaseMapper` as `databaseMapperService` must be the **first** constructor parameter
 - Use `this.dbTransaction()` for all transactional work
 - Pass `{ session }` (as `TransactionOptions`) to every domain service call inside the callback
@@ -347,10 +341,8 @@ import type { ICustomerRepository } from '@/application/interfaces/repositories/
 export class CustomerController extends BaseController {
   constructor(
     private customerService: CustomerService,
-    private customerRepository: ICustomerRepository, // injected for count()
-  ) {
-    super();
-  }
+    private customerRepository: ICustomerRepository,  // injected for count()
+  ) { super(); }
 
   async create(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
@@ -375,7 +367,6 @@ export default CustomerController;
 ```
 
 **Rules:**
-
 - ALL logic must be inside `this.catchExceptionsWrapper()`
 - Use `matchedData<T>(req)` for validated request data (never `req.body` directly)
 - Inject the repository directly for `count()` (pagination total)
@@ -414,24 +405,22 @@ const loginApplicationServiceProvider = (): LoginApplicationService =>
 router.post(
   '/create',
   UserValidatorMiddleware(loginApplicationServiceProvider), // REQUIRED on every route
-  RequestValidatorMiddleware(newCustomerValidator()), // on create/update routes
+  RequestValidatorMiddleware(newCustomerValidator()),     // on create/update routes
   (req: AuthenticatedRequest, res: Response) => {
     container.resolve<CustomerController>('customerController').create(req, res);
   },
 );
 
-export { router as CustomerRoutes }; // named export ending in "Routes"
+export { router as CustomerRoutes };  // named export ending in "Routes"
 ```
 
 **Rules:**
-
 - `UserValidatorMiddleware` on **every** route — no exceptions
 - `RequestValidatorMiddleware` on create/update routes
 - Resolve controllers from container inside the handler
 - Export as `export { router as FeatureRoutes }`
 
 Register in `src/presentation/http/routes/index.ts`:
-
 ```typescript
 router.use('/customers', CustomerRoutes);
 ```
@@ -457,66 +446,61 @@ Adding a new infrastructure service (e.g. new database, third-party API):
 
 ## 15. Error Types → HTTP Status Mapping
 
-| DomainServiceError type | HTTP                                      |
-| ----------------------- | ----------------------------------------- |
-| `AUTHENTICATION_ERROR`  | 401                                       |
-| `USER_PERMISSION_ERROR` | 403                                       |
-| `NOT_FOUND`             | 404                                       |
-| `ALREADY_EXISTS`        | 400                                       |
-| `VALIDATION_ERROR`      | 400                                       |
-| `INVALID_OPERATION`     | 400                                       |
-| `INCOMPLETE_MODEL`      | 400                                       |
-| `UNKNOWN_ERROR`         | 500                                       |
-| `DATABASE_ERROR`        | 500                                       |
-| `NETWORK_ERROR`         | 500                                       |
-| `INFRASTRUCTURE_ERROR`  | 500 (503 for NETWORK/CONNECTION sub-type) |
+| DomainServiceError type | HTTP |
+|---|---|
+| `AUTHENTICATION_ERROR` | 401 |
+| `USER_PERMISSION_ERROR` | 403 |
+| `NOT_FOUND` | 404 |
+| `ALREADY_EXISTS` | 400 |
+| `VALIDATION_ERROR` | 400 |
+| `INVALID_OPERATION` | 400 |
+| `INCOMPLETE_MODEL` | 400 |
+| `UNKNOWN_ERROR` | 500 |
+| `DATABASE_ERROR` | 500 |
+| `NETWORK_ERROR` | 500 |
+| `INFRASTRUCTURE_ERROR` | 500 (503 for NETWORK/CONNECTION sub-type) |
 
 ---
 
 ## 16. Coding Conventions Checklist
 
-| Rule                  | Detail                                                                                                                                                                          |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Copyright header      | Every `.ts` file: `/** Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98) */`                                                                               |
-| Path alias            | Use `@/` for all intra-service imports in this service                                                                                                                          |
-| Default export        | All services, repositories, controllers, and application services must `export default ClassName`                                                                               |
-| No raw `Error`        | Domain layer: `DomainEntityError` (in models) or `DomainServiceError` (in services)                                                                                             |
-| No CRUD duplication   | Never add `create`/`findById`/`update`/`delete` to a repository — they are already in `BaseRepository`                                                                          |
-| Mapper \_id           | Always use intersection type `INew{Model}Schema & { _id: string \| Types.ObjectId }`; always call `.toString()` on `_id` — never create a separate interface or assign directly |
-| Schema interface      | Only `INew{Model}Schema` in the model file — no extending interfaces                                                                                                            |
-| Transaction flow      | `ApplicationService.dbTransaction()` → passes `TransactionOptions` → DomainService → Repository                                                                                 |
-| Validation layer      | Only in `src/presentation/http/validators/` using express-validator `Schema`                                                                                                    |
-| Response format       | Always `ApiResponseUtils` helpers — never manual response construction                                                                                                          |
-| Import type           | Prefer `import type` for type-only imports                                                                                                                                      |
-| Naming                | Classes PascalCase; files kebab-case; interfaces `I`-prefixed PascalCase; DI tokens camelCase                                                                                   |
-| Route exports         | Named export: `export { router as FeatureRoutes }`                                                                                                                              |
-| Inline comments       | Write inline comments only when the WHY is non-obvious — never narrate obvious code                                                                                             |
-| JSDoc                 | Every non-trivial method/function needs a full-tag JSDoc block (see §22). Exempt: trivial getters/setters and constructors                                                      |
-| Repository interfaces | Domain services and controllers must use `IXxxRepository` from `application/interfaces/repositories/` — never import concrete repository classes                                |
+| Rule | Detail |
+|---|---|
+| Copyright header | Every `.ts` file: `/** Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98) */` |
+| Path alias | Use `@/` for all intra-service imports in this service |
+| Default export | All services, repositories, controllers, and application services must `export default ClassName` |
+| No raw `Error` | Domain layer: `DomainEntityError` (in models) or `DomainServiceError` (in services) |
+| No CRUD duplication | Never add `create`/`findById`/`update`/`delete` to a repository — they are already in `BaseRepository` |
+| Mapper _id | Always use intersection type `INew{Model}Schema & { _id: Types.ObjectId }`; always call `.toString()` on `_id` — never create a separate interface or assign directly |
+| Schema interface | Only `INew{Model}Schema` in the model file — no extending interfaces |
+| Transaction flow | `ApplicationService.dbTransaction()` → passes `TransactionOptions` → DomainService → Repository |
+| Validation layer | Only in `src/presentation/http/validators/` using express-validator `Schema` |
+| Response format | Always `ApiResponseUtils` helpers — never manual response construction |
+| Import type | Prefer `import type` for type-only imports |
+| Naming | Classes PascalCase; files kebab-case; interfaces `I`-prefixed PascalCase; DI tokens camelCase |
+| Route exports | Named export: `export { router as FeatureRoutes }` |
+| Inline comments | Write inline comments only when the WHY is non-obvious — never narrate obvious code |
+| JSDoc | Every non-trivial method/function needs a full-tag JSDoc block (see §22). Exempt: trivial getters/setters and constructors |
+| Repository interfaces | Domain services and controllers must use `IXxxRepository` from `application/interfaces/repositories/` — never import concrete repository classes |
 
 ---
 
 ## 17. Infrastructure Port Reference
 
 | Component | Default Port              |
-| --------- | ------------------------- |
+| --------- | -------------------------- |
 | MongoDB   | 27017 (replica set `rs0`) |
-| Redis     | 6379                      |
+| Redis     | 6379                       |
 
 ---
 
-## 18. Inter-Service Communication
+## 18. External HTTP Communication
 
-Services communicate via HTTP (Axios). Key env vars:
-
-| Variable                           | Description                                |
-| ---------------------------------- | ------------------------------------------ |
-| `CONNECTOR_SERVICE_URL`            | Base URL for the connector/adapter service |
-| `CONNECTOR_SERVICE_API_PREFIX`     | API prefix for the connector service       |
-| `DOMAIN_OBJECT_SERVICE_URL`        | Base URL for the domain-object service     |
-| `DOMAIN_OBJECT_SERVICE_API_PREFIX` | API prefix for the domain-object service   |
-
-Authentication is gated via Nginx `auth_request` → auth-service `/validate`. Services receive user identity as forwarded headers. `UserValidatorMiddleware` is the service-level enforcement point.
+For calling external HTTP APIs, use the generic HTTP client at `src/infrastructure/http/`
+(`HTTPClientService`, built with the standard Driver → Service → Factory infrastructure pattern
+from `§14`). Resolve it from the container via the `httpClient` DI token (implements
+`IHTTPClient` from `@/application/interfaces/http-client.interface`). Configure request timeout
+via the `HTTP_CLIENT_TIMEOUT` env var (defaults to `5000`ms if unset).
 
 ---
 
@@ -541,41 +525,41 @@ Authentication is gated via Nginx `auth_request` → auth-service `/validate`. S
 
 ## 20. Work In Progress / Planned Features
 
-| Feature                            | Status                                      |
-| ---------------------------------- | ------------------------------------------- |
-| Queued workflow execution (BullMQ) | Modeled, not wired                          |
-| Execution stack data passing       | Partially built                             |
-| Auth middleware on routes          | Scaffolded (commented out in most services) |
-| Email/SMS/push notifications       | Settings modeled, no send logic             |
-| Multi-currency ERP                 | Fields exist, no FX conversion              |
-| Activity log emission from ERP     | Not started                                 |
-| Workflow success schema evaluation | Commented out                               |
+| Feature | Status |
+|---|---|
+| Queued workflow execution (BullMQ) | Modeled, not wired |
+| Execution stack data passing | Partially built |
+| Auth middleware on routes | Scaffolded (currently commented out) |
+| Email/SMS/push notifications | Settings modeled, no send logic |
+| Multi-currency ERP | Fields exist, no FX conversion |
+| Activity log emission from ERP | Not started |
+| Workflow success schema evaluation | Commented out |
 
 ---
 
 ## 21. Linting & Formatting
 
-Rules enforced by `eslint.config.mjs` (ESLint + Prettier + eslint-plugin-import). All are **errors** unless marked _(warn)_.
+Rules enforced by `eslint.config.mjs` (ESLint + Prettier + eslint-plugin-import). All are **errors** unless marked *(warn)*.
 
 ### Prettier
 
-| Option          | Value                                                                 |
-| --------------- | --------------------------------------------------------------------- |
-| `printWidth`    | `120` — wrap lines at 120 characters                                  |
-| `tabWidth`      | `2` — two-space indentation                                           |
-| `singleQuote`   | `true` — use `'` not `"`                                              |
-| `semi`          | `true` — semicolons required                                          |
+| Option | Value |
+|---|---|
+| `printWidth` | `120` — wrap lines at 120 characters |
+| `tabWidth` | `2` — two-space indentation |
+| `singleQuote` | `true` — use `'` not `"` |
+| `semi` | `true` — semicolons required |
 | `trailingComma` | `'all'` — trailing commas in arrays, objects, and function parameters |
-| `endOfLine`     | `'lf'` — Unix line endings only (no CRLF)                             |
+| `endOfLine` | `'lf'` — Unix line endings only (no CRLF) |
 
 ### TypeScript ESLint
 
-| Rule                            | Level | What it means                                                                          |
-| ------------------------------- | ----- | -------------------------------------------------------------------------------------- |
-| `explicit-function-return-type` | error | Every function and method must carry an explicit return type annotation                |
-| `no-unused-vars`                | warn  | Unused variables/params generate a warning; prefix with `_` to suppress (e.g. `_opts`) |
-| `no-explicit-any`               | warn  | Avoid `any`; use precise types or `unknown` when the shape is genuinely unknown        |
-| `consistent-type-imports`       | error | Type-only imports must use `import type` — already required by Section 16              |
+| Rule | Level | What it means |
+|---|---|---|
+| `explicit-function-return-type` | error | Every function and method must carry an explicit return type annotation |
+| `no-unused-vars` | warn | Unused variables/params generate a warning; prefix with `_` to suppress (e.g. `_opts`) |
+| `no-explicit-any` | warn | Avoid `any`; use precise types or `unknown` when the shape is genuinely unknown |
+| `consistent-type-imports` | error | Type-only imports must use `import type` — already required by Section 16 |
 
 ### Import Order
 
@@ -600,7 +584,7 @@ import type { Request, Response } from 'express';
 
 ### General
 
-- **`no-console` _(warn)_**: Never use `console.log / error / warn`. Use the `logger` DI token (`ILogger`) via constructor injection instead.
+- **`no-console` *(warn)***: Never use `console.log / error / warn`. Use the `logger` DI token (`ILogger`) via constructor injection instead.
 - Every `.ts` file must end with exactly one newline (LF). Configure your editor to enforce LF line endings, not CRLF.
 
 ---
@@ -624,7 +608,6 @@ helpers), **including private helpers** — MUST carry a JSDoc block in the form
 ```
 
 **Rules:**
-
 - Tag order is always `@param` (in declared order) → `@returns` → `@throws`.
 - One blank line between the summary and the tags.
 - `{Type}` braces are always present, even when redundant with TypeScript. Use `{Promise<void>}`

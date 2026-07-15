@@ -1,13 +1,16 @@
 # Infinite Node Application — AGENTS.md
 
-> Concise rule-set for AI agents (Claude, Copilot, Cursor, etc.) working in this service.
-> Full pattern documentation: `CLAUDE.md` in this folder and each service's `Docs/` directory.
+> Concise rule-set for AI agents (Claude, Copilot, Cursor, etc.) working in this repository.
+> Full pattern documentation: `CLAUDE.md` in this folder and `Docs/` directory.
+> Key guides (`Docs/prompts/`):
+> `Domain_Model_Repository_Mapper_Guide.md` — domain models, persistence models, data-mappers incl. sub-documents ·
+> `Database_Seeding_Guide.md` — database seeding.
 
 ---
 
 ## Identity
 
-- **Platform:** Infinite Node Application
+- **Platform:** Infinite Node Application — clean-architecture Node.js/TypeScript service framework for scalable, DDD-layered REST APIs
 - **Owner:** Maleesha Gimshan ([@maleeshagimshan98](https://github.com/maleeshagimshan98))
 - **Language:** TypeScript (strict), Node.js, Express.js
 
@@ -45,26 +48,22 @@ Clean architecture: **Presentation → Application → Domain → Infrastructure
 ## Layer Summary
 
 ### Presentation (`src/presentation/http/`)
-
 - **Routes** — wire middleware + resolve controllers from DI container; export `{ router as XRoutes }`
 - **Controllers** — extend `BaseController`; use `matchedData<T>(req)`, `catchExceptionsWrapper()`, `getPaginator()`, `ApiResponseUtils`
 - **Validators** — express-validator `Schema` functions; separate `newX` and `updateX` validators
 - **Middleware** — `UserValidatorMiddleware` (auth) and `RequestValidatorMiddleware` (body validation)
 
 ### Application (`src/application/`)
-
 - **Interfaces** — every cross-layer contract lives here (`IDatabaseMapper`, `ICache`, `IStorage`, etc.)
 - **ApplicationServices** — only for multi-domain transactions; extend `BaseApplicationService`; `databaseMapperService` MUST be first constructor param; use `this.dbTransaction()`
 
 ### Domain (`src/domain/`)
-
 - **Models** — four-part pattern: `INewModel`, `IModel`, `NewModel extends DomainEntity`, `Model extends NewModel`
 - **Services** — extend `BaseDomainService`; inject `IXxxRepository` interfaces from `application/interfaces/repositories/`; wrap with `wrapInfrastructureErrors()`; throw only `DomainServiceError`
 
 ### Infrastructure (`src/infrastructure/`)
-
 - **Schema** — `INew{Model}Schema` only (no extending interfaces); `timestamps: true`
-- **Mapper** — implements `IBaseMapper<Schema, Model, NewModel>`; `toDomain(data: INewSchema & { _id: string | Types.ObjectId })` — always call `.toString()` on `_id`
+- **Mapper** — implements `IBaseMapper<Schema, Model, NewModel>`; `toDomain(data: INewSchema & { _id: Types.ObjectId })` — always call `.toString()` on `_id`
 - **Repository** — extends `BaseRepository<Schema, Model, NewModel>`; no duplicate CRUD methods
 - **External services** — Driver → Service → Factory → registered in `infrastructure.loader.ts`
 
@@ -74,37 +73,21 @@ Clean architecture: **Presentation → Application → Domain → Infrastructure
 
 ```typescript
 // 1. Interfaces
-export interface INewModel {
-  id?: string;
-  name: string; /* ... */
-}
-export interface IModel extends INewModel {
-  id: string;
-}
+export interface INewModel { id?: string; name: string; /* ... */ }
+export interface IModel extends INewModel { id: string; }
 
 // 2. Classes
 export class NewModel extends DomainEntity {
   protected _id?: string;
   protected _name: string;
-  constructor(data: INewModel) {
-    super(); /* assign fields */
-  }
-  get id() {
-    return this._id;
-  }
-  get name() {
-    return this._name;
-  }
+  constructor(data: INewModel) { super(); /* assign fields */ }
+  get id() { return this._id; }
+  get name() { return this._name; }
 }
 export class Model extends NewModel {
   protected _id: string;
-  constructor(data: IModel) {
-    super(data);
-    this._id = data.id;
-  }
-  get id(): string {
-    return this._id;
-  }
+  constructor(data: IModel) { super(data); this._id = data.id; }
+  get id(): string { return this._id; }
 }
 export default Model;
 ```
@@ -113,6 +96,7 @@ export default Model;
 - Business rule violations → `DomainServiceError` (in domain services only)
 - Never throw plain `Error` anywhere in the domain layer
 - Type guards (optional) → `src/domain/{feature}/models/guards/{model-name}.guards.ts` — strictly TypeScript `is` predicate functions, no business logic
+- Full domain-model rules (identity, naming, partial construction interfaces, sub-document decisions) → `Docs/prompts/Domain_Model_Repository_Mapper_Guide.md` (any service)
 
 ---
 
@@ -122,7 +106,7 @@ export default Model;
 // base/base.mapper.ts — toFilter lives here; concrete mappers inherit it
 export abstract class BaseMapper<DBSchema, DomainModel, NewDomainModel>
   implements IBaseMapper<DBSchema, DomainModel, NewDomainModel> {
-  abstract toDomain(data: DBSchema & { _id: string | Types.ObjectId }): DomainModel;
+  abstract toDomain(data: DBSchema & { _id: Types.ObjectId }): DomainModel;
   abstract toPersistence(data: NewDomainModel): DBSchema;
 
   toFilter(filter: Partial<NewDomainModel>): Partial<DBSchema> {
@@ -138,7 +122,7 @@ export abstract class BaseMapper<DBSchema, DomainModel, NewDomainModel>
 // Concrete mapper — extend BaseMapper, do NOT override toFilter
 // ✅ Correct — intersection type, NOT a new interface
 export class ModelMapper extends BaseMapper<INewModelSchema, Model, NewModel> {
-  toDomain(data: INewModelSchema & { _id: string | Types.ObjectId }): Model {
+  toDomain(data: INewModelSchema & { _id: Types.ObjectId }): Model {
     return new Model({ id: data._id.toString(), ... });
   }
   toPersistence(data: NewModel): INewModelSchema {
@@ -147,9 +131,10 @@ export class ModelMapper extends BaseMapper<INewModelSchema, Model, NewModel> {
 }
 ```
 
-- `toDomain` parameter type is always `INew{Model}Schema & { _id: string | Types.ObjectId }` — never create a separate interface for it
+- `toDomain` parameter type is always `INew{Model}Schema & { _id: Types.ObjectId }` — Mongoose documents read from the database always have a real `ObjectId`, never a plain string; never create a separate interface for it
 - `toPersistence` omits `_id` when `data.id` is falsy
 - Concrete mappers **must extend `BaseMapper`**, not implement `IBaseMapper` directly — `toFilter` is inherited and must not be overridden
+- **Sub-document mappers** extend `BaseSubDocumentMapper<DBSchema, DomainModel, NewDomainModel>` instead (`toDomain(data: DBSchema)` — no `_id` intersection) — see §Sub-Documents in `Docs/prompts/Domain_Model_Repository_Mapper_Guide.md`
 
 ---
 
@@ -157,15 +142,22 @@ export class ModelMapper extends BaseMapper<INewModelSchema, Model, NewModel> {
 
 ```typescript
 export class ModelService extends BaseDomainService {
-  constructor(private readonly modelRepository: IModelRepository) {
-    super();
-  }
+  constructor(private readonly modelRepository: IModelRepository) { super(); }
 
   async getById(id: string, opts?: TransactionOptions): Promise<Model> {
     return this.wrapInfrastructureErrors<Model>(async () => {
       const m = await this.modelRepository.findById(id, opts);
       if (!m) throw new DomainServiceError('Model not found', 'NOT_FOUND');
       return m;
+    });
+  }
+
+  async delete(id: string, opts?: TransactionOptions): Promise<Model> {
+    return this.wrapInfrastructureErrors<Model>(async () => {
+      await this.getById(id, opts); // existence check — throws NOT_FOUND
+      const deleted = await this.modelRepository.delete(id, opts);
+      if (!deleted) throw new DomainServiceError('Model could not be deleted', 'NOT_FOUND');
+      return deleted;
     });
   }
 }
@@ -177,6 +169,7 @@ export default ModelService;
   - `onError` is optional — use it for per-call logging or alerting without altering error propagation
 - Always accept `transactionOptions?: TransactionOptions` on write/transactional methods
 - Always pass `transactionOptions` to repository calls
+- `delete()` always returns the deleted domain object — **never `void`**. Check existence before deleting (throw `'NOT_FOUND'`), then null-check the repository's delete result too (throw `'NOT_FOUND'` again) — `BaseRepository.delete()` returns `null` if nothing matched
 
 ---
 
@@ -186,10 +179,8 @@ export default ModelService;
 export class ModelController extends BaseController {
   constructor(
     private modelService: ModelService,
-    private modelRepository: IModelRepository, // for count()
-  ) {
-    super();
-  }
+    private modelRepository: IModelRepository,  // for count()
+  ) { super(); }
 
   async create(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
@@ -209,47 +200,45 @@ export default ModelController;
 
 ```typescript
 const router = Router();
-const loginApplicationServiceProvider = (): LoginApplicationService =>
-  container.resolve<LoginApplicationService>('loginApplicationService');
+const loginApplicationServiceProvider = () => container.resolve<LoginApplicationService>('loginApplicationService');
 
-router.post(
-  '/',
+router.post('/',
   UserValidatorMiddleware(loginApplicationServiceProvider), // ALWAYS
-  RequestValidatorMiddleware(newModelValidator()), // on create/update
+  RequestValidatorMiddleware(newModelValidator()),         // on create/update
   (req: AuthenticatedRequest, res: Response) => {
     container.resolve<ModelController>('modelController').create(req, res);
   },
 );
 
-export { router as ModelRoutes }; // named export ending in "Routes"
+export { router as ModelRoutes };  // named export ending in "Routes"
 ```
 
 ---
 
 ## Error Types → HTTP Status
 
-| Type                    | HTTP |
-| ----------------------- | ---- |
-| `NOT_FOUND`             | 404  |
-| `ALREADY_EXISTS`        | 400  |
-| `VALIDATION_ERROR`      | 400  |
-| `INVALID_OPERATION`     | 400  |
-| `INCOMPLETE_MODEL`      | 400  |
-| `AUTHENTICATION_ERROR`  | 401  |
-| `USER_PERMISSION_ERROR` | 403  |
-| `UNKNOWN_ERROR`         | 500  |
-| `DATABASE_ERROR`        | 500  |
-| `INFRASTRUCTURE_ERROR`  | 500  |
+| Type | HTTP |
+|---|---|
+| `NOT_FOUND` | 404 |
+| `ALREADY_EXISTS` | 400 |
+| `VALIDATION_ERROR` | 400 |
+| `INVALID_OPERATION` | 400 |
+| `INCOMPLETE_MODEL` | 400 |
+| `AUTHENTICATION_ERROR` | 401 |
+| `USER_PERMISSION_ERROR` | 403 |
+| `UNKNOWN_ERROR` | 500 |
+| `DATABASE_ERROR` | 500 |
+| `INFRASTRUCTURE_ERROR` | 500 |
 
 ---
 
 ## DI Auto-Registration (Awilix)
 
-| File pattern                           | Token format           |
-| -------------------------------------- | ---------------------- |
+| File pattern | Token format |
+|---|---|
 | `*.service.ts` (application or domain) | `camelCase(ClassName)` |
-| `*.repository.ts`                      | `camelCase(ClassName)` |
-| `*.controller.ts`                      | `camelCase(ClassName)` |
+| `*.repository.ts` | `camelCase(ClassName)` |
+| `*.controller.ts` | `camelCase(ClassName)` |
 
 `UserService` → `'userService'`, `OrderRepository` → `'orderRepository'`, etc.  
 **Requires `export default ClassName;`** at the bottom of every such file.
@@ -292,33 +281,33 @@ export { router as ModelRoutes }; // named export ending in "Routes"
 
 ## Naming Conventions
 
-| Thing                        | Convention                   | Example                  |
-| ---------------------------- | ---------------------------- | ------------------------ |
-| Classes                      | PascalCase                   | `CustomerService`        |
-| Files                        | kebab-case                   | `customer.service.ts`    |
-| Interfaces                   | `I` + PascalCase             | `INewCustomer`, `ICache` |
-| Type aliases                 | PascalCase                   | `CustomerStatus`         |
-| DI tokens                    | camelCase                    | `customerService`        |
-| Route exports                | PascalCase + `Routes` suffix | `CustomerRoutes`         |
-| Domain interfaces (creation) | `INew{Model}`                | `INewCustomer`           |
-| Domain interfaces (existing) | `I{Model}`                   | `ICustomer`              |
-| Schema interfaces            | `INew{Model}Schema`          | `INewCustomerSchema`     |
-| Type guard files             | kebab-case + `.guards.ts`    | `customer.guards.ts`     |
+| Thing | Convention | Example |
+|---|---|---|
+| Classes | PascalCase | `CustomerService` |
+| Files | kebab-case | `customer.service.ts` |
+| Interfaces | `I` + PascalCase | `INewCustomer`, `ICache` |
+| Type aliases | PascalCase | `CustomerStatus` |
+| DI tokens | camelCase | `customerService` |
+| Route exports | PascalCase + `Routes` suffix | `CustomerRoutes` |
+| Domain interfaces (creation) | `INew{Model}` | `INewCustomer` |
+| Domain interfaces (existing) | `I{Model}` | `ICustomer` |
+| Schema interfaces | `INew{Model}Schema` | `INewCustomerSchema` |
+| Type guard files | kebab-case + `.guards.ts` | `customer.guards.ts` |
 
 ---
 
 ## Available Infrastructure Services (DI tokens)
 
-| Token             | Interface         | Description                                 |
-| ----------------- | ----------------- | ------------------------------------------- |
+| Token | Interface | Description |
+|---|---|---|
 | `database_mapper` | `IDatabaseMapper` | MongoDB via Mongoose; provides transactions |
-| `cache`           | `ICache`          | Redis                                       |
-| `logger`          | `ILogger`         | Winston                                     |
-| `queue`           | `IQueue`          | BullMQ                                      |
-| `email`           | `IEmail`          | SMTP                                        |
-| `storage`         | `IStorage`        | Local / cloud file storage                  |
-| `notification`    | `INotification`   | Notification service                        |
-| `socket`          | `ISocket`         | Socket.IO                                   |
+| `cache` | `ICache` | Redis |
+| `logger` | `ILogger` | Winston |
+| `queue` | `IQueue` | BullMQ |
+| `email` | `IEmail` | SMTP |
+| `storage` | `IStorage` | Local / cloud file storage |
+| `notification` | `INotification` | Notification service |
+| `socket` | `ISocket` | Socket.IO |
 
 ---
 
@@ -348,45 +337,35 @@ helpers), **including private helpers** — MUST carry a JSDoc block in the form
 
 ## Linting & Formatting
 
-All rules are **errors** unless marked _(warn)_.
+All rules are **errors** unless marked *(warn)*.
 
 ### Prettier
-
-| Setting         | Value                                            |
-| --------------- | ------------------------------------------------ |
-| Line width      | 120 chars                                        |
-| Indent          | 2 spaces                                         |
-| Quotes          | Single (`'`)                                     |
-| Semicolons      | Required                                         |
+| Setting | Value |
+|---|---|
+| Line width | 120 chars |
+| Indent | 2 spaces |
+| Quotes | Single (`'`) |
+| Semicolons | Required |
 | Trailing commas | All positions (arrays, objects, function params) |
-| Line endings    | LF (Unix)                                        |
+| Line endings | LF (Unix) |
 
 ### TypeScript ESLint
-
-| Rule                            | Level | Requirement                                        |
-| ------------------------------- | ----- | -------------------------------------------------- |
+| Rule | Level | Requirement |
+|---|---|---|
 | `explicit-function-return-type` | error | Every function/method must declare its return type |
-| `no-unused-vars`                | warn  | Prefix unused vars/params with `_` to suppress     |
-| `no-explicit-any`               | warn  | Avoid — use precise types or `unknown`             |
-| `consistent-type-imports`       | error | Use `import type` for all type-only imports        |
+| `no-unused-vars` | warn | Prefix unused vars/params with `_` to suppress |
+| `no-explicit-any` | warn | Avoid — use precise types or `unknown` |
+| `consistent-type-imports` | error | Use `import type` for all type-only imports |
 
 ### Import Order (blank line between each group)
-
 1. Node.js built-ins (`path`, `fs`, `crypto`…)
 2. External npm packages (`express`, `mongoose`, `awilix`…)
 3. Internal aliased paths (`@/…`)
 4. Relative paths (`../`, `./`)
 
 ### General
-
-- **No `console.log`** _(warn)_ — use the `logger` DI token (`ILogger`) instead
+- **No `console.log`** *(warn)* — use the `logger` DI token (`ILogger`) instead
 - Every file must end with exactly one newline (LF)
-
----
-
-## Microservice Overview
-
-Each deployment defines its own service topology. Refer to the deployment repository for service names, ports, and database assignments.
 
 ---
 
