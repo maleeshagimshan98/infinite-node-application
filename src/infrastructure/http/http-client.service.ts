@@ -174,7 +174,7 @@ export class HTTPClientService implements IHTTPClient {
       );
     });
 
-    return new HTTPResponse(response.data.status, response.data.code, response.data.message, response.data.data);
+    return new HTTPResponse(response.statusText, response.status, response.data.message, response.data);
   }
 }
 

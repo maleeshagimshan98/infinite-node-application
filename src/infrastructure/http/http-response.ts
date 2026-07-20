@@ -14,12 +14,7 @@ class HTTPResponse implements IHTTPResponse {
     this.status = status;
     this.code = code;
     this.message = message;
-
-    if (Array.isArray(data)) {
-      this.data = data;
-    } else {
-      throw new Error(`APIResponse: Data must be an array but received ${typeof data}`);
-    }
+    this.data = data;
   }
 
   public toJson(): Record<string, unknown> {
