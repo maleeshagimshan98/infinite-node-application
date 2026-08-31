@@ -116,11 +116,13 @@ export class SignupService extends BaseDomainService {
         throw new DomainServiceError(`The User with the email equal to ${email} could not be found.`, 'NOT_FOUND');
       }
 
-      user.status = 'active';
-      const updatedUser = await this.userRepository.update(user.id, user, transactionOptions);
+      if (!user.isActive()) {
+        user.activate();
+        const updatedUser = await this.userRepository.update(user.id, user, transactionOptions);
 
-      if (!updatedUser) {
-        throw new DomainServiceError(`The User with the id equal to ${user.id} could not be found.`, 'NOT_FOUND');
+        if (!updatedUser) {
+          throw new DomainServiceError(`The User with the id equal to ${user.id} could not be found.`, 'NOT_FOUND');
+        }
       }
     });
   }

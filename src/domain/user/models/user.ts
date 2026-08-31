@@ -3,6 +3,7 @@
  */
 
 import { DomainEntity } from '../../base/DomainEntity';
+import { DomainEntityError } from '../../base/DomainEntityError';
 
 type UserStatus = 'pending_verification' | 'active' | 'suspended';
 
@@ -93,8 +94,28 @@ export class User extends NewUser {
   }
 
   // All other getters and setters are inherited from NewUser
-  // Business logic methods can be added here
-  // Example: isActive(): boolean { return this._status === 'active'; }
+
+  /**
+   * Activate a pending-verification user account.
+   *
+   * @returns {void}
+   * @throws {DomainEntityError} When the user is not currently pending verification (already active or suspended).
+   */
+  activate(): void {
+    if (this._status !== 'pending_verification') {
+      throw new DomainEntityError('User must be pending verification to be activated');
+    }
+    this._status = 'active';
+  }
+
+  /**
+   * Determine whether the user account is active.
+   *
+   * @returns {boolean} True when the user's status is 'active'.
+   */
+  isActive(): boolean {
+    return this._status === 'active';
+  }
 }
 
 export default User;

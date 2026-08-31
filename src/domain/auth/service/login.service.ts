@@ -225,16 +225,6 @@ export class LoginService extends BaseDomainService {
   }
 
   /*
-   * Determine whether the access token tied to a login record is expired.
-   *
-   * @param {LoginRecord} loginRecord - The login record to evaluate.
-   * @returns {boolean}
-   */
-  isAccessTokenExpired(loginRecord: LoginRecord): boolean {
-    return loginRecord.status !== 'active' || loginRecord.access_token_valid_till < new Date();
-  }
-
-  /*
    * Determine whether a provided refresh token is valid for a login record: it must match the
    * stored hash and must not be expired.
    *
@@ -244,8 +234,7 @@ export class LoginService extends BaseDomainService {
    */
   isRefreshTokenValid(loginRecord: LoginRecord, refreshToken: string): boolean {
     const matches = loginRecord.refresh_token === this.hashToken(refreshToken);
-    const notExpired = loginRecord.refresh_token_valid_till >= new Date();
-    return matches && notExpired;
+    return matches && !loginRecord.isRefreshTokenExpired();
   }
 
   /*
@@ -258,7 +247,7 @@ export class LoginService extends BaseDomainService {
    */
   async expireLoginRecord(loginRecord: LoginRecord, transactionOptions?: TransactionOptions): Promise<void> {
     return this.wrapInfrastructureErrors(async () => {
-      loginRecord.status = 'expired';
+      loginRecord.expire();
       const updated = await this.loginRecordRepository.update(loginRecord.id, loginRecord, transactionOptions);
 
       if (!updated) {
@@ -280,8 +269,7 @@ export class LoginService extends BaseDomainService {
    */
   async revokeLoginRecord(loginRecord: LoginRecord, transactionOptions?: TransactionOptions): Promise<void> {
     return this.wrapInfrastructureErrors(async () => {
-      loginRecord.status = 'revoked';
-      loginRecord.access_token_valid_till = new Date();
+      loginRecord.revoke();
       const updated = await this.loginRecordRepository.update(loginRecord.id, loginRecord, transactionOptions);
 
       if (!updated) {

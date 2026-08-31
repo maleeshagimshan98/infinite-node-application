@@ -78,7 +78,7 @@ export class AccountRecoveryService extends BaseDomainService {
       // TODO: Should use a transaction or bulkWrite
       await Promise.all(
         resetCodes.map(async (resetCode) => {
-          resetCode.status = 'cancelled';
+          resetCode.cancel();
           const updated = await this.passwordResetCodeRepository.update(resetCode.id, resetCode, transactionOptions);
           if (!updated) {
             throw new DomainServiceError(
@@ -163,6 +163,13 @@ export class AccountRecoveryService extends BaseDomainService {
         );
       }
 
+      if (passwordResetCode.isExpired()) {
+        throw new DomainServiceError(
+          `The Password reset code with the verification_code equal to ${verificationCode} has expired.`,
+          'VALIDATION_ERROR',
+        );
+      }
+
       const user = await this.getUserByEmail(email);
 
       if (!user) {
@@ -172,7 +179,7 @@ export class AccountRecoveryService extends BaseDomainService {
       // TODO: MUST USE A DATABASE TRANSACTION FOR ALL BELOW DATA MUTATIONS
       const hashedPassword = await argon2.hash(newPassword);
       user.password = hashedPassword;
-      passwordResetCode.status = 'used';
+      passwordResetCode.markUsed();
 
       const updatedResetCode = await this.passwordResetCodeRepository.update(
         passwordResetCode.id,
@@ -202,7 +209,7 @@ export class AccountRecoveryService extends BaseDomainService {
       );
 
       if (loginRecord) {
-        loginRecord.status = 'revoked';
+        loginRecord.revoke();
         const updatedLoginRecord = await this.loginRecordRepository.update(
           loginRecord.id,
           loginRecord,

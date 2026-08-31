@@ -134,7 +134,7 @@ export class LoginApplicationService extends BaseApplicationService {
       throw this.authError(INVALID_TOKEN_MESSAGE);
     }
 
-    if (this.loginService.isAccessTokenExpired(record)) {
+    if (record.isExpired()) {
       await this.evictLoginRecord(token);
       await this.mutateLoginRecord(() => this.loginService.expireLoginRecord(record));
       throw this.authError(EXPIRED_TOKEN_MESSAGE);
@@ -182,7 +182,7 @@ export class LoginApplicationService extends BaseApplicationService {
       throw this.authError(INVALID_TOKEN_MESSAGE);
     }
 
-    if (this.loginService.isAccessTokenExpired(record)) {
+    if (record.isExpired()) {
       throw this.authError(EXPIRED_TOKEN_MESSAGE);
     }
 
