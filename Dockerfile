@@ -36,8 +36,8 @@ ENV NODE_ENV=production
 RUN npm ci --include=dev
 COPY tsconfig.json ./
 COPY . .
-# Compile TypeScript without failing on linting
-RUN npx tsc -p tsconfig.json && \
+# Compile TypeScript and resolve path aliases
+RUN npm run build && \
   npm prune --omit=dev && \
   npm cache clean --force
 

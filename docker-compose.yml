@@ -1,0 +1,109 @@
+# Single-instance stack for infinite-node-application (app + MongoDB + Redis).
+#
+# Setup:
+#   1. cp .env.example .env
+#   2. Fill in COOKIE_SECRET, SESSION_SECRET, JWT_PRIVATE_KEY, JWT_PUBLIC_KEY, etc.
+#      (see .env.example for generation instructions)
+#   3. docker compose up -d --build
+#
+# MONGODB_URI / REDIS_* below are hardcoded to the in-network service hostnames
+# and intentionally override whatever is set in .env — everything else in .env
+# (secrets, app config, driver toggles) is passed through as-is.
+
+services:
+  app:
+    build:
+      context: .
+      target: production
+    image: infinite-node-application:local
+    container_name: infinite-node-app
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      NODE_PORT: 3000
+      MONGODB_URI: mongodb://mongodb:27017/infinite-node-application?replicaSet=rs0
+      REDIS_SERVER_HOST: redis
+      REDIS_SERVER_URL: redis://redis:6379
+      REDIS_SOCKET_HOST: redis
+    ports:
+      - '3000:3000'
+    volumes:
+      - app_logs:/app/logs
+    depends_on:
+      mongodb-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:7
+    container_name: infinite-node-mongodb
+    command: ['--replSet', 'rs0', '--bind_ip_all']
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # One-shot job that initializes the single-node replica set (required for
+  # multi-document transactions used by the application/domain services).
+  mongodb-init:
+    image: mongo:7
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    command: >
+      mongosh --host mongodb --quiet --eval "
+      try {
+        rs.status();
+      } catch (e) {
+        rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongodb:27017' }] });
+      }
+      "
+    restart: 'no'
+
+  # One-shot job that seeds the database (default resources/roles/user groups/users).
+  # Runs the `seed:prod` npm script (compiled seeder — the production image has no tsx/src).
+  # Safe to re-run — each seeder skips records that already exist.
+  seed:
+    build:
+      context: .
+      target: production
+    image: infinite-node-application:local
+    container_name: infinite-node-seed
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: mongodb://mongodb:27017/infinite-node-application?replicaSet=rs0
+    command: ['npm', 'run', 'seed:prod']
+    depends_on:
+      mongodb-init:
+        condition: service_completed_successfully
+    restart: 'no'
+
+  redis:
+    image: redis:7-alpine
+    container_name: infinite-node-redis
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+  redis_data:
+  app_logs:

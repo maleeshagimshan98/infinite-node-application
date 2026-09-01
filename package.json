@@ -13,9 +13,11 @@
     "lint": "eslint src --ext .js,.ts",
     "lint:fix": "eslint src --ext .js,.ts --fix",
     "format": "prettier --write .",
-    "build": "npm run format && tsc",
+    "build": "npm run format && tsc && tsc-alias",
     "seed": "tsx src/infrastructure/persistance/database/seeders/seeder.ts",
     "seed:clear": "tsx src/infrastructure/persistance/database/seeders/seeder.ts --clear",
+    "seed:prod": "node dist/infrastructure/persistance/database/seeders/seeder.js",
+    "seed:prod:clear": "node dist/infrastructure/persistance/database/seeders/seeder.js --clear",
     "prepare": "husky install"
   },
   "lint-staged": {
@@ -88,6 +90,7 @@
     "ts-jest": "^29.3.0",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
+    "tsc-alias": "^1.9.3",
     "tsconfig-paths": "^4.2.0",
     "tsx": "^4.21.0",
     "typescript": "^5.7.3",
