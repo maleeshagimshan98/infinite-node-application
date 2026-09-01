@@ -205,6 +205,8 @@ export const CustomerModel = model('customer', CustomerSchema);
 
 **NEVER add `ICustomerSchema extends INewCustomerSchema` or `ICustomer` here.** The mapper handles `_id` via intersection type.
 
+A schema file may additionally export a nested value-object interface (e.g. `IPermissionSchema`) used only as a field's type within `INew{Model}Schema` — this rule prohibits a second root-entity-shaped interface for the same collection (`I{Model}Schema`/`I{Model}`), not a plain nested shape with no identity of its own.
+
 ---
 
 ## 7. Mapper Pattern
@@ -253,6 +255,22 @@ export default CustomerRepository;
 
 `BaseRepository` provides: `create`, `findById`, `findOne`, `find`, `count`, `update`, `delete`.  
 All accept an optional `TransactionOptions` as the last parameter.
+
+### Population Strategy (Mongoose `ref` / `.populate()`)
+
+`BaseRepository` exposes an optional, overridable hook:
+
+```typescript
+protected populateOptions(): (string | PopulateOptions)[] {
+  return [];
+}
+```
+
+Override it in a concrete repository to Mongoose-populate `ref`-typed schema fields — a plain string for a direct reference, including a dotted path into an array of sub-documents (e.g. `RoleRepository` → `['resource_permissions.resource_id']`), or a `PopulateOptions` object with a nested `populate` to reach one further level (e.g. `UserRepository` → `[{ path: 'role_id', populate: { path: 'resource_permissions.resource_id' } }]`, giving `User → Role → each granted Resource`). The default (`[]`) is a no-op — repositories that don't override it are unaffected.
+
+**Hard depth limit: `.populate()` may only be used for reference chains up to 2 levels deep from the root document being fetched** (e.g. `Role → Resources` is 1 level; `User → Role → Resources` is 2 levels). Never declare a `populateOptions()` override that nests a 3rd level (a `populate` option inside an already-nested `populate` option). Deep/unbounded populate chains are a performance hazard (compounding query cost, unbounded fan-out on self-referencing or cyclic schemas) and a potential denial-of-service vector.
+
+When a domain object genuinely needs a 3rd level of nested data, do **not** extend `.populate()` to reach it. Resolve the extra level manually in the **domain service**: fetch the root via the repository (with its own populate, up to the 2-level cap), then issue explicit, separate repository calls for the deeper data, and attach the result before constructing the returned domain object — mirroring how every other cross-aggregate reference in this codebase is already resolved (e.g. `SignupService` composing `UserGroupRepository` + `UserRepository` manually rather than relying on any ORM-level relation).
 
 ---
 
@@ -380,7 +398,7 @@ export class CustomerController extends BaseController {
     const response = await this.catchExceptionsWrapper(async () => {
       const totalCount = await this.customerRepository.count({});
       const paginator = this.getPaginator(req, totalCount);
-      const items = await this.customerService.getAll(paginator.getLimit(), paginator.getOffset());
+      const items = await this.customerService.getAll(paginator.getResultsPerPage(), paginator.getOffset());
       return ApiResponseUtils.apiOkResponse(200, true, paginator, 'Customers retrieved', items);
     });
     return ApiResponseUtils.createResponse(response, res);

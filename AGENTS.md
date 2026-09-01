@@ -20,7 +20,7 @@
 
 1. **This guide is the source of truth.** Existing code may be outdated. When in doubt, follow the guide, not the existing code.
 2. **Follow every pattern exactly.** Do not "improve", "simplify", or deviate without approval.
-3. **Never create extra interfaces in infrastructure schema files.** Only `INew{Model}Schema` is allowed.
+3. **Never create extra interfaces in infrastructure schema files.** Only `INew{Model}Schema` is allowed. (A schema file may additionally export a nested value-object interface — e.g. `IPermissionSchema` — used only as a field's type within `INew{Model}Schema`; this rule prohibits a second root-entity-shaped interface for the same collection, not a plain nested shape with no identity of its own.)
 4. **Every auto-registered class must have `export default ClassName;`** at the bottom.
 5. **`UserValidatorMiddleware` on every route — no exceptions.**
 6. **All controller logic inside `catchExceptionsWrapper()` — no exceptions.**
@@ -155,6 +155,24 @@ export class ModelMapper extends BaseMapper<INewModelSchema, Model, NewModel> {
 - `toPersistence` omits `_id` when `data.id` is falsy; when present, convert with `new Types.ObjectId(data.id)` — the schema declares `_id?: Types.ObjectId`, so never assign the raw string
 - Concrete mappers **must extend `BaseMapper`**, not implement `IBaseMapper` directly — `toFilter` is inherited and must not be overridden
 - **Sub-document mappers** extend `BaseSubDocumentMapper<DBSchema, DomainModel, NewDomainModel>` instead (`toDomain(data: DBSchema)` — no `_id` intersection) — see §Sub-Documents in `Docs/prompts/Domain_Model_Repository_Mapper_Guide.md`
+
+---
+
+## Population Strategy (Mongoose `ref` / `.populate()`)
+
+`BaseRepository` exposes an optional, overridable hook:
+
+```typescript
+protected populateOptions(): (string | PopulateOptions)[] {
+  return [];
+}
+```
+
+Override it in a concrete repository to Mongoose-populate `ref`-typed schema fields — a plain string for a direct reference, including a dotted path into an array of sub-documents (e.g. `RoleRepository` → `['resource_permissions.resource_id']`), or a `PopulateOptions` object with a nested `populate` to reach one further level (e.g. `UserRepository` → `[{ path: 'role_id', populate: { path: 'resource_permissions.resource_id' } }]`, giving `User → Role → each granted Resource`). The default (`[]`) is a no-op — repositories that don't override it are unaffected.
+
+**Hard depth limit: `.populate()` may only be used for reference chains up to 2 levels deep from the root document being fetched** (e.g. `Role → Resources` is 1 level; `User → Role → Resources` is 2 levels). Never declare a `populateOptions()` override that nests a 3rd level (a `populate` option inside an already-nested `populate` option). Deep/unbounded populate chains are a performance hazard (compounding query cost, unbounded fan-out on self-referencing or cyclic schemas) and a potential denial-of-service vector.
+
+When a domain object genuinely needs a 3rd level of nested data, do **not** extend `.populate()` to reach it. Resolve the extra level manually in the **domain service**: fetch the root via the repository (with its own populate, up to the 2-level cap), then issue explicit, separate repository calls for the deeper data, and attach the result before constructing the returned domain object — mirroring how every other cross-aggregate reference in this codebase is already resolved (e.g. `SignupService` composing `UserGroupRepository` + `UserRepository` manually rather than relying on any ORM-level relation).
 
 ---
 
@@ -323,16 +341,16 @@ export { router as ModelRoutes }; // named export ending in "Routes"
 
 ## Available Infrastructure Services (DI tokens)
 
-| Token             | Interface         | Description                                 |
-| ----------------- | ----------------- | ------------------------------------------- |
-| `database_mapper` | `IDatabaseMapper` | MongoDB via Mongoose; provides transactions |
-| `cache`           | `ICache`          | Redis                                       |
-| `logger`          | `ILogger`         | Winston                                     |
-| `queue`           | `IQueue`          | BullMQ                                      |
-| `email`           | `IEmail`          | SMTP                                        |
-| `storage`         | `IStorage`        | Local / cloud file storage                  |
-| `notification`    | `INotification`   | Notification service                        |
-| `socket`          | `ISocket`         | Socket.IO                                   |
+| Token             | Interface         | Description                                                                                                                                                                 |
+| ----------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `database_mapper` | `IDatabaseMapper` | MongoDB via Mongoose; provides transactions                                                                                                                                 |
+| `cache`           | `ICache`          | Redis                                                                                                                                                                       |
+| `logger`          | `ILogger`         | Winston                                                                                                                                                                     |
+| `queue`           | `IQueue`          | BullMQ                                                                                                                                                                      |
+| `email`           | `IEmail`          | SMTP                                                                                                                                                                        |
+| `storage`         | `IStorage`        | Local / cloud file storage                                                                                                                                                  |
+| `notification`    | `INotification`   | Notification service                                                                                                                                                        |
+| `socket`          | `ISocket`         | Socket.IO                                                                                                                                                                   |
 | `httpClient`      | `IHTTPClient`     | Axios HTTP client — `RequestConfig.data` accepts a single object or an array of objects (batch bodies): `Record<string, unknown> \| Record<string, unknown>[] \| undefined` |
 
 ---
