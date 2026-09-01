@@ -8,6 +8,8 @@ import { DatabaseMapperServiceFactory } from '@/infrastructure/persistance/datab
 
 import { seedUsers } from './user.seeder';
 import { seedUserGroups } from './user-group.seeder';
+import { seedResources } from './resource.seeder';
+import { seedRoles } from './role.seeder';
 
 /**
  * Initialize service container and infrastructure services
@@ -25,8 +27,12 @@ async function initializeServices(): Promise<void> {
     // Initialize database mapper service (handles MongoDB connection internally)
     const databaseMapperFactory = new DatabaseMapperServiceFactory();
     const databaseMapper = await databaseMapperFactory.create();
+    // Registered under the mapper's own `serviceName()` ('database_mapper') so it resolves
+    // identically to how InfrastructureManager registers it in the running app — application
+    // services (e.g. SignupApplicationService) depend on that exact token via their
+    // `database_mapper` constructor parameter.
     container.register({
-      databaseMapper: asValue(databaseMapper),
+      [databaseMapper.serviceName()]: asValue(databaseMapper),
     });
     console.log('✅ Database Mapper Service Registered');
 
@@ -55,6 +61,16 @@ export async function runAllSeeders(): Promise<void> {
     // Step 2: Run all seeders
     console.log('📍 Step 2/2: Running Seeders');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    console.log('🔹 Seeding Resources...');
+    const resourcesSeeded = await seedResources();
+    const resourceStatus = resourcesSeeded ? '✅ Successfully Seeded' : '⏭️  Skipped (Already Exists)';
+    console.log(`   ${resourceStatus}\n`);
+
+    console.log('🔹 Seeding Roles...');
+    const rolesSeeded = await seedRoles();
+    const roleStatus = rolesSeeded ? '✅ Successfully Seeded' : '⏭️  Skipped (Already Exists)';
+    console.log(`   ${roleStatus}\n`);
 
     console.log('🔹 Seeding User Groups...');
     const groupsSeeded = await seedUserGroups();
@@ -100,6 +116,8 @@ export async function clearAllSeeders(): Promise<void> {
 
     const { clearUsers } = await import('./user.seeder');
     const { clearUserGroups } = await import('./user-group.seeder');
+    const { clearRoles } = await import('./role.seeder');
+    const { clearResources } = await import('./resource.seeder');
 
     console.log('🔹 Clearing Users...');
     await clearUsers();
@@ -108,6 +126,14 @@ export async function clearAllSeeders(): Promise<void> {
     console.log('🔹 Clearing User Groups...');
     await clearUserGroups();
     console.log('✅ User Groups Cleared Successfully\n');
+
+    console.log('🔹 Clearing Roles...');
+    await clearRoles();
+    console.log('✅ Roles Cleared Successfully\n');
+
+    console.log('🔹 Clearing Resources...');
+    await clearResources();
+    console.log('✅ Resources Cleared Successfully\n');
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('╔═══════════════════════════════════════════════════════════╗');

@@ -9,6 +9,7 @@ export interface INewUserSchema {
   password: string;
   status: UserStatus;
   ug_id: string;
+  role_id: Types.ObjectId;
 }
 
 export const UserSchema = new Schema<INewUserSchema>(
@@ -22,6 +23,7 @@ export const UserSchema = new Schema<INewUserSchema>(
       default: 'pending_verification',
     },
     ug_id: { type: String, required: true },
+    role_id: { type: Schema.Types.ObjectId, ref: 'role', required: true },
   },
   { timestamps: true },
 );

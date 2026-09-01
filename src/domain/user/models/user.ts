@@ -2,6 +2,8 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import type { Role } from '@/domain/auth/models/role';
+
 import { DomainEntity } from '../../base/DomainEntity';
 import { DomainEntityError } from '../../base/DomainEntityError';
 
@@ -13,6 +15,8 @@ export interface INewUser {
   password: string;
   status: UserStatus;
   ug_id: string;
+  role_id: string;
+  role?: Role;
 }
 
 export interface IUser extends INewUser {
@@ -25,6 +29,8 @@ export class NewUser extends DomainEntity {
   protected _password: string;
   protected _status: UserStatus;
   protected _ug_id: string;
+  protected _role_id: string;
+  protected _role: Role | undefined;
 
   constructor(data: INewUser) {
     super();
@@ -35,6 +41,10 @@ export class NewUser extends DomainEntity {
     this._password = data.password;
     this._status = data.status;
     this._ug_id = data.ug_id;
+    this._role_id = data.role_id;
+    if (data.role !== undefined) {
+      this._role = data.role;
+    }
   }
 
   // Getters
@@ -58,6 +68,14 @@ export class NewUser extends DomainEntity {
     return this._ug_id;
   }
 
+  get role_id(): string {
+    return this._role_id;
+  }
+
+  get role(): Role | undefined {
+    return this._role;
+  }
+
   // Setters
   set id(value: string) {
     this._id = value;
@@ -77,6 +95,10 @@ export class NewUser extends DomainEntity {
 
   set ug_id(value: string) {
     this._ug_id = value;
+  }
+
+  set role_id(value: string) {
+    this._role_id = value;
   }
 }
 

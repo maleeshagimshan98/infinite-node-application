@@ -4,10 +4,8 @@
 
 import argon2 from 'argon2';
 
-import type { UserGroup } from '@/domain/user/models/user-group';
 import { NewUser, type User } from '@/domain/user/models/user';
 import type { IUserRepository } from '@/application/interfaces/repositories/user/user.repository.interface';
-import type { IUserGroupRepository } from '@/application/interfaces/repositories/user-groups/user-group.repository.interface';
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import type { INewUser } from '@/domain/user/models/user';
@@ -21,17 +19,9 @@ export class SignupService extends BaseDomainService {
    */
   private readonly userRepository: IUserRepository;
 
-  /**
-   * Customer group repository instance
-   *
-   * @private
-   */
-  private readonly userGroupRepository: IUserGroupRepository;
-
-  constructor(userRepository: IUserRepository, userGroupRepository: IUserGroupRepository) {
+  constructor(userRepository: IUserRepository) {
     super();
     this.userRepository = userRepository;
-    this.userGroupRepository = userGroupRepository;
   }
 
   /**
@@ -47,18 +37,8 @@ export class SignupService extends BaseDomainService {
   }
 
   /**
-   * Get default customer group
-   *
-   * @returns {Promise<UserGroup | null>}
-   */
-  async getDefaultUserGroup(): Promise<UserGroup | null> {
-    return this.wrapInfrastructureErrors(async () => {
-      return await this.userGroupRepository.findOne({ default: true });
-    });
-  }
-
-  /**
-   * Register a new user
+   * Register a new user. Trusts that the caller (SignupApplicationService) has already resolved
+   * a valid `ug_id`/`role_id` pair — this service no longer resolves any defaults itself.
    *
    * @param {INewUser} userData - User registration data
    * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
@@ -77,16 +57,9 @@ export class SignupService extends BaseDomainService {
       // Hash password
       const hashedPassword = await argon2.hash(userData.password);
 
-      // Get default customer group
-      const defaultUserGroup = await this.getDefaultUserGroup();
-
-      if (!defaultUserGroup) {
-        throw new DomainServiceError('No default customer group is available', 'UNKNOWN_ERROR');
-      }
       const newUser = new NewUser({
         ...userData,
         password: hashedPassword,
-        ug_id: defaultUserGroup.id,
         status: 'pending_verification',
       });
 
