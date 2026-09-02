@@ -5,6 +5,7 @@
 import { LoginRecord, type ILoginRecord } from '@/domain/auth/models/login-record';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import type { LoginService } from '@/domain/auth/service/login.service';
+import type { UserService } from '@/domain/user/service/user.service';
 import type { User } from '@/domain/user/models/user';
 import type { ICache, IDatabaseMapper, TransactionOptions } from '@/application/interfaces';
 
@@ -24,11 +25,13 @@ const LOGIN_RECORDS_HASH = 'infinite_node_application:login_records';
  */
 export class LoginApplicationService extends BaseApplicationService {
   private loginService: LoginService;
+  private userService: UserService;
   private cache: ICache;
 
-  constructor(database_mapper: IDatabaseMapper, loginService: LoginService, cache: ICache) {
+  constructor(database_mapper: IDatabaseMapper, loginService: LoginService, userService: UserService, cache: ICache) {
     super(database_mapper);
     this.loginService = loginService;
+    this.userService = userService;
     this.cache = cache;
   }
 
@@ -112,7 +115,12 @@ export class LoginApplicationService extends BaseApplicationService {
     email: string,
     password: string,
   ): Promise<{ id: string; status: string; accessToken: string; refreshToken: string }> {
-    const result = await this.loginService.login(email, password);
+    const user = await this.userService.getByEmail(email);
+    if (!user) {
+      throw this.authError('Invalid credentials');
+    }
+
+    const result = await this.loginService.login(user, password);
     await this.cacheLoginRecord(result.loginRecord);
 
     return {

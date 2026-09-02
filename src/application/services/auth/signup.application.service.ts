@@ -4,6 +4,7 @@
 
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import type { SignupService } from '@/domain/auth/service/signup.service';
+import type { UserService } from '@/domain/user/service/user.service';
 import type { UserGroupService } from '@/domain/user/service/user-group.service';
 import type { RoleService } from '@/domain/auth/service/role.service';
 import type { INewUser } from '@/domain/user/models/user';
@@ -14,23 +15,26 @@ import { BaseApplicationService } from '../base/base.application.service';
 /**
  * Orchestrates user registration across the two independent aggregates a new User depends on
  * (default UserGroup, default Role) in a single transaction, then delegates the actual write to
- * SignupService — which no longer resolves either default itself.
+ * UserService — which no longer resolves either default itself.
  *
  * @extends BaseApplicationService
  */
 export class SignupApplicationService extends BaseApplicationService {
   private signupService: SignupService;
+  private userService: UserService;
   private userGroupService: UserGroupService;
   private roleService: RoleService;
 
   constructor(
     database_mapper: IDatabaseMapper,
     signupService: SignupService,
+    userService: UserService,
     userGroupService: UserGroupService,
     roleService: RoleService,
   ) {
     super(database_mapper);
     this.signupService = signupService;
+    this.userService = userService;
     this.userGroupService = userGroupService;
     this.roleService = roleService;
   }
@@ -55,11 +59,12 @@ export class SignupApplicationService extends BaseApplicationService {
       if (!defaultRole) {
         throw new DomainServiceError('No default role is available', 'UNKNOWN_ERROR');
       }
-
-      return this.signupService.register(
-        { ...userData, ug_id: defaultUserGroup.id, role_id: defaultRole.id },
+      const createdUser = await this.userService.create(
+        { ...userData, ug_id: defaultUserGroup.id, role_id: defaultRole.id, status: 'pending_verification' },
         { session },
       );
+
+      return { id: createdUser.id, status: createdUser.status };
     });
   }
 

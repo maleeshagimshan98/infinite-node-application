@@ -142,27 +142,21 @@ export class LoginService extends BaseDomainService {
   }
 
   /*
-   * Authenticate a user with email and password and create a new login session.
+   * Verify a resolved user's password and create a new login session.
    *
-   * @param {string} email - The user's email address.
+   * @param {User} user - The user to authenticate, already resolved by email (e.g. via UserService).
    * @param {string} password - The plain-text password to verify against the stored hash.
    * @param {TransactionOptions} transactionOptions - Optional database transaction session.
    * @returns {Promise<{ id: string; status: string; accessToken: string; refreshToken: string; loginRecord: LoginRecord }>}
-   * @throws {DomainServiceError} AUTHENTICATION_ERROR — if credentials are invalid.
+   * @throws {DomainServiceError} AUTHENTICATION_ERROR — if the password does not match.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR — if a database error occurs.
    */
   async login(
-    email: string,
+    user: User,
     password: string,
     transactionOptions?: TransactionOptions,
   ): Promise<{ id: string; status: string; accessToken: string; refreshToken: string; loginRecord: LoginRecord }> {
     return this.wrapInfrastructureErrors(async () => {
-      const user = await this.userRepository.findOne({ email });
-
-      if (!user) {
-        throw new DomainServiceError('Invalid credentials', 'AUTHENTICATION_ERROR');
-      }
-
       const isPasswordMatching = await argon2.verify(user.password, password);
       if (!isPasswordMatching) {
         throw new DomainServiceError('Invalid credentials', 'AUTHENTICATION_ERROR');

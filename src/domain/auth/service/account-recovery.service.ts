@@ -2,25 +2,22 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import argon2 from 'argon2';
-
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
-import type { User } from '@/domain/user/models/user';
+import type { UserService } from '@/domain/user/service/user.service';
 import { NewPasswordResetCode, type PasswordResetCode } from '@/domain/auth/models/password-reset-code';
 import type { LoginRecord } from '@/domain/auth/models/login-record';
-import type { IUserRepository } from '@/application/interfaces/repositories/user/user.repository.interface';
 import type { IPasswordResetCodeRepository } from '@/application/interfaces/repositories/auth/password-reset-code.repository.interface';
 import type { ILoginRecordRepository } from '@/application/interfaces/repositories/auth/login-record.repository.interface';
 import type { TransactionOptions } from '@/application/interfaces/database-mapper.interface';
 
 export class AccountRecoveryService extends BaseDomainService {
   /**
-   * User repository instance
+   * User service instance
    *
    * @private
    */
-  private readonly userRepository: IUserRepository;
+  private readonly userService: UserService;
 
   /**
    * Password reset code repository instance
@@ -37,26 +34,14 @@ export class AccountRecoveryService extends BaseDomainService {
   private readonly loginRecordRepository: ILoginRecordRepository;
 
   constructor(
-    userRepository: IUserRepository,
+    userService: UserService,
     passwordResetCodeRepository: IPasswordResetCodeRepository,
     loginRecordRepository: ILoginRecordRepository,
   ) {
     super();
-    this.userRepository = userRepository;
+    this.userService = userService;
     this.passwordResetCodeRepository = passwordResetCodeRepository;
     this.loginRecordRepository = loginRecordRepository;
-  }
-
-  /**
-   * Get user by email
-   *
-   * @param {string} email - User email
-   * @returns {Promise<User | null>}
-   */
-  async getUserByEmail(email: string): Promise<User | null> {
-    return this.wrapInfrastructureErrors(async () => {
-      return await this.userRepository.findOne({ email });
-    });
   }
 
   /**
@@ -110,7 +95,7 @@ export class AccountRecoveryService extends BaseDomainService {
    */
   async forgotPassword(email: string, transactionOptions?: TransactionOptions): Promise<void> {
     return this.wrapInfrastructureErrors(async () => {
-      const user = await this.getUserByEmail(email);
+      const user = await this.userService.getByEmail(email, transactionOptions);
 
       if (!user) {
         throw new DomainServiceError(`The User with the email equal to ${email} could not be found.`, 'NOT_FOUND');
@@ -170,15 +155,13 @@ export class AccountRecoveryService extends BaseDomainService {
         );
       }
 
-      const user = await this.getUserByEmail(email);
+      const user = await this.userService.getByEmail(email, transactionOptions);
 
       if (!user) {
         throw new DomainServiceError(`The User with the email equal to ${email} could not be found.`, 'NOT_FOUND');
       }
 
       // TODO: MUST USE A DATABASE TRANSACTION FOR ALL BELOW DATA MUTATIONS
-      const hashedPassword = await argon2.hash(newPassword);
-      user.password = hashedPassword;
       passwordResetCode.markUsed();
 
       const updatedResetCode = await this.passwordResetCodeRepository.update(
@@ -193,10 +176,8 @@ export class AccountRecoveryService extends BaseDomainService {
         );
       }
 
-      const updatedUser = await this.userRepository.update(user.id, user, transactionOptions);
-      if (!updatedUser) {
-        throw new DomainServiceError(`The User with the id equal to ${user.id} could not be found.`, 'NOT_FOUND');
-      }
+      // UserService.update() hashes `password` whenever it's present in the payload.
+      await this.userService.update(user.id, { password: newPassword }, transactionOptions);
 
       // TODO: Find all and modify all of the login records
       const loginRecord: LoginRecord | null = await this.loginRecordRepository.findOne(

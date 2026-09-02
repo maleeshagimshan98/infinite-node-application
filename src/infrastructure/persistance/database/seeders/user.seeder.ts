@@ -57,10 +57,10 @@ export async function seedUsers(): Promise<boolean> {
     ];
 
     // Register users using SignupApplicationService
-    const createdUsers = [];
-    const skippedUsers = [];
+    const createdUsers: { email: string; id: string; status: string }[] = [];
+    const skippedUsers: string[] = [];
 
-    for (const userData of usersToSeed) {
+    const registrations = usersToSeed.map(async (userData) => {
       try {
         const result = await signupApplicationService.register(userData);
         createdUsers.push({
@@ -76,7 +76,9 @@ export async function seedUsers(): Promise<boolean> {
           throw error;
         }
       }
-    }
+    });
+
+    await Promise.all(registrations);
 
     if (createdUsers.length > 0) {
       console.log(`   ✅ Successfully seeded ${createdUsers.length} users`);
