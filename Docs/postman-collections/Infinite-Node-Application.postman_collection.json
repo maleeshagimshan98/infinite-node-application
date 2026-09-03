@@ -13,7 +13,7 @@
     },
     {
       "key": "apiPrefix",
-      "value": "/api/v1",
+      "value": "api/v1",
       "type": "string"
     },
     {
@@ -118,17 +118,57 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}{{apiPrefix}}/auth/verify-email?email=test@example.com",
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/verify-email?email=test@example.com&code=abc123xyz",
               "host": ["{{baseUrl}}"],
               "path": ["{{apiPrefix}}", "auth", "verify-email"],
               "query": [
                 {
                   "key": "email",
                   "value": "test@example.com"
+                },
+                {
+                  "key": "code",
+                  "value": "abc123xyz"
                 }
               ]
             },
-            "description": "Verify user email address and activate account"
+            "description": "Verify user email address using the code emailed on registration (or via Resend Verification Code), and activate the account"
+          },
+          "response": []
+        },
+        {
+          "name": "Resend Verification Code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// In a real scenario, you would get the verification code from email",
+                  "// For testing, you might need to check the database or logs",
+                  "console.log('Email verification code sent');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/resend-verification-email",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "resend-verification-email"]
+            },
+            "description": "Request a fresh email verification code — invalidates any previously issued pending code for the email"
           },
           "response": []
         },
@@ -169,6 +209,44 @@
               "path": ["{{apiPrefix}}", "auth", "login"]
             },
             "description": "Login with email and password credentials"
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const authHeader = pm.response.headers.get('Authorization');",
+                  "    if (authHeader) {",
+                  "        const token = authHeader.replace('Bearer ', '');",
+                  "        pm.collectionVariables.set('authToken', token);",
+                  "        pm.environment.set('authToken', token);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "refresh"]
+            },
+            "description": "Rotate the access/refresh token pair. Requires the current access token in the Authorization header and the refresh_token httpOnly cookie set by Login (Postman's cookie jar sends this automatically for requests to the same baseUrl domain). Expires the old login record and issues a new one."
           },
           "response": []
         },
