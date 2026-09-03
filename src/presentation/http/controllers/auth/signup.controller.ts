@@ -43,9 +43,27 @@ export class SignupController extends BaseController {
   async verifyEmail(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
       const verifyCred = matchedData(req);
-      await this.signupApplicationService.verifyEmail(verifyCred.email);
+      await this.signupApplicationService.verifyEmail(verifyCred.email, verifyCred.code);
 
       return ApiResponseUtils.apiOkResponse(200, false, null, 'Email verified successfully', null);
+    });
+
+    return ApiResponseUtils.createResponse(response, res);
+  }
+
+  /**
+   * Request a fresh email verification code
+   *
+   * @param {Request} req - The incoming request object
+   * @param {Response} res - The response object
+   * @returns {Promise<Response>}
+   */
+  async resendVerificationCode(req: Request, res: Response): Promise<Response> {
+    const response = await this.catchExceptionsWrapper(async () => {
+      const { email } = matchedData(req);
+      await this.signupApplicationService.resendVerificationCode(email);
+
+      return ApiResponseUtils.apiOkResponse(201, false, null, 'Verification email sent', null);
     });
 
     return ApiResponseUtils.createResponse(response, res);

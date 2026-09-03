@@ -9,6 +9,8 @@ import type { UserGroupService } from '@/domain/user/service/user-group.service'
 import type { RoleService } from '@/domain/auth/service/role.service';
 import type { INewUser } from '@/domain/user/models/user';
 import type { IDatabaseMapper } from '@/application/interfaces';
+import type { IEmail } from '@/application/interfaces/email.interface';
+import type { ILogger } from '@/application/interfaces/logger.interface';
 
 import { BaseApplicationService } from '../base/base.application.service';
 
@@ -24,6 +26,8 @@ export class SignupApplicationService extends BaseApplicationService {
   private userService: UserService;
   private userGroupService: UserGroupService;
   private roleService: RoleService;
+  private email: IEmail;
+  private logger: ILogger;
 
   constructor(
     database_mapper: IDatabaseMapper,
@@ -31,16 +35,37 @@ export class SignupApplicationService extends BaseApplicationService {
     userService: UserService,
     userGroupService: UserGroupService,
     roleService: RoleService,
+    email: IEmail,
+    logger: ILogger,
   ) {
     super(database_mapper);
     this.signupService = signupService;
     this.userService = userService;
     this.userGroupService = userGroupService;
     this.roleService = roleService;
+    this.email = email;
+    this.logger = logger;
   }
 
   /**
-   * Register a new user, assigning the default user group and default role server-side.
+   * Send a verification-code email, swallowing and logging any delivery failure so it never
+   * fails the caller's registration/resend operation.
+   *
+   * @param {string} email - The recipient's email address.
+   * @param {string} rawCode - The raw (unhashed) verification code to deliver.
+   * @returns {Promise<void>}
+   */
+  private async sendVerificationEmail(email: string, rawCode: string): Promise<void> {
+    try {
+      await this.email.sendEmail(email, 'Verify your email', `Your verification code is: ${rawCode}`);
+    } catch (error) {
+      this.logger.logError('Failed to send verification email', { email, error });
+    }
+  }
+
+  /**
+   * Register a new user, assigning the default user group and default role server-side, and
+   * issue an email verification code for the new account.
    *
    * @param {INewUser} userData - User registration data. Any `ug_id`/`role_id` supplied by the
    * caller is ignored — both are always resolved to the current defaults.
@@ -49,7 +74,7 @@ export class SignupApplicationService extends BaseApplicationService {
    * @throws {DomainServiceError} VALIDATION_ERROR when the email is already associated with another account.
    */
   async register(userData: INewUser): Promise<{ id: string; status: string }> {
-    return this.dbTransaction(async ({ session }) => {
+    const { id, status, email, rawCode } = await this.dbTransaction(async ({ session }) => {
       const defaultUserGroup = await this.userGroupService.getDefaultGroup();
       if (!defaultUserGroup) {
         throw new DomainServiceError('No default customer group is available', 'UNKNOWN_ERROR');
@@ -64,19 +89,45 @@ export class SignupApplicationService extends BaseApplicationService {
         { session },
       );
 
-      return { id: createdUser.id, status: createdUser.status };
+      const { rawCode } = await this.signupService.createVerificationCode(createdUser.id, createdUser.email, {
+        session,
+      });
+
+      return { id: createdUser.id, status: createdUser.status, email: createdUser.email, rawCode };
     });
+
+    // Sending the email is deliberately outside the transaction — an SMTP failure must never
+    // roll back a successful registration or code generation.
+    await this.sendVerificationEmail(email, rawCode);
+
+    return { id, status };
   }
 
   /**
-   * Verify a user's email and activate their account.
+   * Verify a user's email using a previously issued verification code, and activate their account.
+   *
+   * @param {string} email - The user's email.
+   * @param {string} code - The raw verification code presented by the user.
+   * @returns {Promise<void>}
+   * @throws {DomainServiceError} NOT_FOUND when no user exists with the given email, or no matching pending
+   * code is found.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the matching code has expired.
+   */
+  async verifyEmail(email: string, code: string): Promise<void> {
+    return this.signupService.verifyEmail(email, code);
+  }
+
+  /**
+   * Request a fresh email verification code for an already-registered, not-yet-verified user.
    *
    * @param {string} email - The user's email.
    * @returns {Promise<void>}
    * @throws {DomainServiceError} NOT_FOUND when no user exists with the given email.
+   * @throws {DomainServiceError} INVALID_OPERATION when the user's email is already verified.
    */
-  async verifyEmail(email: string): Promise<void> {
-    return this.signupService.verifyEmail(email);
+  async resendVerificationCode(email: string): Promise<void> {
+    const { rawCode } = await this.signupService.resendVerificationCode(email);
+    await this.sendVerificationEmail(email, rawCode);
   }
 }
 

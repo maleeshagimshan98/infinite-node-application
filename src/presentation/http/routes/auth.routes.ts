@@ -7,6 +7,8 @@ import { Router } from 'express';
 import { loginCredentailValidator } from '@/presentation/http/validators/auth/login-credential.validator';
 import { forgotPasswordValidator } from '@/presentation/http/validators/auth/forgot-password.validator';
 import { resetPasswordValidator } from '@/presentation/http/validators/auth/reset-password.validator';
+import { verifyEmailValidator } from '@/presentation/http/validators/auth/verify-email.validator';
+import { resendVerificationEmailValidator } from '@/presentation/http/validators/auth/resend-verification-email.validator';
 import { userValidator } from '@/presentation/http/validators/user/user.validator';
 import { container } from '@/app/core/service.container';
 import type { LoginApplicationService } from '@/application/services/auth/login.application.service';
@@ -62,8 +64,16 @@ router.post('/register', RequestValidatorMiddleware(userValidator()), (req: Requ
   container.resolve<SignupController>('signupController').register(req, res);
 });
 
-router.get('/verify-email', (req: Request, res: Response) => {
+router.get('/verify-email', RequestValidatorMiddleware(verifyEmailValidator()), (req: Request, res: Response) => {
   container.resolve<SignupController>('signupController').verifyEmail(req, res);
 });
+
+router.post(
+  '/resend-verification-email',
+  RequestValidatorMiddleware(resendVerificationEmailValidator()),
+  (req: Request, res: Response) => {
+    container.resolve<SignupController>('signupController').resendVerificationCode(req, res);
+  },
+);
 
 export { router as AuthRoutes };
