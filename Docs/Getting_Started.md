@@ -7,12 +7,12 @@
 
 ## 1. Prerequisites
 
-| Requirement | Notes                                                                                                                                                                                       |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Node.js     | 18+ LTS for local dev (the Docker image uses Node 22)                                                                                                                                        |
+| Requirement | Notes                                                                                                                                                                                                                                                                                                                                               |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Node.js     | 18+ LTS for local dev (the Docker image uses Node 22)                                                                                                                                                                                                                                                                                               |
 | MongoDB     | 7+, configured as a **replica set** (a single-node set named `rs0` is enough). This is not optional — the application/domain services run multi-document transactions (`IDatabaseMapper.withTransaction`), which MongoDB only supports inside a replica set. Standalone MongoDB will fail at the first transactional write (signup, seeding, etc.). |
-| Redis       | 7+. `REDIS_SERVICE_OPTIONAL=true` lets the app boot without it, but the rate limiter is designed to use it — treat it as required outside quick local experiments.                            |
-| npm         | Ships with Node.js                                                                                                                                                                            |
+| Redis       | 7+. `REDIS_SERVICE_OPTIONAL=true` lets the app boot without it, but the rate limiter is designed to use it — treat it as required outside quick local experiments.                                                                                                                                                                                  |
+| npm         | Ships with Node.js                                                                                                                                                                                                                                                                                                                                  |
 
 ## 2. Option A — Full stack via Docker Compose (fastest path)
 
@@ -127,9 +127,9 @@ Discard the `.pem` files afterwards — only the `.env` value is used at runtime
 runs `src/infrastructure/persistance/database/seeders/seeder.ts`, which seeds in this order —
 each step depends on the one before it:
 
-| Order | Seeder                | Creates                                                                                                          |
-| ----- | ---------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| 1     | `resource.seeder.ts`   | RBAC resources: `users`, `roles`, `resources`, `user-groups`                                                     |
+| Order | Seeder                 | Creates                                                                                                         |
+| ----- | ---------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 1     | `resource.seeder.ts`   | RBAC resources: `users`, `roles`, `resources`, `user-groups`                                                    |
 | 2     | `role.seeder.ts`       | Roles: `Administrator` (full CRUD on every seeded resource) and `Member` (the **default** role new signups get) |
 | 3     | `user-group.seeder.ts` | Customer groups: `Default Group` (**default**, assigned to new signups), `Premium Members`, `VIP Members`       |
 | 4     | `user.seeder.ts`       | 3 sample users (`john/jane/bob@example.com`), each assigned the default group and default role                  |
@@ -162,12 +162,12 @@ build` must have already produced `dist/` if you're not using the Docker image's
 
 ## 7. Troubleshooting
 
-| Symptom                                                                 | Cause                                                                                                          |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Symptom                                                                   | Cause                                                                                                                                        |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | Seeding (or any write) fails with a transaction/session error immediately | `MONGODB_URI` is missing `?replicaSet=rs0`, or the replica set was never initiated — connect with `mongosh` and run `rs.status()` to confirm |
-| Role seeder logs `⚠️ No resources found. Please seed resources first.`     | Resource seeding failed or was skipped unexpectedly — check the `🔹 Seeding Resources...` log lines above it   |
-| Every seeder logs `⏭️ Skipped (Already Exists)`                          | Expected on a re-run — not a failure                                                                          |
-| 429 Too Many Requests on every route                                     | Redis is unreachable; the rate limiter uses a Redis-backed store via the DI `cache` service                    |
+| Role seeder logs `⚠️ No resources found. Please seed resources first.`    | Resource seeding failed or was skipped unexpectedly — check the `🔹 Seeding Resources...` log lines above it                                 |
+| Every seeder logs `⏭️ Skipped (Already Exists)`                           | Expected on a re-run — not a failure                                                                                                         |
+| 429 Too Many Requests on every route                                      | Redis is unreachable; the rate limiter uses a Redis-backed store via the DI `cache` service                                                  |
 
 ## Related documents
 
