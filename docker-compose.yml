@@ -15,8 +15,8 @@ services:
     build:
       context: .
       target: production
-    image: infinite-node-application:local
-    container_name: infinite-node-app
+    image: ${APP_NAME}:local
+    container_name: ${APP_NAME}
     env_file:
       - .env.production
     environment:
@@ -41,7 +41,7 @@ services:
 
   mongodb:
     image: mongo:7
-    container_name: infinite-node-mongodb
+    container_name: ${APP_NAME}-mongodb
     command: ['--replSet', 'rs0', '--bind_ip_all']
     volumes:
       - mongodb_data:/data/db
@@ -57,6 +57,7 @@ services:
   # multi-document transactions used by the application/domain services).
   mongodb-init:
     image: mongo:7
+    container_name: ${APP_NAME}-mongodb-init
     depends_on:
       mongodb:
         condition: service_healthy
@@ -74,11 +75,9 @@ services:
   # Runs the `seed:prod` npm script (compiled seeder — the production image has no tsx/src).
   # Safe to re-run — each seeder skips records that already exist.
   seed:
-    build:
-      context: .
-      target: production
-    image: infinite-node-application:local
-    container_name: infinite-node-seed
+    # No build: block — reuses the image the `app` service already built/tagged.
+    image: ${APP_NAME}:local
+    container_name: ${APP_NAME}-seed
     env_file:
       - .env.production
     environment:
@@ -90,9 +89,39 @@ services:
         condition: service_completed_successfully
     restart: 'no'
 
+  # BullMQ worker — same image as `app`, different command. No HTTP server, so no
+  # ports and no HTTP healthcheck (the image's baked-in HEALTHCHECK is disabled below).
+  worker:
+    # No build: block — reuses the image the `app` service already built/tagged.
+    image: ${APP_NAME}:local
+    container_name: ${APP_NAME}-worker
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: mongodb://mongodb:27017/infinite-node-application?replicaSet=rs0
+      REDIS_SERVER_HOST: redis
+      REDIS_SERVER_URL: redis://redis:6379
+      REDIS_SOCKET_HOST: redis
+      WINSTON_LOG_FILE_NAME: ./logs/worker-%DATE%.log
+      WINSTON_ERROR_LOG_FILE_NAME: ./logs/worker-error-%DATE%.log
+    command: ['dumb-init', 'npm', 'run', 'worker:start']
+    healthcheck:
+      disable: true
+    volumes:
+      - app_logs:/app/logs
+    depends_on:
+      mongodb-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
-    container_name: infinite-node-redis
+    container_name: ${APP_NAME}-redis
     volumes:
       - redis_data:/data
     healthcheck:
@@ -101,6 +130,21 @@ services:
       timeout: 5s
       retries: 5
       start_period: 5s
+    restart: unless-stopped
+
+  # MailHog — SMTP test server for local development only. Catches outgoing
+  # email instead of delivering it (Web UI at http://localhost:8025).
+  # Guarded behind the "dev" profile so it never starts as part of the
+  # default/production stack: `docker compose --profile dev up -d --build`.
+  # Point EMAIL_SMTP_HOST=mailhog, EMAIL_SMTP_PORT=1025, EMAIL_SMTP_SECURE=false
+  # in .env.production to route app email through it.
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: ${APP_NAME}-mailhog
+    profiles: ['dev']
+    ports:
+      - '1025:1025' # SMTP
+      - '8025:8025' # Web UI
     restart: unless-stopped
 
 volumes:

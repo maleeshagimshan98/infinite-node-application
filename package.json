@@ -5,10 +5,11 @@
   "scripts": {
     "start": "node dist/index.js",
     "worker:start": "node dist/worker.js",
-    "start:all": "pm2 start ecosystem.config.js",
+    "prestart:all": "npm run build",
+    "start:all": "pm2 start ecosystem.prod.config.js",
     "dev": "tsc --noEmit && tsx watch ./src/index.ts",
     "worker:dev": "tsc --noEmit && tsx watch ./src/worker.ts",
-    "dev:all": "pm2 start ecosystem.config.js --env development",
+    "dev:all": "pm2 start ecosystem.dev.config.js",
     "test": "jest",
     "lint": "eslint src --ext .js,.ts",
     "lint:fix": "eslint src --ext .js,.ts --fix",
