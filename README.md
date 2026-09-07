@@ -154,7 +154,9 @@ npm start
 - build: Prettier format, then `tsc` emit to dist/ and resolve path aliases with `tsc-alias`
 - start: node dist/index.js
 - worker:start: node dist/worker.js
-- start:all / dev:all: Run app + worker together via PM2 (`ecosystem.config.js`)
+- start:all / dev:all: Run app + worker together via PM2 (dev: `ecosystem.dev.config.js`, runs
+  `src/*.ts` via ts-node with file watching; prod: `ecosystem.prod.config.js`, runs the compiled
+  `dist/*.js` — `start:all` rebuilds first via a `prestart:all` hook)
 - lint / lint:fix: ESLint with TypeScript + Prettier
 - format: Prettier write across the repo
 - test: Jest (ts-jest + babel-jest configured)
@@ -235,9 +237,14 @@ Located in src/app/core/config:
 ## Docker
 
 The Dockerfile is multi-stage (development, build, production) and uses dumb-init.
-`docker-compose.yml` at the repo root runs the full local stack — app, MongoDB (with a one-shot
-job that initializes its `rs0` replica set), Redis, and a one-shot seed job that runs before the
-app container starts. See [`Docs/Getting_Started.md`](Docs/Getting_Started.md#2-option-a--full-stack-via-docker-compose-fastest-path)
+`docker-compose.yml` at the repo root runs the full local stack — app, a separate BullMQ **worker**
+container, MongoDB (with a one-shot job that initializes its `rs0` replica set), Redis, and a
+one-shot seed job that runs before the app/worker containers start. The `app` and `worker`
+containers are built from the exact same image (only `app` declares a `build:` section; `worker`
+and `seed` just reference the resulting tag) and differ only in their `command` — `worker` has no
+HTTP server, so it has no port mapping and its healthcheck is disabled. Container names and the
+shared image tag are derived from the `APP_NAME` variable in `.env` (copied from `.env.example`).
+See [`Docs/Getting_Started.md`](Docs/Getting_Started.md#2-option-a--full-stack-via-docker-compose-fastest-path)
 for the step-by-step (env file to copy, secrets to fill in, how to confirm seeding succeeded).
 
 ```powershell
@@ -263,11 +270,19 @@ docker run --rm -p 3000:3000 -e NODE_ENV=production -e NODE_PORT=3000 `
 
 ## PM2
 
-Run with TypeScript via PM2:
+Run app + worker together via PM2. In development this runs TypeScript sources directly
+(ts-node + file watching); in production it runs the compiled `dist/` output:
 
 ```powershell
 npm i -g pm2
-pm2 start ecosystem.config.js --env development
+
+# Development — src/*.ts via ts-node, file watching enabled
+npm run dev:all
+# equivalent to: pm2 start ecosystem.dev.config.js
+
+# Production — builds dist/ first, then runs it via plain node
+npm run start:all
+# equivalent to: npm run build && pm2 start ecosystem.prod.config.js
 ```
 
 ## Testing
