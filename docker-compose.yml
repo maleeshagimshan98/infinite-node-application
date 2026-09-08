@@ -83,10 +83,15 @@ services:
     environment:
       NODE_ENV: production
       MONGODB_URI: mongodb://mongodb:27017/infinite-node-application?replicaSet=rs0
+      REDIS_SERVER_HOST: redis
+      REDIS_SERVER_URL: redis://redis:6379
+      REDIS_SOCKET_HOST: redis
     command: ['npm', 'run', 'seed:prod']
     depends_on:
       mongodb-init:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     restart: 'no'
 
   # BullMQ worker — same image as `app`, different command. No HTTP server, so no
