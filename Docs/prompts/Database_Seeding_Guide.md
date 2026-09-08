@@ -42,8 +42,8 @@ dotenv.config(); // Load environment variables from .env file
 
 ## Running the Seeders
 
-| Command              | Script                                                          | Effect                                                                          |
-| -------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Command              | Script                                                          | Effect                                                                         |
+| -------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `npm run seed`       | `tsx src/infrastructure/persistance/database/seeders/seeder.ts` | Seeds all default data (skips existing)                                        |
 | `npm run seed:clear` | same file with `--clear`                                        | Clears seeded data in reverse order: users, user groups, roles, then resources |
 
@@ -138,27 +138,31 @@ Requires both the default user group and the default role to exist (this is why 
 matters** — resources, then roles, then user groups, are all seeded before users). Registers
 three sample users (`john/jane/bob@example.com`, status `pending_verification`) through the
 container-resolved `SignupApplicationService.register()`, each with `ug_id` set to the default
-group's id and `role_id` set to the default role's id.
+group's id and `role_id` set to the default role's id. Called as `register(userData, false)` —
+the trailing `sendEmail` flag suppresses the verification email, since the seeded addresses are
+placeholders, not real inboxes.
 
 ## How the Seeder Bootstraps
 
 `seeder.ts` initializes the same DI container the application uses — seeders exercise the real
-domain layer, not a parallel code path:
+domain layer, not a parallel code path. It bootstraps via `InfrastructureManager`, the same
+mechanism `app.ts` and `worker.ts` use:
 
 ```typescript
 // src/infrastructure/persistance/database/seeders/seeder.ts
+// Register infrastructure services (logger, cache, email, database mapper, etc.)
+const infrastructureManager = new InfrastructureManager();
+await infrastructureManager.initForWorker(container);
+
 // Register application components (services, repositories, controllers)
 autoRegisterApplicationComponents();
-
-// Initialize database mapper service (handles MongoDB connection internally)
-const databaseMapperFactory = new DatabaseMapperServiceFactory();
-const databaseMapper = await databaseMapperFactory.create();
-// Registered under the mapper's own `serviceName()` ('database_mapper') so it resolves
-// identically to how InfrastructureManager registers it in the running app.
-container.register({
-  [databaseMapper.serviceName()]: asValue(databaseMapper),
-});
 ```
+
+`initForWorker()` (not `init()`) is used because the seeder is a one-shot CLI script with no HTTP
+server — `init()` also loads `SocketServiceFactory`, which requires an `httpServer` already
+registered in the container. `DatabaseMapperServiceFactory` is one of the factories
+`InfrastructureManager` iterates, so it (and every other infra service) is registered under its
+own `serviceName()` automatically — no separate manual step is needed.
 
 `runAllSeeders()` then runs each seeder **in dependency order** (resources → roles → user groups
 → users); `clearAllSeeders()` clears in reverse (users → user groups → roles → resources).
