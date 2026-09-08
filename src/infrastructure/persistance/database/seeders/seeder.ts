@@ -1,10 +1,9 @@
 import path from 'path';
 
-import { asValue } from 'awilix';
 import dotenv from 'dotenv';
 
 import { container, autoRegisterApplicationComponents } from '@/app/core/service.container';
-import { DatabaseMapperServiceFactory } from '@/infrastructure/persistance/database/service/database-mapper-service.factory';
+import { InfrastructureManager } from '@/infrastructure/infrastructure.manager';
 
 import { seedUsers } from './user.seeder';
 import { seedUserGroups } from './user-group.seeder';
@@ -12,29 +11,26 @@ import { seedResources } from './resource.seeder';
 import { seedRoles } from './role.seeder';
 
 /**
- * Initialize service container and infrastructure services
- * Database connection is handled by DatabaseMapperService
+ * Initialize the DI container: register all infrastructure services via InfrastructureManager,
+ * then auto-register application services, repositories, and controllers.
+ * Database connection is handled by DatabaseMapperService, one of the registered infra services.
  */
 async function initializeServices(): Promise<void> {
   try {
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('🔧 Initializing Service Container...');
 
+    // Register infrastructure services (logger, cache, email, database mapper, etc.). Uses
+    // initForWorker() (not init()) because the seeder is a one-shot CLI script with no HTTP
+    // server — init() would also load SocketServiceFactory, which requires an `httpServer`
+    // already registered in the container.
+    const infrastructureManager = new InfrastructureManager();
+    await infrastructureManager.initForWorker(container);
+    console.log('✅ Infrastructure Services Registered');
+
     // Register application components (services, repositories, controllers)
     autoRegisterApplicationComponents();
     console.log('✅ Application Components Registered');
-
-    // Initialize database mapper service (handles MongoDB connection internally)
-    const databaseMapperFactory = new DatabaseMapperServiceFactory();
-    const databaseMapper = await databaseMapperFactory.create();
-    // Registered under the mapper's own `serviceName()` ('database_mapper') so it resolves
-    // identically to how InfrastructureManager registers it in the running app — application
-    // services (e.g. SignupApplicationService) depend on that exact token via their
-    // `database_mapper` constructor parameter.
-    container.register({
-      [databaseMapper.serviceName()]: asValue(databaseMapper),
-    });
-    console.log('✅ Database Mapper Service Registered');
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   } catch (error) {

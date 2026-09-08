@@ -3,6 +3,7 @@ import { UserModel } from '@/infrastructure/persistance/database/repositories/mo
 import type { SignupApplicationService } from '@/application/services/auth/signup.application.service';
 import type { UserGroupService } from '@/domain/user/service/user-group.service';
 import type { RoleService } from '@/domain/auth/service/role.service';
+import type { UserService } from '@/domain/user/service/user.service';
 import type { INewUser } from '@/domain/user/models/user';
 
 /**
@@ -15,6 +16,7 @@ export async function seedUsers(): Promise<boolean> {
     const signupApplicationService = container.resolve<SignupApplicationService>('signupApplicationService');
     const userGroupService = container.resolve<UserGroupService>('userGroupService');
     const roleService = container.resolve<RoleService>('roleService');
+    const userService = container.resolve<UserService>('userService');
 
     // Ensure default customer group and default role exist. This is purely a friendly early-exit
     // for the seeding script — SignupApplicationService.register() re-resolves both defaults
@@ -61,21 +63,19 @@ export async function seedUsers(): Promise<boolean> {
     const skippedUsers: string[] = [];
 
     const registrations = usersToSeed.map(async (userData) => {
-      try {
-        const result = await signupApplicationService.register(userData);
-        createdUsers.push({
-          email: userData.email,
-          id: result.id,
-          status: result.status,
-        });
-      } catch (error) {
-        // If user already exists, skip it
-        if (error instanceof Error && error.message.includes('already associated')) {
-          skippedUsers.push(userData.email);
-        } else {
-          throw error;
-        }
+      const existingUser = await userService.getByEmail(userData.email);
+      if (existingUser) {
+        skippedUsers.push(userData.email);
+        return;
       }
+
+      // sendEmail: false — seeded addresses (john/jane/bob@example.com) aren't real inboxes.
+      const result = await signupApplicationService.register(userData, false);
+      createdUsers.push({
+        email: userData.email,
+        id: result.id,
+        status: result.status,
+      });
     });
 
     await Promise.all(registrations);

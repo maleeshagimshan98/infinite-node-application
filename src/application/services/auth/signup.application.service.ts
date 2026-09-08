@@ -69,11 +69,13 @@ export class SignupApplicationService extends BaseApplicationService {
    *
    * @param {INewUser} userData - User registration data. Any `ug_id`/`role_id` supplied by the
    * caller is ignored — both are always resolved to the current defaults.
+   * @param {boolean} [sendEmail=true] - Whether to send the verification email; pass `false` for
+   * non-interactive registrations (e.g. database seeding) that use placeholder addresses.
    * @returns {Promise<{ id: string; status: string }>} The created user's id and status.
    * @throws {DomainServiceError} UNKNOWN_ERROR when no default user group or default role is available.
    * @throws {DomainServiceError} VALIDATION_ERROR when the email is already associated with another account.
    */
-  async register(userData: INewUser): Promise<{ id: string; status: string }> {
+  async register(userData: INewUser, sendEmail: boolean = true): Promise<{ id: string; status: string }> {
     const { id, status, email, rawCode } = await this.dbTransaction(async ({ session }) => {
       const defaultUserGroup = await this.userGroupService.getDefaultGroup();
       if (!defaultUserGroup) {
@@ -98,7 +100,9 @@ export class SignupApplicationService extends BaseApplicationService {
 
     // Sending the email is deliberately outside the transaction — an SMTP failure must never
     // roll back a successful registration or code generation.
-    await this.sendVerificationEmail(email, rawCode);
+    if (sendEmail) {
+      await this.sendVerificationEmail(email, rawCode);
+    }
 
     return { id, status };
   }
