@@ -3,8 +3,10 @@
  */
 
 import type { IEmail } from '@/application/interfaces/email.interface';
+import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 import type { SMTPDriver } from './driver/smtp.driver';
+import type { Transporter } from 'nodemailer';
 
 /**
  * SMTP Email Service Implementation
@@ -30,11 +32,27 @@ export class SMTPEmailService implements IEmail {
   private readonly driver: SMTPDriver;
 
   /**
+   * Nodemailer transporter instance from the driver layer
+   * Used to send emails
+   *
+   * @type {Transporter}
+   */
+  private readonly transporter: Transporter;
+
+  /**
    * Creates an instance of SMTPEmailService
    * Instantiates and initializes the SMTP driver internally
    */
   constructor(driver: SMTPDriver) {
     this.driver = driver;
+    const client = this.driver.client();
+    if (!client || !(client instanceof Object)) {
+      throw new InfrastructureError('Invalid SMTP client provided to SMTPEmailService', 'CONNECTION_ERROR', {
+        clientType: typeof client,
+        providedClient: client,
+      });
+    }
+    this.transporter = client;
   }
 
   /**
@@ -67,10 +85,10 @@ export class SMTPEmailService implements IEmail {
   /**
    * Get the underlying SMTP driver instance
    *
-   * @returns {unknown} The SMTP driver instance
+   * @returns {SMTPDriver} The SMTP driver instance
    */
-  getDriver(): unknown {
-    return this.driver.client();
+  getDriver(): SMTPDriver {
+    return this.driver;
   }
 
   /**
@@ -79,7 +97,7 @@ export class SMTPEmailService implements IEmail {
    * @param {string} to - Recipient email address
    * @param {string} subject - Email subject line
    * @param {string} body - Email body content (HTML or plain text)
-   * @returns {Promise<void>}
+   * @returns {Promise<void>} resolving when the email has been handed off to the SMTP transport
    *
    * @example
    * ```typescript
@@ -99,25 +117,11 @@ export class SMTPEmailService implements IEmail {
    * ```
    */
   async sendEmail(to: string, subject: string, body: string): Promise<void> {
-    // Placeholder implementation - log to console
-    console.log('[Placeholder Email] Sending email:');
-    console.log(`  To: ${to}`);
-    console.log(`  Subject: ${subject}`);
-    console.log(`  Body: ${body}`);
-
-    // TODO: Replace with actual email provider implementation
-    // Example with Nodemailer:
-    // await this.driver.sendMail({
-    //   to,
-    //   subject,
-    //   html: body,
-    // });
-    //
-    // Example with SendGrid:
-    // await this.driver.send({
-    //   to,
-    //   subject,
-    //   html: body,
-    // });
+    await this.transporter.sendMail({
+      from: this.driver.config().from,
+      to,
+      subject,
+      html: body,
+    });
   }
 }

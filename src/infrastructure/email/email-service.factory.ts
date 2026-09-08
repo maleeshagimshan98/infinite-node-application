@@ -50,6 +50,7 @@ export class EmailServiceFactory implements IServiceFactory<IEmail> {
     const emailType = process.env.EMAIL_DRIVER || 'smtp';
     switch (emailType.toLowerCase()) {
       case 'smtp':
+        return await this.createSMTPEmailService();
       case 'placeholder':
       case 'console':
         return await this.createSMTPEmailService();
