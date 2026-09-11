@@ -5,8 +5,8 @@
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 export class PersistanceError extends InfrastructureError {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, 'DATABASE_ERROR', undefined, options);
+  constructor(message: string, data?: Record<string, unknown>, options?: ErrorOptions) {
+    super(message, 'DATABASE_ERROR', data, options);
     this.name = 'PersistanceError';
   }
 }

@@ -3,7 +3,8 @@
  */
 
 import type { IEmail } from '@/application/interfaces/email.interface';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+
+import { SmtpError } from './error/smtp.error';
 
 import type { SMTPDriver } from './driver/smtp.driver';
 import type { Transporter } from 'nodemailer';
@@ -47,10 +48,7 @@ export class SMTPEmailService implements IEmail {
     this.driver = driver;
     const client = this.driver.client();
     if (!client || !(client instanceof Object)) {
-      throw new InfrastructureError('Invalid SMTP client provided to SMTPEmailService', 'CONNECTION_ERROR', {
-        clientType: typeof client,
-        providedClient: client,
-      });
+      throw new SmtpError('Invalid SMTP client provided to SMTPEmailService', {});
     }
     this.transporter = client;
   }
@@ -98,6 +96,7 @@ export class SMTPEmailService implements IEmail {
    * @param {string} subject - Email subject line
    * @param {string} body - Email body content (HTML or plain text)
    * @returns {Promise<void>} resolving when the email has been handed off to the SMTP transport
+   * @throws {SmtpError} EMAIL_SEND_ERROR when the SMTP transport fails to send the email
    *
    * @example
    * ```typescript
@@ -117,11 +116,17 @@ export class SMTPEmailService implements IEmail {
    * ```
    */
   async sendEmail(to: string, subject: string, body: string): Promise<void> {
-    await this.transporter.sendMail({
-      from: this.driver.config().from,
-      to,
-      subject,
-      html: body,
-    });
+    await this.transporter
+      .sendMail({
+        from: this.driver.config().from,
+        to,
+        subject,
+        html: body,
+      })
+      .catch((error: unknown) => {
+        throw new SmtpError(`Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+          cause: error,
+        });
+      });
   }
 }
