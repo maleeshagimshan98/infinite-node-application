@@ -54,12 +54,22 @@ const apiOkResponse = (
   return apiResponse;
 };
 
+/**
+ * Builds an error APIResponse, optionally carrying response headers to be applied to the client.
+ *
+ * @param {number} code - The HTTP status code for the error response.
+ * @param {string} message - The human-readable error message.
+ * @param {Record<string, unknown>[] | Record<string, unknown> | unknown} [data] - Additional error detail/data.
+ * @param {Record<string, string>} [headers] - Response headers applied via `APIResponse.applyHeaders()`.
+ * @returns {APIResponse} The constructed error APIResponse.
+ */
 const apiErrorResponse = (
   code: number,
   message: string,
   data: Record<string, unknown>[] | Record<string, unknown> | unknown = [],
+  headers: Record<string, string> = {},
 ): APIResponse => {
-  const apiResponse = new APIResponse('error', code, false, null, message, transformApiResponseData(data));
+  const apiResponse = new APIResponse('error', code, false, null, message, transformApiResponseData(data), headers);
   return apiResponse;
 };
 
@@ -99,11 +109,17 @@ const userNotPermittedError = (detailedError: string = ''): APIResponse => {
   return apiErrorResponse(403, `The user is not permitted to perform this action.${detailedError}`);
 };
 
+/**
+ * Translates an APIResponse into an Express Response: sets the status code and headers,
+ * then sends the serialized body.
+ *
+ * @param {APIResponse} apiResponse - The APIResponse to send.
+ * @param {Response} res - The Express response object to write to.
+ * @returns {Response} The same Express response object, after the response has been sent.
+ */
 const createResponse = (apiResponse: APIResponse, res: Response): Response => {
-  //... set status
-  //... set headers
-  //... set body
   res.status(apiResponse.getCode());
+  apiResponse.applyHeaders(res);
   res.contentType('application/json');
   res.send(apiResponse.toJson());
   return res;

@@ -415,6 +415,22 @@ export default CustomerController;
 - Use `this.getPaginator(req, totalCount)` for pagination
 - Always use `ApiResponseUtils` — never construct response objects manually
 
+### Response Headers on Error Responses
+
+`ApiResponseUtils.apiErrorResponse(code, message, data?, headers?)` takes an optional fourth
+parameter — a `Record<string, string>` of response headers (e.g. `WWW-Authenticate`,
+`Retry-After`). Pass headers there instead of calling `res.setHeader()` directly in the
+controller:
+
+```typescript
+return ApiResponseUtils.apiErrorResponse(429, 'Too many requests', null, { 'Retry-After': '30' });
+```
+
+`APIResponse.applyHeaders(res)` writes the stored headers onto the Express `Response` object;
+`ApiResponseUtils.createResponse()` calls it automatically before sending the body, so no extra
+call is needed in the controller — just `return ApiResponseUtils.createResponse(response, res);`
+as usual.
+
 ---
 
 ## 12. Validator Pattern
@@ -490,19 +506,19 @@ Adding a new infrastructure service (e.g. new database, third-party API):
 
 ## 15. Error Types → HTTP Status Mapping
 
-| DomainServiceError type | HTTP                                      |
-| ----------------------- | ----------------------------------------- |
-| `AUTHENTICATION_ERROR`  | 401                                       |
-| `USER_PERMISSION_ERROR` | 403                                       |
-| `NOT_FOUND`             | 404                                       |
-| `ALREADY_EXISTS`        | 400                                       |
-| `VALIDATION_ERROR`      | 400                                       |
-| `INVALID_OPERATION`     | 400                                       |
-| `INCOMPLETE_MODEL`      | 400                                       |
-| `UNKNOWN_ERROR`         | 500                                       |
-| `DATABASE_ERROR`        | 500                                       |
-| `NETWORK_ERROR`         | 500                                       |
-| `INFRASTRUCTURE_ERROR`  | 500 (503 for NETWORK/CONNECTION sub-type) |
+| DomainServiceError type | HTTP                                                              |
+| ----------------------- | ----------------------------------------------------------------- |
+| `AUTHENTICATION_ERROR`  | 401                                                               |
+| `USER_PERMISSION_ERROR` | 403                                                               |
+| `NOT_FOUND`             | 404                                                               |
+| `ALREADY_EXISTS`        | 400                                                               |
+| `VALIDATION_ERROR`      | 400                                                               |
+| `INVALID_OPERATION`     | 400                                                               |
+| `INCOMPLETE_MODEL`      | 400                                                               |
+| `UNKNOWN_ERROR`         | 500                                                               |
+| `DATABASE_ERROR`        | 500                                                               |
+| `NETWORK_ERROR`         | 500                                                               |
+| `INFRASTRUCTURE_ERROR`  | 500 (503 for NETWORK/CONNECTION sub-type, 502 for EMAIL sub-type) |
 
 ---
 

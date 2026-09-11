@@ -1158,8 +1158,10 @@ export default ModelController;
 **ApiResponseUtils Methods**:
 
 - `apiOkResponse(code, error, errors, message, data)` - Success response
-- `apiErrorResponse(code, message, data?)` - Error response
-- `createResponse(response, res)` - Send response to client
+- `apiErrorResponse(code, message, data?, headers?)` - Error response; `headers` is an optional
+  `Record<string, string>` of response headers (e.g. `Retry-After`), applied to the client by
+  `createResponse()` via `APIResponse.applyHeaders(res)` - no extra call needed in the controller
+- `createResponse(response, res)` - Send response to client (sets status, headers, and body)
 - `resourceNotFoundErrorResponse(message)` - 404 response
 - `requestValidationFailResponse(errors)` - Validation error response
 - `getServerErrorAPIResponse()` - 500 response

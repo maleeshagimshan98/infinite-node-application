@@ -236,6 +236,11 @@ export class ModelController extends BaseController {
 export default ModelController;
 ```
 
+- `apiErrorResponse(code, message, data?, headers?)` takes an optional `Record<string, string>`
+  of response headers (e.g. `Retry-After`) instead of calling `res.setHeader()` directly.
+  `APIResponse.applyHeaders(res)` writes them onto the Express `Response`; `createResponse()`
+  calls it automatically, so no extra call is needed in the controller.
+
 ---
 
 ## Routes Pattern
