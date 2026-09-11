@@ -28,30 +28,62 @@ export class UserGroupService extends BaseDomainService {
     this.userRepository = userRepository;
   }
 
+  /**
+   * Fetch a user group by its ID.
+   *
+   * @param {string} id - The ID of the user group to retrieve.
+   * @returns {Promise<UserGroup | null>} The user group, or null if none matched.
+   */
   async getById(id: string): Promise<UserGroup | null> {
     return this.wrapInfrastructureErrors(async () => {
       return await this.userGroupRepository.findById(id);
     });
   }
 
+  /**
+   * Fetch a user group by its name.
+   *
+   * @param {string} name - The name of the user group to retrieve.
+   * @returns {Promise<UserGroup | null>} The user group, or null if none matched.
+   */
   async getByName(name: string): Promise<UserGroup | null> {
     return this.wrapInfrastructureErrors(async () => {
       return await this.userGroupRepository.findOne({ name });
     });
   }
 
+  /**
+   * Fetch the user group currently marked as default.
+   *
+   * @returns {Promise<UserGroup | null>} The default user group, or null if none is set.
+   */
   async getDefaultGroup(): Promise<UserGroup | null> {
     return this.wrapInfrastructureErrors(async () => {
       return await this.userGroupRepository.findOne({ default: true });
     });
   }
 
+  /**
+   * Fetch a page of user groups.
+   *
+   * @param {number} [limit] - Maximum number of user groups to return.
+   * @param {number} [offset] - Number of user groups to skip.
+   * @returns {Promise<UserGroup[]>} The matching user groups.
+   */
   async getAll(limit?: number, offset?: number): Promise<UserGroup[]> {
     return this.wrapInfrastructureErrors(async () => {
       return await this.userGroupRepository.find({}, limit, offset);
     });
   }
 
+  /**
+   * Create a new user group.
+   *
+   * @param {INewUserGroup} groupData - The data for the new user group.
+   * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
+   * @returns {Promise<{ id: string; name: string }>} The created user group's id and name.
+   * @throws {DomainServiceError} VALIDATION_ERROR when a group with the same name already exists, or a default group already exists and `groupData.default` is true.
+   */
   async create(
     groupData: INewUserGroup,
     transactionOptions?: TransactionOptions,
@@ -86,6 +118,16 @@ export class UserGroupService extends BaseDomainService {
     });
   }
 
+  /**
+   * Update an existing user group.
+   *
+   * @param {string} id - The ID of the user group to update.
+   * @param {Partial<INewUserGroup>} updateData - The fields to update.
+   * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
+   * @returns {Promise<{ id: string; name: string }>} The updated user group's id and name.
+   * @throws {DomainServiceError} NOT_FOUND when no user group exists with the given id, or the current default group could not be unset.
+   * @throws {DomainServiceError} VALIDATION_ERROR when another user group already has the requested name.
+   */
   async update(
     id: string,
     updateData: Partial<INewUserGroup>,
@@ -183,6 +225,14 @@ export class UserGroupService extends BaseDomainService {
     });
   }
 
+  /**
+   * Set a user group as the default, unsetting the current default group if one exists.
+   *
+   * @param {string} id - The ID of the user group to set as default.
+   * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
+   * @returns {Promise<{ id: string; name: string }>} The (now default) user group's id and name.
+   * @throws {DomainServiceError} NOT_FOUND when no user group exists with the given id, or the current default group could not be unset.
+   */
   async setAsDefault(id: string, transactionOptions?: TransactionOptions): Promise<{ id: string; name: string }> {
     return this.wrapInfrastructureErrors(async () => {
       const group = await this.getById(id);

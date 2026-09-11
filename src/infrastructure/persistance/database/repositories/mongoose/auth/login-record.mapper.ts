@@ -12,6 +12,12 @@ import { BaseMapper } from '../base/base.mapper';
 import type { INewLoginRecordSchema } from './login-record.model';
 
 export class LoginRecordMapper extends BaseMapper<INewLoginRecordSchema, LoginRecord, NewLoginRecord> {
+  /**
+   * Convert a persisted login record document into a LoginRecord domain model.
+   *
+   * @param {INewLoginRecordSchema & { _id: Types.ObjectId }} data - The raw persisted document.
+   * @returns {LoginRecord} The mapped domain model.
+   */
   toDomain(data: INewLoginRecordSchema & { _id: Types.ObjectId }): LoginRecord {
     return new LoginRecord({
       id: data._id.toString(),
@@ -24,6 +30,12 @@ export class LoginRecordMapper extends BaseMapper<INewLoginRecordSchema, LoginRe
     });
   }
 
+  /**
+   * Convert a new/updated login record domain model into its persistence schema shape.
+   *
+   * @param {NewLoginRecord} data - The domain model data to persist.
+   * @returns {INewLoginRecordSchema} The persistence-ready schema object.
+   */
   toPersistence(data: NewLoginRecord): INewLoginRecordSchema {
     return !data.id
       ? {

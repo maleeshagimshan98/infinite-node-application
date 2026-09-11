@@ -30,6 +30,13 @@ export class RoleMapper extends BaseMapper<INewRoleSchema, Role, NewRole> {
     return !(ref instanceof Types.ObjectId);
   }
 
+  /**
+   * Convert a persisted role document into a Role domain model, resolving populated resource
+   * permissions into full Resource domain models when RoleRepository has populated them.
+   *
+   * @param {INewRoleSchema & { _id: Types.ObjectId }} data - The raw persisted document.
+   * @returns {Role} The mapped domain model.
+   */
   toDomain(data: INewRoleSchema & { _id: Types.ObjectId }): Role {
     // RoleRepository.populateOptions() always populates resource_permissions.resource_id, so at
     // runtime each entry's resource_id is actually a PopulatedResourceRef even though
@@ -61,6 +68,12 @@ export class RoleMapper extends BaseMapper<INewRoleSchema, Role, NewRole> {
     });
   }
 
+  /**
+   * Convert a new/updated role domain model into its persistence schema shape.
+   *
+   * @param {NewRole} data - The domain model data to persist.
+   * @returns {INewRoleSchema} The persistence-ready schema object.
+   */
   toPersistence(data: NewRole): INewRoleSchema {
     const base = {
       name: data.name,

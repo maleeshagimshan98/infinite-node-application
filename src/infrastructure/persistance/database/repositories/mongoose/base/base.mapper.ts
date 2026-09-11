@@ -10,7 +10,20 @@ export abstract class BaseMapper<DBSchema, DomainModel, NewDomainModel> implemen
   DomainModel,
   NewDomainModel
 > {
+  /**
+   * Convert raw database data to a domain model instance.
+   *
+   * @param {DBSchema & { _id: Types.ObjectId }} data - The raw persisted data, with `_id` narrowed to required for a hydrated read.
+   * @returns {DomainModel} The mapped domain model instance.
+   */
   abstract toDomain(data: DBSchema & { _id: Types.ObjectId }): DomainModel;
+
+  /**
+   * Convert a domain model instance to a format suitable for persistence in the database.
+   *
+   * @param {NewDomainModel} data - The domain model data to convert.
+   * @returns {DBSchema} The persistence-ready schema object.
+   */
   abstract toPersistence(data: NewDomainModel): DBSchema;
 
   /**

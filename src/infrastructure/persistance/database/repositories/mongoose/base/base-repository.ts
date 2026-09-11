@@ -73,7 +73,7 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
   /**
    * Create a new document in the database
    *
-   * @param {NewDomainModel} item
+   * @param {NewDomainModel} item - The domain model data to persist
    * @param {TransactionOptions | undefined} transactionOptions Optional MongoDB session for transaction support
    * @returns {Promise<DomainModel>}
    */
@@ -97,7 +97,7 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
   /**
    * Create multiple documents in the database
    *
-   * @param {NewDomainModel[]} items
+   * @param {NewDomainModel[]} items - The domain model data to persist
    * @param {TransactionOptions | undefined} transactionOptions Optional MongoDB session for transaction support
    * @returns {Promise<DomainModel[]>}
    */
@@ -119,7 +119,7 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
   /**
    * Find a document by its ID
    *
-   * @param {string} id
+   * @param {string} id - The ID of the document to find
    * @param {TransactionOptions | undefined} transactionOptions Optional MongoDB session for transaction support
    * @returns {Promise<DomainModel | null>} Resolves to the found document or null if not found
    */
@@ -284,7 +284,7 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
   /**
    * Delete a document by its ID
    *
-   * @param {string} id
+   * @param {string} id - The ID of the document to delete
    * @param {TransactionOptions | undefined} transactionOptions Optional MongoDB session for transaction support
    * @returns {Promise<DomainModel | null>} Resolves to the deleted document, or null if not found
    */

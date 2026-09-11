@@ -50,6 +50,7 @@ export class AccountRecoveryService extends BaseDomainService {
    * @param {string} email - User email
    * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
    * @returns {Promise<void>}
+   * @throws {DomainServiceError} NOT_FOUND if a reset code is concurrently deleted mid-cancellation.
    */
   async cancelOldResetCodes(email: string, transactionOptions?: TransactionOptions): Promise<void> {
     return this.wrapInfrastructureErrors(async () => {
@@ -123,6 +124,7 @@ export class AccountRecoveryService extends BaseDomainService {
    * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
    * @returns {Promise<void>}
    * @throws {DomainServiceError} NOT_FOUND if reset code or user doesn't exist
+   * @throws {DomainServiceError} VALIDATION_ERROR if the reset code has expired.
    */
   async resetPassword(
     email: string,

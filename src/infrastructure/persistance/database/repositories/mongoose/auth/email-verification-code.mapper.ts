@@ -16,6 +16,12 @@ export class EmailVerificationCodeMapper extends BaseMapper<
   EmailVerificationCode,
   NewEmailVerificationCode
 > {
+  /**
+   * Convert a persisted email verification code document into an EmailVerificationCode domain model.
+   *
+   * @param {INewEmailVerificationCodeSchema & { _id: Types.ObjectId }} data - The raw persisted document.
+   * @returns {EmailVerificationCode} The mapped domain model.
+   */
   toDomain(data: INewEmailVerificationCodeSchema & { _id: Types.ObjectId }): EmailVerificationCode {
     return new EmailVerificationCode({
       id: data._id.toString(),
@@ -28,6 +34,12 @@ export class EmailVerificationCodeMapper extends BaseMapper<
     });
   }
 
+  /**
+   * Convert a new/updated email verification code domain model into its persistence schema shape.
+   *
+   * @param {NewEmailVerificationCode} data - The domain model data to persist.
+   * @returns {INewEmailVerificationCodeSchema} The persistence-ready schema object.
+   */
   toPersistence(data: NewEmailVerificationCode): INewEmailVerificationCodeSchema {
     const base = {
       email: data.email,

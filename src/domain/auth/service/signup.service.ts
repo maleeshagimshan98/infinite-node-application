@@ -94,6 +94,7 @@ export class SignupService extends BaseDomainService {
    * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations.
    * @returns {Promise<{ record: EmailVerificationCode; rawCode: string }>} The persisted record and the raw
    * (unhashed) code — the raw code is never stored and must be delivered to the user out-of-band (e.g. email).
+   * @throws {DomainServiceError} NOT_FOUND if a pending code is concurrently deleted mid-invalidation.
    */
   async createVerificationCode(
     userId: string,

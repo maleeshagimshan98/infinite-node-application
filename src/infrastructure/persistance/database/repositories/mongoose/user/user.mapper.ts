@@ -30,6 +30,13 @@ export class UserMapper extends BaseMapper<INewUserSchema, User, NewUser> {
     return !(ref instanceof Types.ObjectId);
   }
 
+  /**
+   * Convert a persisted user document into a User domain model, resolving the populated role
+   * into a full Role domain model when UserRepository has populated it.
+   *
+   * @param {INewUserSchema & { _id: Types.ObjectId }} data - The raw persisted document.
+   * @returns {User} The mapped domain model.
+   */
   toDomain(data: INewUserSchema & { _id: Types.ObjectId }): User {
     // UserRepository.populateOptions() always populates role_id (with a nested populate on
     // resource_permissions.resource_id), so at runtime it is actually a PopulatedRoleRef even
@@ -48,6 +55,12 @@ export class UserMapper extends BaseMapper<INewUserSchema, User, NewUser> {
     });
   }
 
+  /**
+   * Convert a new/updated user domain model into its persistence schema shape.
+   *
+   * @param {NewUser} data - The domain model data to persist.
+   * @returns {INewUserSchema} The persistence-ready schema object.
+   */
   toPersistence(data: NewUser): INewUserSchema {
     const base = {
       email: data.email,
