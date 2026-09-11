@@ -6,9 +6,7 @@ import type { Paginator } from '../pagination/paginator';
 import type { APIResponseData } from './api-response';
 import type { Response } from 'express';
 
-const transformApiResponseData = (
-  data: Record<string, unknown>[] | Record<string, unknown> | unknown,
-): APIResponseData => {
+const transformApiResponseData = (data: unknown): APIResponseData => {
   if (data === null || data === undefined) {
     return [];
   }
