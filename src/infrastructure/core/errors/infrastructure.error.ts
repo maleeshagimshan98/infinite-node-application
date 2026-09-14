@@ -9,7 +9,10 @@ export type InfrastructureErrorType =
   | 'SOCKET_ERROR'
   | 'DRIVER_ERROR'
   | 'CONNECTION_ERROR'
-  | 'EMAIL_ERROR';
+  | 'EMAIL_ERROR'
+  | 'CACHE_ERROR'
+  | 'STORAGE_ERROR'
+  | 'NOTIFICATION_ERROR';
 
 export class InfrastructureError extends Error {
   public type: InfrastructureErrorType;

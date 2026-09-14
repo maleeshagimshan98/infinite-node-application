@@ -144,6 +144,7 @@ export class BullMQQueueService implements IQueue {
    * @param {T} data - The job data payload
    * @param {JobOptions} options - Optional job configuration (delay, priority, attempts, etc.)
    * @returns {Promise<string>} The unique job ID
+   * @throws {QueueError} If the queue doesn't exist or the job cannot be added
    *
    * @example
    * ```typescript
@@ -159,39 +160,24 @@ export class BullMQQueueService implements IQueue {
       throw new QueueError(`Queue not found: ${queueName}`);
     }
 
-    const job = await queue.add(queueName, data, options);
-    const queueJob: Job<T> = {
-      id: job.id,
-      data,
-      opts: options || {},
-      attemptsMade: 0,
-      timestamp: Date.now(),
-    };
+    try {
+      const job = await queue.add(queueName, data, options);
+      const queueJob: Job<T> = {
+        id: job.id,
+        data,
+        opts: options || {},
+        attemptsMade: 0,
+        timestamp: Date.now(),
+      };
 
-    return queueJob;
+      return queueJob;
+    } catch (e: unknown) {
+      throw new QueueError(
+        `Failed to add job to queue "${queueName}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+      );
+    }
   }
 
-  /**
-   * Processes jobs from the queue
-   *
-   * Note: BullMQ processes jobs using a Worker, not the Queue itself.
-   * This method is a placeholder. In production, you should create a Worker instance
-   * in the core driver and use it to process jobs.
-   *
-   * @template T - The type of job data
-   * @param {string} queueName - The name of the queue to process
-   * @param {(job: Job<T>) => Promise<void>} processor - The job processing function
-   * @returns {Promise<void>}
-   *
-   * @example
-   * ```typescript
-   * await queueService.processJobs(async (job) => {
-   *   console.log(`Processing job ${job.id}:`, job.data);
-   *   // Perform async work
-   *   await sendEmail(job.data.email);
-   * });
-   * ```
-   */
   /**
    * Retry all failed jobs on the given queue.
    *
@@ -200,59 +186,85 @@ export class BullMQQueueService implements IQueue {
    *
    * @param {string} queueName - The name of the queue
    * @returns {Promise<void>}
+   * @throws {QueueError} If the failed jobs cannot be retried
    */
   async retryJobs(queueName: string): Promise<void> {
     const queue = this.queues.get(queueName) ?? QueueDriver.newQueue(queueName, this.driver.config());
-    await queue.retryJobs({ state: 'failed' });
-    // Close the temporary queue instance if it wasn't already tracked
-    if (!this.queues.has(queueName)) {
-      await queue.close();
+    try {
+      await queue.retryJobs({ state: 'failed' });
+      // Close the temporary queue instance if it wasn't already tracked
+      if (!this.queues.has(queueName)) {
+        await queue.close();
+      }
+    } catch (e: unknown) {
+      throw new QueueError(
+        `Failed to retry jobs on queue "${queueName}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+      );
     }
   }
 
+  /**
+   * Processes jobs from the queue by creating a BullMQ Worker.
+   *
+   * @template T - The type of job data
+   * @param {string} queueName - The name of the queue to process
+   * @param {(job: Job<T>) => Promise<void>} processor - The job processing function
+   * @returns {Promise<void>}
+   * @throws {QueueError} If the Worker cannot be created or fails to become ready
+   */
   async processJobs<T>(queueName: string, processor: (job: Job<T>) => Promise<void>): Promise<void> {
     const driverConfig = this.driver.config();
-    const worker = new Worker<T>(
-      queueName,
-      async (job: BullMQJob<T>) => {
-        const queueJob: Job<T> = {
-          id: job.id,
-          data: job.data,
-          attemptsMade: job.attemptsMade,
-          timestamp: job.timestamp,
-        };
-        await processor(queueJob);
-      },
-      {
-        connection: {
-          host: driverConfig.params.host,
-          port: driverConfig.params.port,
-          username: driverConfig.params.username,
-          password: driverConfig.params.password,
+
+    try {
+      const worker = new Worker<T>(
+        queueName,
+        async (job: BullMQJob<T>) => {
+          const queueJob: Job<T> = {
+            id: job.id,
+            data: job.data,
+            attemptsMade: job.attemptsMade,
+            timestamp: job.timestamp,
+          };
+          await processor(queueJob);
         },
-      },
-    );
+        {
+          connection: {
+            host: driverConfig.params.host,
+            port: driverConfig.params.port,
+            username: driverConfig.params.username,
+            password: driverConfig.params.password,
+          },
+        },
+      );
 
-    worker.on('error', (err) => {
-      console.error(`Worker error on queue "${queueName}":`, err);
-    });
+      // BullMQ requires an 'error' listener — without one, an unhandled 'error' event crashes the
+      // process. This is a long-lived event stream, not a single call with a caller to propagate to,
+      // so it stays a logged sink rather than a throw.
+      worker.on('error', (err) => {
+        console.error(`Worker error on queue "${queueName}":`, err);
+      });
 
-    worker.on('active', (job) => {
-      console.log(`BullMQ: picked up job ${job.id} on queue "${queueName}"`);
-    });
+      worker.on('active', (job) => {
+        console.log(`BullMQ: picked up job ${job.id} on queue "${queueName}"`);
+      });
 
-    worker.on('failed', (job, err) => {
-      console.error(`BullMQ: job ${job?.id} failed on queue "${queueName}":`, err.message);
-    });
+      worker.on('failed', (job, err) => {
+        console.error(`BullMQ: job ${job?.id} failed on queue "${queueName}":`, err.message);
+      });
 
-    await worker.waitUntilReady();
-    console.log(`  BullMQ Worker ready — listening on queue "${queueName}"`);
+      await worker.waitUntilReady();
+      console.log(`  BullMQ Worker ready — listening on queue "${queueName}"`);
 
-    // Store the worker instance for later shutdown
-    if (!this.workers.has(queueName)) {
-      this.workers.set(queueName, []);
+      // Store the worker instance for later shutdown
+      if (!this.workers.has(queueName)) {
+        this.workers.set(queueName, []);
+      }
+      this.workers.get(queueName)?.push(worker);
+    } catch (e: unknown) {
+      throw new QueueError(
+        `Failed to start worker for queue "${queueName}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+      );
     }
-    this.workers.get(queueName)?.push(worker);
   }
 
   /**
@@ -260,6 +272,7 @@ export class BullMQQueueService implements IQueue {
    *
    * @param {string} jobId - The unique job identifier
    * @returns {Promise<JobStatus>} The job status (completed, failed, pending, etc.)
+   * @throws {QueueError} If the default queue doesn't exist or the job status cannot be retrieved
    *
    * @example
    * ```typescript
@@ -278,30 +291,36 @@ export class BullMQQueueService implements IQueue {
       throw new QueueError('Default queue not found');
     }
 
-    const job = await queue.getJob(jobId);
+    try {
+      const job = await queue.getJob(jobId);
 
-    if (!job) {
-      return 'unknown';
-    }
-
-    const state = await job.getState();
-
-    // Map BullMQ JobState to application JobStatus
-    switch (state) {
-      case 'completed':
-        return 'completed';
-      case 'failed':
-        return 'failed';
-      case 'waiting':
-      case 'waiting-children':
-      case 'delayed':
-      case 'prioritized':
-        return 'pending';
-      case 'active':
-        return 'pending'; // Active jobs are considered pending from application perspective
-      case 'unknown':
-      default:
+      if (!job) {
         return 'unknown';
+      }
+
+      const state = await job.getState();
+
+      // Map BullMQ JobState to application JobStatus
+      switch (state) {
+        case 'completed':
+          return 'completed';
+        case 'failed':
+          return 'failed';
+        case 'waiting':
+        case 'waiting-children':
+        case 'delayed':
+        case 'prioritized':
+          return 'pending';
+        case 'active':
+          return 'pending'; // Active jobs are considered pending from application perspective
+        case 'unknown':
+        default:
+          return 'unknown';
+      }
+    } catch (e: unknown) {
+      throw new QueueError(
+        `Failed to get status for job "${jobId}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+      );
     }
   }
 
@@ -309,18 +328,25 @@ export class BullMQQueueService implements IQueue {
    * Gracefully shutdown the BullMQ queue and workers
    *
    * @returns {Promise<void>}
+   * @throws {QueueError} If a queue or worker fails to close
    */
   async shutdown(): Promise<void> {
-    for (const queue of this.queues.values()) {
-      await queue.close();
-    }
-    console.log('  BullMQ queues closed');
-
-    for (const workers of this.workers.values()) {
-      for (const worker of workers) {
-        await worker.close();
+    try {
+      for (const queue of this.queues.values()) {
+        await queue.close();
       }
+      console.log('  BullMQ queues closed');
+
+      for (const workers of this.workers.values()) {
+        for (const worker of workers) {
+          await worker.close();
+        }
+      }
+      console.log('  BullMQ workers closed');
+    } catch (e: unknown) {
+      throw new QueueError(
+        `Failed to shut down BullMQ queue service: ${e instanceof Error ? e.message : 'Unknown error'}`,
+      );
     }
-    console.log('  BullMQ workers closed');
   }
 }

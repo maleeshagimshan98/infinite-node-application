@@ -6,6 +6,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 
 import type { IStorage } from '@/application/interfaces/storage.interface';
+import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 import { storageConfig } from './local-file-storage.config';
 
@@ -102,7 +103,7 @@ export class LocalStorageService implements IStorage {
    *
    * @param {string} folderPath - Path to the folder relative to root
    * @returns {Promise<string[]>} Promise resolving to array of relative file paths
-   * @throws {Error} If the folder doesn't exist or cannot be read
+   * @throws {InfrastructureError} STORAGE_ERROR if the folder doesn't exist or cannot be read
    *
    * @example
    * ```typescript
@@ -113,8 +114,16 @@ export class LocalStorageService implements IStorage {
   async listFiles(folderPath: string): Promise<string[]> {
     const fullPath = path.join(this.rootPath, folderPath);
 
-    const entries = await fs.readdir(fullPath, { withFileTypes: true });
-    return entries.filter((entry) => entry.isFile()).map((entry) => path.join(folderPath, entry.name));
+    try {
+      const entries = await fs.readdir(fullPath, { withFileTypes: true });
+      return entries.filter((entry) => entry.isFile()).map((entry) => path.join(folderPath, entry.name));
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to list files in folder "${folderPath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'STORAGE_ERROR',
+        { folderPath },
+      );
+    }
   }
 
   /**
@@ -123,7 +132,7 @@ export class LocalStorageService implements IStorage {
    * @param {string} filePath - File path relative to root
    * @param {Buffer} content - File content as Buffer
    * @returns {Promise<void>} Promise resolving when file is created
-   * @throws {Error} If the file cannot be created
+   * @throws {InfrastructureError} STORAGE_ERROR if the file cannot be created
    *
    * @example
    * ```typescript
@@ -134,11 +143,19 @@ export class LocalStorageService implements IStorage {
     const fullPath = path.join(this.rootPath, filePath);
     const directory = path.dirname(fullPath);
 
-    // Ensure directory exists
-    await fs.mkdir(directory, { recursive: true });
+    try {
+      // Ensure directory exists
+      await fs.mkdir(directory, { recursive: true });
 
-    // Write file
-    await fs.writeFile(fullPath, content);
+      // Write file
+      await fs.writeFile(fullPath, content);
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to create file "${filePath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'STORAGE_ERROR',
+        { filePath },
+      );
+    }
   }
 
   /**
@@ -146,7 +163,7 @@ export class LocalStorageService implements IStorage {
    *
    * @param {string} filePath - File path relative to root
    * @returns {Promise<Buffer>} Promise resolving to file content as Buffer
-   * @throws {Error} If the file doesn't exist or cannot be read
+   * @throws {InfrastructureError} STORAGE_ERROR if the file doesn't exist or cannot be read
    *
    * @example
    * ```typescript
@@ -156,7 +173,15 @@ export class LocalStorageService implements IStorage {
    */
   async readFile(filePath: string): Promise<Buffer> {
     const fullPath = path.join(this.rootPath, filePath);
-    return await fs.readFile(fullPath);
+    try {
+      return await fs.readFile(fullPath);
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to read file "${filePath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'STORAGE_ERROR',
+        { filePath },
+      );
+    }
   }
 
   /**
@@ -165,7 +190,7 @@ export class LocalStorageService implements IStorage {
    * @param {string} filePath - File path relative to root
    * @param {Buffer} content - New file content as Buffer
    * @returns {Promise<void>} Promise resolving when file is updated
-   * @throws {Error} If the file cannot be updated
+   * @throws {InfrastructureError} STORAGE_ERROR if the file cannot be updated
    *
    * @example
    * ```typescript
@@ -174,7 +199,15 @@ export class LocalStorageService implements IStorage {
    */
   async updateFile(filePath: string, content: Buffer): Promise<void> {
     const fullPath = path.join(this.rootPath, filePath);
-    await fs.writeFile(fullPath, content);
+    try {
+      await fs.writeFile(fullPath, content);
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to update file "${filePath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'STORAGE_ERROR',
+        { filePath },
+      );
+    }
   }
 
   /**
@@ -182,7 +215,7 @@ export class LocalStorageService implements IStorage {
    *
    * @param {string} filePath - File path relative to root
    * @returns {Promise<void>} Promise resolving when file is deleted
-   * @throws {Error} If the file cannot be deleted
+   * @throws {InfrastructureError} STORAGE_ERROR if the file cannot be deleted
    *
    * @example
    * ```typescript
@@ -191,7 +224,15 @@ export class LocalStorageService implements IStorage {
    */
   async deleteFile(filePath: string): Promise<void> {
     const fullPath = path.join(this.rootPath, filePath);
-    await fs.rm(fullPath, { force: true });
+    try {
+      await fs.rm(fullPath, { force: true });
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to delete file "${filePath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'STORAGE_ERROR',
+        { filePath },
+      );
+    }
   }
 
   /**
@@ -200,7 +241,7 @@ export class LocalStorageService implements IStorage {
    * @param {string} srcPath - Source file path relative to root
    * @param {string} destPath - Destination file path relative to root
    * @returns {Promise<void>} Promise resolving when file is moved
-   * @throws {Error} If the file cannot be moved
+   * @throws {InfrastructureError} STORAGE_ERROR if the file cannot be moved
    *
    * @example
    * ```typescript
@@ -213,11 +254,19 @@ export class LocalStorageService implements IStorage {
     const fullDestPath = path.join(this.rootPath, destPath);
     const destDirectory = path.dirname(fullDestPath);
 
-    // Ensure destination directory exists
-    await fs.mkdir(destDirectory, { recursive: true });
+    try {
+      // Ensure destination directory exists
+      await fs.mkdir(destDirectory, { recursive: true });
 
-    // Rename/move file
-    await fs.rename(fullSrcPath, fullDestPath);
+      // Rename/move file
+      await fs.rename(fullSrcPath, fullDestPath);
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to move file from "${srcPath}" to "${destPath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'STORAGE_ERROR',
+        { srcPath, destPath },
+      );
+    }
   }
 
   /**
@@ -225,6 +274,7 @@ export class LocalStorageService implements IStorage {
    *
    * @param {string} folderPath - Folder path relative to root
    * @returns {Promise<void>} Promise resolving when folder is created
+   * @throws {InfrastructureError} STORAGE_ERROR if the folder cannot be created
    *
    * @example
    * ```typescript
@@ -233,7 +283,15 @@ export class LocalStorageService implements IStorage {
    */
   async createFolder(folderPath: string): Promise<void> {
     const fullPath = path.join(this.rootPath, folderPath);
-    await fs.mkdir(fullPath, { recursive: true });
+    try {
+      await fs.mkdir(fullPath, { recursive: true });
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to create folder "${folderPath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'STORAGE_ERROR',
+        { folderPath },
+      );
+    }
   }
 
   /**
@@ -241,7 +299,7 @@ export class LocalStorageService implements IStorage {
    *
    * @param {string} folderPath - Folder path relative to root
    * @returns {Promise<void>} Promise resolving when folder is deleted
-   * @throws {Error} If the folder cannot be deleted
+   * @throws {InfrastructureError} STORAGE_ERROR if the folder cannot be deleted
    *
    * @example
    * ```typescript
@@ -250,6 +308,14 @@ export class LocalStorageService implements IStorage {
    */
   async deleteFolder(folderPath: string): Promise<void> {
     const fullPath = path.join(this.rootPath, folderPath);
-    await fs.rm(fullPath, { recursive: true, force: true });
+    try {
+      await fs.rm(fullPath, { recursive: true, force: true });
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to delete folder "${folderPath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'STORAGE_ERROR',
+        { folderPath },
+      );
+    }
   }
 }

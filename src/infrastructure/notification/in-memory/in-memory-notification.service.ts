@@ -3,6 +3,7 @@
  */
 
 import type { INotification } from '@/application/interfaces/notification.interface';
+import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 import type { InMemoryNotificationDriver } from './driver/in-memory-notification.driver';
 
@@ -96,6 +97,7 @@ export class InMemoryNotificationService implements INotification {
    * @param {string} to - The recipient identifier (e.g., user ID, device token, email)
    * @param {Record<string, unknown>} message - The notification message payload
    * @returns {Promise<void>}
+   * @throws {InfrastructureError} NOTIFICATION_ERROR if the notification cannot be sent
    *
    * @example
    * ```typescript
@@ -107,12 +109,20 @@ export class InMemoryNotificationService implements INotification {
    * ```
    */
   async sendNotification(to: string, message: Record<string, unknown>): Promise<void> {
-    // Placeholder implementation - log to console
-    console.log(`[In-Memory Notification] Sending to ${to}:`, message);
+    try {
+      // Placeholder implementation - log to console
+      console.log(`[In-Memory Notification] Sending to ${to}:`, message);
 
-    // TODO: Replace with actual notification provider (FCM, SNS, etc.)
-    // Example:
-    // await this.driver.send({ to, notification: message });
+      // TODO: Replace with actual notification provider (FCM, SNS, etc.)
+      // Example:
+      // await this.driver.send({ to, notification: message });
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to send notification to "${to}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'NOTIFICATION_ERROR',
+        { to },
+      );
+    }
   }
 
   /**
@@ -120,6 +130,7 @@ export class InMemoryNotificationService implements INotification {
    *
    * @param {Record<string, unknown>} message - The notification message payload
    * @returns {Promise<void>}
+   * @throws {InfrastructureError} NOTIFICATION_ERROR if the broadcast cannot be sent
    *
    * @example
    * ```typescript
@@ -131,11 +142,18 @@ export class InMemoryNotificationService implements INotification {
    * ```
    */
   async broadcastNotification(message: Record<string, unknown>): Promise<void> {
-    // Placeholder implementation - log to console
-    console.log('[In-Memory Notification] Broadcasting:', message);
+    try {
+      // Placeholder implementation - log to console
+      console.log('[In-Memory Notification] Broadcasting:', message);
 
-    // TODO: Replace with actual broadcast implementation
-    // Example:
-    // await this.driver.broadcast({ notification: message });
+      // TODO: Replace with actual broadcast implementation
+      // Example:
+      // await this.driver.broadcast({ notification: message });
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to broadcast notification: ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'NOTIFICATION_ERROR',
+      );
+    }
   }
 }

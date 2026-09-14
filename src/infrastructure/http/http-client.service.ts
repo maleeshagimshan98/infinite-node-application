@@ -74,6 +74,7 @@ export class HTTPClientService implements IHTTPClient {
    *
    * @param {Omit<RequestConfig, 'method'>} config - Request configuration
    * @returns {Promise<HTTPResponse>}
+   * @throws {InfrastructureError}
    */
   public get(config: Omit<RequestConfig, 'method'>): Promise<HTTPResponse> {
     return this.createRequest({

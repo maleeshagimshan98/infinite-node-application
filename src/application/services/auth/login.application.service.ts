@@ -7,7 +7,8 @@ import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import type { LoginService } from '@/domain/auth/service/login.service';
 import type { UserService } from '@/domain/user/service/user.service';
 import type { User } from '@/domain/user/models/user';
-import type { ICache, IDatabaseMapper, TransactionOptions } from '@/application/interfaces';
+import type { ICache, IDatabaseMapper, ILogger, TransactionOptions } from '@/application/interfaces';
+import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 import { BaseApplicationService } from '../base/base.application.service';
 
@@ -27,12 +28,20 @@ export class LoginApplicationService extends BaseApplicationService {
   private loginService: LoginService;
   private userService: UserService;
   private cache: ICache;
+  private logger: ILogger;
 
-  constructor(database_mapper: IDatabaseMapper, loginService: LoginService, userService: UserService, cache: ICache) {
+  constructor(
+    database_mapper: IDatabaseMapper,
+    loginService: LoginService,
+    userService: UserService,
+    cache: ICache,
+    logger: ILogger,
+  ) {
     super(database_mapper);
     this.loginService = loginService;
     this.userService = userService;
     this.cache = cache;
+    this.logger = logger;
   }
 
   /**
@@ -66,9 +75,17 @@ export class LoginApplicationService extends BaseApplicationService {
    *
    * @param {LoginRecord} loginRecord - The login record to cache.
    * @returns {Promise<void>}
+   * @throws {Error} If the cache call fails with something other than an InfrastructureError (unexpected).
    */
   private async cacheLoginRecord(loginRecord: LoginRecord): Promise<void> {
-    await this.cache.hSet(LOGIN_RECORDS_HASH, loginRecord.token, loginRecord);
+    try {
+      await this.cache.hSet(LOGIN_RECORDS_HASH, loginRecord.token, loginRecord);
+    } catch (e: unknown) {
+      if (!(e instanceof InfrastructureError)) {
+        throw e;
+      }
+      this.logger.logError('Failed to cache login record; continuing without cache', { error: e.message });
+    }
   }
 
   /**
@@ -76,9 +93,17 @@ export class LoginApplicationService extends BaseApplicationService {
    *
    * @param {string} token - The raw JWT access token.
    * @returns {Promise<void>}
+   * @throws {Error} If the cache call fails with something other than an InfrastructureError (unexpected).
    */
   private async evictLoginRecord(token: string): Promise<void> {
-    await this.cache.hDel(LOGIN_RECORDS_HASH, this.cacheKey(token));
+    try {
+      await this.cache.hDel(LOGIN_RECORDS_HASH, this.cacheKey(token));
+    } catch (e: unknown) {
+      if (!(e instanceof InfrastructureError)) {
+        throw e;
+      }
+      this.logger.logError('Failed to evict login record from cache; continuing', { error: e.message });
+    }
   }
 
   /**
@@ -86,9 +111,18 @@ export class LoginApplicationService extends BaseApplicationService {
    *
    * @param {string} token - The raw JWT access token.
    * @returns {Promise<LoginRecord | null>} The matching login record, or null if none matched.
+   * @throws {Error} If the cache read fails with something other than an InfrastructureError (unexpected).
    */
   private async getRecordCacheOrDb(token: string): Promise<LoginRecord | null> {
-    const cached = await this.cache.hGet<ILoginRecord>(LOGIN_RECORDS_HASH, this.cacheKey(token));
+    let cached: ILoginRecord | null = null;
+    try {
+      cached = await this.cache.hGet<ILoginRecord>(LOGIN_RECORDS_HASH, this.cacheKey(token));
+    } catch (e: unknown) {
+      if (!(e instanceof InfrastructureError)) {
+        throw e;
+      }
+      this.logger.logError('Cache read failed for login record, falling back to database', { error: e.message });
+    }
     if (cached) {
       return this.toLoginRecord(cached);
     }
