@@ -1315,6 +1315,16 @@ export default router;
 
 ---
 
+### Step 11: Seed Default Data (Optional)
+
+If this resource needs default/bootstrap data (e.g. built-in roles, default settings), add a
+seeder rather than duplicating that logic elsewhere. This is out of scope for this guide — see
+`Docs/prompts/Database_Seeding_Guide.md` for the full pattern (`seed{Feature}()`/`clear{Feature}()`
+exports, and how to register the seeder by hand, in dependency order, in
+`src/infrastructure/persistance/database/seeders/seeder.ts`).
+
+---
+
 ## Code Style Conventions
 
 ### General Rules
@@ -2610,7 +2620,26 @@ router.use('/posts', BlogRoutes);
   - [ ] Add UserValidatorMiddleware to ALL routes
   - [ ] Use AuthenticatedRequest type for all route handlers
 - [ ] Register routes in main router (`src/presentation/http/routes/index.ts`)
+- [ ] Create/update seeder if the resource has default or bootstrap data (`src/infrastructure/persistance/database/seeders/{feature}.seeder.ts`), registered by hand in `seeders/seeder.ts` — see `Database_Seeding_Guide.md`
 - [ ] Test endpoints
+
+> ⚠️ **Keep the file set in sync.** The domain model is the source of truth for a resource's
+> shape (this list mirrors the file set enumerated in `Docs/architecture/infrastructure-layer-pattern.md`
+> and `Docs/prompts/Domain_Model_Repository_Mapper_Guide.md`). Any change to it — adding, removing,
+> renaming, or retyping a field, or changing a validation invariant — is **not complete** until it
+> has been propagated through every other file in the set that touches the changed field:
+>
+> - **Persistence model/schema** — add/remove/rename the corresponding schema field and its type
+> - **Persistence mapper** — update `toDomain`/`toPersistence` for the field
+> - **Persistence repository** — update any custom queries, filters, or indexes that reference the field
+> - **Validator** — update the express-validator schema for the field
+> - **Controller** — update request/response shape (DTOs, serialized fields) that exposes the field
+> - **Seeder** — update default/bootstrap data to match the new shape, if the resource has a seeder
+>
+> A change that touches only the domain model is incomplete. Treat "the domain model changed" as a
+> trigger to grep the resource's other files (route, controller, application service, domain
+> service, mapper, persistence model, repository, seeder) for the affected field name before
+> considering the work done.
 
 ---
 

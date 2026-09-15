@@ -1215,6 +1215,7 @@ index.ts
 
 ```
 ☐ Step 1: Domain model (INewModel, IModel, NewModel, Model) in domain/{feature}/models/
+      ☐ Optional: Type guard in domain/{feature}/models/guards/{name}.guards.ts — only if narrowing is needed
 ☐ Step 2: Mongoose schema + model (INewModelSchema only!) in infrastructure/persistance/.../mongoose/{feature}/
 ☐ Step 3: Mapper (toDomain, toPersistence) — use intersection type for _id
 ☐ Step 4: Repository extends BaseRepository — export default
@@ -1222,5 +1223,47 @@ index.ts
 ☐ Step 6: Application service extends BaseApplicationService (only if transactions needed) — export default
 ☐ Step 7: Validator (express-validator Schema functions)
 ☐ Step 8: Controller extends BaseController — inject service + repository — export default
-☐ Step 9: Routes — wire middleware + controller resolution from DI container
+☐ Step 9: Routes — wire middleware + controller resolution from DI container, then register in routes/index.ts
+☐ Step 10: Seeder (only if the resource has default/bootstrap data) — {feature}.seeder.ts in
+      infrastructure/persistance/database/seeders/, exporting seed{Feature}()/clear{Feature}(),
+      registered BY HAND in seeders/seeder.ts (dependency-ordered)
 ```
+
+<!-- keep in sync with: Docs/prompts/API_Resource_Guide.md, Docs/prompts/Domain_Model_Repository_Mapper_Guide.md -->
+
+**Full resource file set** (reference — the complete set of files that make up one resource; some
+are conditional as noted):
+
+| #   | Layer / File                           | Path pattern                                                                                      | Purpose                                                                                                                                           |
+| --- | -------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Route                                  | `src/presentation/http/routes/{feature}.routes.ts`                                                | Wires middleware and binds URLs to controller methods resolved from the DI container                                                              |
+| 2   | Controller                             | `src/presentation/http/controllers/{feature}/{name}.controller.ts`                                | Parses HTTP requests, calls the service, shapes HTTP responses                                                                                    |
+| 3   | Application Service _(optional)_       | `src/application/services/{feature}/{name}.application.service.ts`                                | Orchestrates a transaction spanning multiple domain services — only when one operation must span more than one domain service                     |
+| 4   | Domain Service                         | `src/domain/{feature}/service/{name}.service.ts`                                                  | Business logic and orchestration for one domain model; calls the repository                                                                       |
+| 5   | Domain Model _(+ optional Type Guard)_ | `src/domain/{feature}/models/{name}.ts` (+ `src/domain/{feature}/models/guards/{name}.guards.ts`) | Source of truth for the resource's shape and invariants (`INewX`, `IX`, `NewX`, `X`); the guard narrows a union/unknown to this model when needed |
+| 6   | Persistence Repository                 | `src/infrastructure/persistance/database/repositories/mongoose/{feature}/{name}.repository.ts`    | CRUD and custom queries against MongoDB via Mongoose; extends `BaseRepository`                                                                    |
+| 7   | Persistence Model (schema)             | `src/infrastructure/persistance/database/repositories/mongoose/{feature}/{name}.model.ts`         | `INew{Model}Schema` interface + Mongoose `Schema`/`model()` — `INew{Model}Schema` only                                                            |
+| 8   | Persistence Mapper                     | `src/infrastructure/persistance/database/repositories/mongoose/{feature}/{name}.mapper.ts`        | Translates between the Mongoose document shape and the domain model (`toDomain`/`toPersistence`)                                                  |
+| 9   | Seeder _(if applicable)_               | `src/infrastructure/persistance/database/seeders/{feature}.seeder.ts`                             | Bootstrap/default data — exports `seed{Feature}()`/`clear{Feature}()`, registered by hand (dependency-ordered) in `seeders/seeder.ts`             |
+
+> **Caveat:** the mongoose repository directory name does not always match the domain feature
+> folder name (e.g. domain feature `auth` maps to mongoose directories `roles/` and `resources/`
+> for `role.ts`/`resource.ts`). Always verify against an existing analogous resource rather than
+> assuming strict 1:1 folder naming across layers.
+
+> ⚠️ **Keep the file set in sync.** The domain model is the source of truth for a resource's
+> shape. Any change to it — adding, removing, renaming, or retyping a field, or changing a
+> validation invariant — is **not complete** until it has been propagated through every other file
+> in the set that touches the changed field:
+>
+> - **Persistence model/schema** — add/remove/rename the corresponding schema field and its type
+> - **Persistence mapper** — update `toDomain`/`toPersistence` for the field
+> - **Persistence repository** — update any custom queries, filters, or indexes that reference the field
+> - **Validator** — update the express-validator schema for the field
+> - **Controller** — update request/response shape (DTOs, serialized fields) that exposes the field
+> - **Seeder** — update default/bootstrap data to match the new shape, if the resource has a seeder
+>
+> A change that touches only the domain model is incomplete. Treat "the domain model changed" as a
+> trigger to grep the resource's other files (route, controller, application service, domain
+> service, mapper, persistence model, repository, seeder) for the affected field name before
+> considering the work done.
