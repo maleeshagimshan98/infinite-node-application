@@ -3,6 +3,7 @@
  */
 
 import type { ILogger } from '@/application/interfaces/logger.interface';
+import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 import type winston from 'winston';
 import type { WinstonDriver } from './driver/winston.driver';
@@ -47,7 +48,7 @@ export class WinstonLoggerService implements ILogger {
    * Creates an instance of WinstonLoggerService
    *
    * @param {WinstonDriver} driver - Initialized Winston driver instance
-   * @throws {Error} If driver is not initialized or Winston logger is not available
+   * @throws {InfrastructureError} DRIVER_ERROR if driver is not initialized or Winston logger is not available
    *
    * @example
    * ```typescript
@@ -60,7 +61,7 @@ export class WinstonLoggerService implements ILogger {
     this.driver = driver;
     const logger = this.driver.client();
     if (!logger) {
-      throw new Error('Winston logger is not initialized in the driver');
+      throw new InfrastructureError('Winston logger is not initialized in the driver', 'DRIVER_ERROR');
     }
     this.winstonLogger = logger;
   }
@@ -115,7 +116,13 @@ export class WinstonLoggerService implements ILogger {
    * @returns {void}
    */
   logInfo(message: string, meta?: Record<string, unknown>): void {
-    this.winstonLogger.info(message, meta);
+    // Deliberately does not throw: callers use this fire-and-forget everywhere with no try/catch,
+    // and the logger has no separate sink to report its own failure to besides the console.
+    try {
+      this.winstonLogger.info(message, meta);
+    } catch (e: unknown) {
+      console.error('Failed to write info log:', e);
+    }
   }
 
   /**
@@ -126,7 +133,11 @@ export class WinstonLoggerService implements ILogger {
    * @returns {void}
    */
   logError(message: string, meta?: Record<string, unknown>): void {
-    this.winstonLogger.error(message, meta);
+    try {
+      this.winstonLogger.error(message, meta);
+    } catch (e: unknown) {
+      console.error('Failed to write error log:', e);
+    }
   }
 
   /**
@@ -137,7 +148,26 @@ export class WinstonLoggerService implements ILogger {
    * @returns {void}
    */
   logDebug(message: string, meta?: Record<string, unknown>): void {
-    this.winstonLogger.debug(message, meta);
+    try {
+      this.winstonLogger.debug(message, meta);
+    } catch (e: unknown) {
+      console.error('Failed to write debug log:', e);
+    }
+  }
+
+  /**
+   * Log a warning message
+   *
+   * @param {string} message - Warning message
+   * @param {Record<string, unknown>} [meta] - Optional metadata object
+   * @returns {void}
+   */
+  logWarn(message: string, meta?: Record<string, unknown>): void {
+    try {
+      this.winstonLogger.warn(message, meta);
+    } catch (e: unknown) {
+      console.error('Failed to write warn log:', e);
+    }
   }
 
   /**
@@ -146,6 +176,7 @@ export class WinstonLoggerService implements ILogger {
    * Ensures all logs are flushed before closing
    *
    * @returns {Promise<void>}
+   * @throws {InfrastructureError} DRIVER_ERROR if the Winston logger fails to close
    */
   async shutdown(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
@@ -154,9 +185,13 @@ export class WinstonLoggerService implements ILogger {
         resolve();
       });
 
-      this.winstonLogger.on('error', (error) => {
+      this.winstonLogger.on('error', (error: Error) => {
         console.error('  Error closing Winston logger:', error);
-        reject(error);
+        reject(
+          new InfrastructureError(`Failed to close Winston logger: ${error.message}`, 'DRIVER_ERROR', {
+            cause: error,
+          }),
+        );
       });
 
       this.winstonLogger.end();

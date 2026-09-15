@@ -423,6 +423,7 @@ export default Model;
 Create this file only when TypeScript narrowing is genuinely needed — for example, narrowing `INewModel` to `IModel`, or narrowing a discriminated union on a `type` or `status` field.
 
 **Rules:**
+
 - Strictly `is` predicate functions — zero business logic
 - No imports from infrastructure, application, or other domain services
 - One file per model, co-located with that model's folder
@@ -1157,8 +1158,10 @@ export default ModelController;
 **ApiResponseUtils Methods**:
 
 - `apiOkResponse(code, error, errors, message, data)` - Success response
-- `apiErrorResponse(code, message, data?)` - Error response
-- `createResponse(response, res)` - Send response to client
+- `apiErrorResponse(code, message, data?, headers?)` - Error response; `headers` is an optional
+  `Record<string, string>` of response headers (e.g. `Retry-After`), applied to the client by
+  `createResponse()` via `APIResponse.applyHeaders(res)` - no extra call needed in the controller
+- `createResponse(response, res)` - Send response to client (sets status, headers, and body)
 - `resourceNotFoundErrorResponse(message)` - 404 response
 - `requestValidationFailResponse(errors)` - Validation error response
 - `getServerErrorAPIResponse()` - 500 response
@@ -1210,16 +1213,24 @@ const loginApplicationServiceProvider = (): LoginApplicationService =>
   container.resolve<LoginApplicationService>('loginApplicationService');
 
 // Get all models (paginated)
-router.get('/', UserValidatorMiddleware(loginApplicationServiceProvider), (req: AuthenticatedRequest, res: Response) => {
-  const controller = container.resolve<ModelController>('modelController');
-  controller.getAll(req, res);
-});
+router.get(
+  '/',
+  UserValidatorMiddleware(loginApplicationServiceProvider),
+  (req: AuthenticatedRequest, res: Response) => {
+    const controller = container.resolve<ModelController>('modelController');
+    controller.getAll(req, res);
+  },
+);
 
 // Get model by ID
-router.get('/:id', UserValidatorMiddleware(loginApplicationServiceProvider), (req: AuthenticatedRequest, res: Response) => {
-  const controller = container.resolve<ModelController>('modelController');
-  controller.getById(req, res);
-});
+router.get(
+  '/:id',
+  UserValidatorMiddleware(loginApplicationServiceProvider),
+  (req: AuthenticatedRequest, res: Response) => {
+    const controller = container.resolve<ModelController>('modelController');
+    controller.getById(req, res);
+  },
+);
 
 // Create new model
 router.post(
@@ -1244,10 +1255,14 @@ router.put(
 );
 
 // Delete model
-router.delete('/:id', UserValidatorMiddleware(loginApplicationServiceProvider), (req: AuthenticatedRequest, res: Response) => {
-  const controller = container.resolve<ModelController>('modelController');
-  controller.delete(req, res);
-});
+router.delete(
+  '/:id',
+  UserValidatorMiddleware(loginApplicationServiceProvider),
+  (req: AuthenticatedRequest, res: Response) => {
+    const controller = container.resolve<ModelController>('modelController');
+    controller.delete(req, res);
+  },
+);
 
 export { router as ModelRoutes };
 ```
@@ -1297,6 +1312,16 @@ export default router;
 - Import route modules
 - Mount on appropriate path
 - Base URL is already prefixed (configured in app.config.ts)
+
+---
+
+### Step 11: Seed Default Data (Optional)
+
+If this resource needs default/bootstrap data (e.g. built-in roles, default settings), add a
+seeder rather than duplicating that logic elsewhere. This is out of scope for this guide — see
+`Docs/prompts/Database_Seeding_Guide.md` for the full pattern (`seed{Feature}()`/`clear{Feature}()`
+exports, and how to register the seeder by hand, in dependency order, in
+`src/infrastructure/persistance/database/seeders/seeder.ts`).
 
 ---
 
@@ -2198,7 +2223,12 @@ export class PostService extends BaseDomainService {
    * @throws {DomainServiceError} NOT_FOUND when the post does not exist
    * @throws {DomainServiceError} USER_PERMISSION_ERROR when the requester is not the author
    */
-  async update(id: string, data: Partial<INewPost>, authorId: string, transactionOptions?: TransactionOptions): Promise<Post> {
+  async update(
+    id: string,
+    data: Partial<INewPost>,
+    authorId: string,
+    transactionOptions?: TransactionOptions,
+  ): Promise<Post> {
     return this.wrapInfrastructureErrors<Post>(async () => {
       const existing = await this.getById(id, transactionOptions);
 
@@ -2474,28 +2504,44 @@ const router = Router();
 const loginServiceProvider = () => container.resolve<LoginService>('loginService');
 
 // Get all posts (paginated)
-router.get('/', UserValidatorMiddleware(loginApplicationServiceProvider), (req: AuthenticatedRequest, res: Response) => {
-  const controller = container.resolve<PostController>('postController');
-  controller.getAll(req, res);
-});
+router.get(
+  '/',
+  UserValidatorMiddleware(loginApplicationServiceProvider),
+  (req: AuthenticatedRequest, res: Response) => {
+    const controller = container.resolve<PostController>('postController');
+    controller.getAll(req, res);
+  },
+);
 
 // Get published posts
-router.get('/published', UserValidatorMiddleware(loginApplicationServiceProvider), (req: AuthenticatedRequest, res: Response) => {
-  const controller = container.resolve<PostController>('postController');
-  controller.getPublished(req, res);
-});
+router.get(
+  '/published',
+  UserValidatorMiddleware(loginApplicationServiceProvider),
+  (req: AuthenticatedRequest, res: Response) => {
+    const controller = container.resolve<PostController>('postController');
+    controller.getPublished(req, res);
+  },
+);
 
 // Get my posts
-router.get('/my/posts', UserValidatorMiddleware(loginApplicationServiceProvider), (req: AuthenticatedRequest, res: Response) => {
-  const controller = container.resolve<PostController>('postController');
-  controller.getMyPosts(req, res);
-});
+router.get(
+  '/my/posts',
+  UserValidatorMiddleware(loginApplicationServiceProvider),
+  (req: AuthenticatedRequest, res: Response) => {
+    const controller = container.resolve<PostController>('postController');
+    controller.getMyPosts(req, res);
+  },
+);
 
 // Get post by ID
-router.get('/:id', UserValidatorMiddleware(loginApplicationServiceProvider), (req: AuthenticatedRequest, res: Response) => {
-  const controller = container.resolve<PostController>('postController');
-  controller.getById(req, res);
-});
+router.get(
+  '/:id',
+  UserValidatorMiddleware(loginApplicationServiceProvider),
+  (req: AuthenticatedRequest, res: Response) => {
+    const controller = container.resolve<PostController>('postController');
+    controller.getById(req, res);
+  },
+);
 
 // Create new post
 router.post(
@@ -2530,10 +2576,14 @@ router.put(
 );
 
 // Delete post
-router.delete('/:id', UserValidatorMiddleware(loginApplicationServiceProvider), (req: AuthenticatedRequest, res: Response) => {
-  const controller = container.resolve<PostController>('postController');
-  controller.delete(req, res);
-});
+router.delete(
+  '/:id',
+  UserValidatorMiddleware(loginApplicationServiceProvider),
+  (req: AuthenticatedRequest, res: Response) => {
+    const controller = container.resolve<PostController>('postController');
+    controller.delete(req, res);
+  },
+);
 
 export { router as BlogRoutes };
 ```
@@ -2570,7 +2620,26 @@ router.use('/posts', BlogRoutes);
   - [ ] Add UserValidatorMiddleware to ALL routes
   - [ ] Use AuthenticatedRequest type for all route handlers
 - [ ] Register routes in main router (`src/presentation/http/routes/index.ts`)
+- [ ] Create/update seeder if the resource has default or bootstrap data (`src/infrastructure/persistance/database/seeders/{feature}.seeder.ts`), registered by hand in `seeders/seeder.ts` — see `Database_Seeding_Guide.md`
 - [ ] Test endpoints
+
+> ⚠️ **Keep the file set in sync.** The domain model is the source of truth for a resource's
+> shape (this list mirrors the file set enumerated in `Docs/architecture/infrastructure-layer-pattern.md`
+> and `Docs/prompts/Domain_Model_Repository_Mapper_Guide.md`). Any change to it — adding, removing,
+> renaming, or retyping a field, or changing a validation invariant — is **not complete** until it
+> has been propagated through every other file in the set that touches the changed field:
+>
+> - **Persistence model/schema** — add/remove/rename the corresponding schema field and its type
+> - **Persistence mapper** — update `toDomain`/`toPersistence` for the field
+> - **Persistence repository** — update any custom queries, filters, or indexes that reference the field
+> - **Validator** — update the express-validator schema for the field
+> - **Controller** — update request/response shape (DTOs, serialized fields) that exposes the field
+> - **Seeder** — update default/bootstrap data to match the new shape, if the resource has a seeder
+>
+> A change that touches only the domain model is incomplete. Treat "the domain model changed" as a
+> trigger to grep the resource's other files (route, controller, application service, domain
+> service, mapper, persistence model, repository, seeder) for the affected field name before
+> considering the work done.
 
 ---
 

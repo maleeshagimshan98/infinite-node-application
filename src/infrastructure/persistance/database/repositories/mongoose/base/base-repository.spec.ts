@@ -39,6 +39,7 @@ describe('BaseRepository', () => {
         password: 'hashedPassword123',
         status: 'pending_verification',
         ug_id: 'user-group-1',
+        role_id: '507f1f77bcf86cd799439099',
       });
 
       // Act
@@ -59,6 +60,7 @@ describe('BaseRepository', () => {
         password: 'hashedPassword456',
         status: 'active',
         ug_id: 'user-group-2',
+        role_id: '507f1f77bcf86cd799439099',
       });
 
       // Act
@@ -75,6 +77,7 @@ describe('BaseRepository', () => {
         password: 'hashedPassword789',
         status: 'pending_verification',
         ug_id: 'user-group-3',
+        role_id: '507f1f77bcf86cd799439099',
       });
 
       // Act
@@ -92,6 +95,7 @@ describe('BaseRepository', () => {
         password: '',
         status: 'pending_verification',
         ug_id: '',
+        role_id: '507f1f77bcf86cd799439099',
       });
 
       // Act & Assert
@@ -106,12 +110,14 @@ describe('BaseRepository', () => {
           password: 'pass1',
           status: 'active',
           ug_id: 'ug-1',
+          role_id: '507f1f77bcf86cd799439099',
         }),
         new NewUser({
           email: 'user2@example.com',
           password: 'pass2',
           status: 'suspended',
           ug_id: 'ug-2',
+          role_id: '507f1f77bcf86cd799439099',
         }),
       ];
 
@@ -129,9 +135,27 @@ describe('BaseRepository', () => {
     it('should create multiple documents in the database', async () => {
       // Arrange
       const newUsers = [
-        new NewUser({ email: 'bulk1@example.com', password: 'pass1', status: 'active', ug_id: 'ug-1' }),
-        new NewUser({ email: 'bulk2@example.com', password: 'pass2', status: 'pending_verification', ug_id: 'ug-2' }),
-        new NewUser({ email: 'bulk3@example.com', password: 'pass3', status: 'suspended', ug_id: 'ug-3' }),
+        new NewUser({
+          email: 'bulk1@example.com',
+          password: 'pass1',
+          status: 'active',
+          ug_id: 'ug-1',
+          role_id: '507f1f77bcf86cd799439099',
+        }),
+        new NewUser({
+          email: 'bulk2@example.com',
+          password: 'pass2',
+          status: 'pending_verification',
+          ug_id: 'ug-2',
+          role_id: '507f1f77bcf86cd799439099',
+        }),
+        new NewUser({
+          email: 'bulk3@example.com',
+          password: 'pass3',
+          status: 'suspended',
+          ug_id: 'ug-3',
+          role_id: '507f1f77bcf86cd799439099',
+        }),
       ];
 
       // Act
@@ -147,8 +171,20 @@ describe('BaseRepository', () => {
     it('should auto-generate unique IDs for each created document', async () => {
       // Arrange
       const newUsers = [
-        new NewUser({ email: 'id1@example.com', password: 'pass1', status: 'active', ug_id: 'ug-1' }),
-        new NewUser({ email: 'id2@example.com', password: 'pass2', status: 'active', ug_id: 'ug-2' }),
+        new NewUser({
+          email: 'id1@example.com',
+          password: 'pass1',
+          status: 'active',
+          ug_id: 'ug-1',
+          role_id: '507f1f77bcf86cd799439099',
+        }),
+        new NewUser({
+          email: 'id2@example.com',
+          password: 'pass2',
+          status: 'active',
+          ug_id: 'ug-2',
+          role_id: '507f1f77bcf86cd799439099',
+        }),
       ];
 
       // Act
@@ -164,8 +200,20 @@ describe('BaseRepository', () => {
     it('should return domain model instances for each created document', async () => {
       // Arrange
       const newUsers = [
-        new NewUser({ email: 'domain1@example.com', password: 'pass1', status: 'active', ug_id: 'ug-1' }),
-        new NewUser({ email: 'domain2@example.com', password: 'pass2', status: 'active', ug_id: 'ug-2' }),
+        new NewUser({
+          email: 'domain1@example.com',
+          password: 'pass1',
+          status: 'active',
+          ug_id: 'ug-1',
+          role_id: '507f1f77bcf86cd799439099',
+        }),
+        new NewUser({
+          email: 'domain2@example.com',
+          password: 'pass2',
+          status: 'active',
+          ug_id: 'ug-2',
+          role_id: '507f1f77bcf86cd799439099',
+        }),
       ];
 
       // Act
@@ -182,8 +230,20 @@ describe('BaseRepository', () => {
     it('should persist all documents and make them findable by ID', async () => {
       // Arrange
       const newUsers = [
-        new NewUser({ email: 'persist1@example.com', password: 'pass1', status: 'active', ug_id: 'ug-1' }),
-        new NewUser({ email: 'persist2@example.com', password: 'pass2', status: 'active', ug_id: 'ug-2' }),
+        new NewUser({
+          email: 'persist1@example.com',
+          password: 'pass1',
+          status: 'active',
+          ug_id: 'ug-1',
+          role_id: '507f1f77bcf86cd799439099',
+        }),
+        new NewUser({
+          email: 'persist2@example.com',
+          password: 'pass2',
+          status: 'active',
+          ug_id: 'ug-2',
+          role_id: '507f1f77bcf86cd799439099',
+        }),
       ];
 
       // Act
@@ -210,8 +270,20 @@ describe('BaseRepository', () => {
     it('should preserve correct field values for each document', async () => {
       // Arrange
       const newUsers = [
-        new NewUser({ email: 'fields1@example.com', password: 'password1', status: 'active', ug_id: 'ug-a' }),
-        new NewUser({ email: 'fields2@example.com', password: 'password2', status: 'suspended', ug_id: 'ug-b' }),
+        new NewUser({
+          email: 'fields1@example.com',
+          password: 'password1',
+          status: 'active',
+          ug_id: 'ug-a',
+          role_id: '507f1f77bcf86cd799439099',
+        }),
+        new NewUser({
+          email: 'fields2@example.com',
+          password: 'password2',
+          status: 'suspended',
+          ug_id: 'ug-b',
+          role_id: '507f1f77bcf86cd799439099',
+        }),
       ];
 
       // Act
@@ -238,6 +310,7 @@ describe('BaseRepository', () => {
         password: 'password123',
         status: 'active',
         ug_id: 'ug-find',
+        role_id: '507f1f77bcf86cd799439099',
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -279,6 +352,7 @@ describe('BaseRepository', () => {
         password: 'password123',
         status: 'active',
         ug_id: 'ug-object',
+        role_id: '507f1f77bcf86cd799439099',
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -303,6 +377,7 @@ describe('BaseRepository', () => {
         password: 'oldPassword',
         status: 'pending_verification',
         ug_id: 'ug-update',
+        role_id: '507f1f77bcf86cd799439099',
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -312,6 +387,7 @@ describe('BaseRepository', () => {
         status: 'active',
         password: 'newPassword',
         ug_id: createdUser.ug_id,
+        role_id: '507f1f77bcf86cd799439099',
       });
 
       // Act
@@ -331,6 +407,7 @@ describe('BaseRepository', () => {
         password: 'password123',
         status: 'active',
         ug_id: 'ug-partial',
+        role_id: '507f1f77bcf86cd799439099',
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -340,6 +417,7 @@ describe('BaseRepository', () => {
         password: newUser.password,
         status: newUser.status,
         ug_id: newUser.ug_id,
+        role_id: '507f1f77bcf86cd799439099',
       });
 
       // Act
@@ -361,6 +439,7 @@ describe('BaseRepository', () => {
         password: 'password',
         status: 'active',
         ug_id: 'ug-1',
+        role_id: '507f1f77bcf86cd799439099',
       });
 
       // Act
@@ -377,6 +456,7 @@ describe('BaseRepository', () => {
         password: 'password123',
         status: 'pending_verification',
         ug_id: 'ug-return',
+        role_id: '507f1f77bcf86cd799439099',
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -386,6 +466,7 @@ describe('BaseRepository', () => {
         password: createdUser.password,
         status: 'active',
         ug_id: createdUser.ug_id,
+        role_id: '507f1f77bcf86cd799439099',
       });
 
       // Act
@@ -403,6 +484,7 @@ describe('BaseRepository', () => {
         password: 'password123',
         status: 'pending_verification',
         ug_id: 'ug-convert',
+        role_id: '507f1f77bcf86cd799439099',
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -412,6 +494,7 @@ describe('BaseRepository', () => {
         password: createdUser.password,
         status: 'active',
         ug_id: createdUser.ug_id,
+        role_id: '507f1f77bcf86cd799439099',
       });
 
       // Act
@@ -432,6 +515,7 @@ describe('BaseRepository', () => {
         password: 'password123',
         status: 'active',
         ug_id: 'ug-delete',
+        role_id: '507f1f77bcf86cd799439099',
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -466,12 +550,14 @@ describe('BaseRepository', () => {
         password: 'pass1',
         status: 'active',
         ug_id: 'ug-1',
+        role_id: '507f1f77bcf86cd799439099',
       });
       const user2 = new NewUser({
         email: 'user2@example.com',
         password: 'pass2',
         status: 'active',
         ug_id: 'ug-2',
+        role_id: '507f1f77bcf86cd799439099',
       });
 
       const createdUser1 = await userRepository.create(user1);
@@ -500,6 +586,7 @@ describe('BaseRepository', () => {
         password: 'initialPassword',
         status: 'pending_verification',
         ug_id: 'ug-workflow',
+        role_id: '507f1f77bcf86cd799439099',
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -517,6 +604,7 @@ describe('BaseRepository', () => {
         password: createdUser.password,
         status: 'active',
         ug_id: createdUser.ug_id,
+        role_id: '507f1f77bcf86cd799439099',
       });
       const updatedUser = await userRepository.update(userId, updates);
       expect(updatedUser).not.toBeNull();
@@ -544,6 +632,7 @@ describe('BaseRepository', () => {
             password: `password${i}`,
             status: 'active',
             ug_id: `ug-${i}`,
+            role_id: '507f1f77bcf86cd799439099',
           }),
       );
 

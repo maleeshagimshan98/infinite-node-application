@@ -6,7 +6,7 @@ import type { IBaseRepository } from '@/application/interfaces/repositories/base
 import type { TransactionOptions } from '@/application/interfaces';
 
 import type mongoose from 'mongoose';
-import type { Model, Document, Types } from 'mongoose';
+import type { Model, Document, Types, PopulateOptions } from 'mongoose';
 import type { IBaseMapper } from './base.mapper.interface';
 
 type MongooseModel<DBModel> = Model<
@@ -56,9 +56,24 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
   }
 
   /**
+   * Declare which ref-typed paths this repository's queries should populate, optionally
+   * nesting one further level via Mongoose's PopulateOptions. Override in a concrete
+   * repository (e.g. RoleRepository → ['resource_permissions.resource_id'], UserRepository →
+   * [{ path: 'role_id', populate: { path: 'resource_permissions.resource_id' } }]). The default
+   * ([]) disables population — every repository that doesn't override this (LoginRecord,
+   * PasswordResetCode, UserGroup) behaves exactly as before this hook was introduced. Never nest
+   * a 3rd level here — see the Population Strategy rule in CLAUDE.md/AGENTS.md.
+   *
+   * @returns {(string | PopulateOptions)[]} Mongoose population paths/options.
+   */
+  protected populateOptions(): (string | PopulateOptions)[] {
+    return [];
+  }
+
+  /**
    * Create a new document in the database
    *
-   * @param {NewDomainModel} item
+   * @param {NewDomainModel} item - The domain model data to persist
    * @param {TransactionOptions | undefined} transactionOptions Optional MongoDB session for transaction support
    * @returns {Promise<DomainModel>}
    */
@@ -69,13 +84,20 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
         ? { session: transactionOptions.session as mongoose.mongo.ClientSession }
         : undefined,
     );
+    const paths = this.populateOptions();
+    if (paths.length > 0) {
+      // A freshly-saved document's ref fields are still bare ObjectIds until explicitly
+      // populated — this keeps create() uniformly returning populated documents, like every
+      // other method on a repository that opts into population.
+      await model.populate(paths);
+    }
     return this.mapper.toDomain(model);
   }
 
   /**
    * Create multiple documents in the database
    *
-   * @param {NewDomainModel[]} items
+   * @param {NewDomainModel[]} items - The domain model data to persist
    * @param {TransactionOptions | undefined} transactionOptions Optional MongoDB session for transaction support
    * @returns {Promise<DomainModel[]>}
    */
@@ -87,19 +109,29 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
         ? { session: transactionOptions.session as mongoose.mongo.ClientSession }
         : { ordered: true, rawResult: false },
     );
+    const paths = this.populateOptions();
+    if (paths.length > 0) {
+      await Promise.all(models.map((model) => model.populate(paths)));
+    }
     return models.map((model) => this.mapper.toDomain(model));
   }
 
   /**
    * Find a document by its ID
    *
-   * @param {string} id
+   * @param {string} id - The ID of the document to find
    * @param {TransactionOptions | undefined} transactionOptions Optional MongoDB session for transaction support
    * @returns {Promise<DomainModel | null>} Resolves to the found document or null if not found
    */
   public async findById(id: string, transactionOptions?: TransactionOptions): Promise<DomainModel | null> {
-    const model = await this.mongooseModel
-      .findById(id)
+    let query = this.mongooseModel.findById(id);
+
+    const paths = this.populateOptions();
+    if (paths.length > 0) {
+      query = query.populate(paths);
+    }
+
+    const model = await query
       .session(
         transactionOptions && transactionOptions.session
           ? (transactionOptions.session as mongoose.mongo.ClientSession)
@@ -127,6 +159,11 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
   ): Promise<DomainModel | null> {
     const dbFilter = this.mapper.toFilter(filter);
     let query = this.mongooseModel.findOne(dbFilter);
+
+    const paths = this.populateOptions();
+    if (paths.length > 0) {
+      query = query.populate(paths);
+    }
 
     if (sort) {
       query = query.sort(sort);
@@ -162,6 +199,11 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
   ): Promise<DomainModel[]> {
     const dbFilter = this.mapper.toFilter(filter);
     let query = this.mongooseModel.find(dbFilter);
+
+    const paths = this.populateOptions();
+    if (paths.length > 0) {
+      query = query.populate(paths);
+    }
 
     if (offset !== undefined && offset > 0) {
       query = query.skip(offset);
@@ -215,12 +257,18 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
     transactionOptions?: TransactionOptions,
   ): Promise<DomainModel | null> {
     const persistenceData = this.mapper.toPersistence(item);
-    const model = await this.mongooseModel
-      .findByIdAndUpdate(
-        id,
-        { $set: persistenceData as unknown as Record<string, unknown> },
-        { new: true, runValidators: true },
-      )
+    let query = this.mongooseModel.findByIdAndUpdate(
+      id,
+      { $set: persistenceData as unknown as Record<string, unknown> },
+      { new: true, runValidators: true },
+    );
+
+    const paths = this.populateOptions();
+    if (paths.length > 0) {
+      query = query.populate(paths);
+    }
+
+    const model = await query
       .session(
         transactionOptions && transactionOptions.session
           ? (transactionOptions.session as mongoose.mongo.ClientSession)
@@ -236,13 +284,19 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
   /**
    * Delete a document by its ID
    *
-   * @param {string} id
+   * @param {string} id - The ID of the document to delete
    * @param {TransactionOptions | undefined} transactionOptions Optional MongoDB session for transaction support
    * @returns {Promise<DomainModel | null>} Resolves to the deleted document, or null if not found
    */
   public async delete(id: string, transactionOptions?: TransactionOptions): Promise<DomainModel | null> {
-    const model = await this.mongooseModel
-      .findByIdAndDelete(id)
+    let query = this.mongooseModel.findByIdAndDelete(id);
+
+    const paths = this.populateOptions();
+    if (paths.length > 0) {
+      query = query.populate(paths);
+    }
+
+    const model = await query
       .session(
         transactionOptions && transactionOptions.session
           ? (transactionOptions.session as mongoose.mongo.ClientSession)

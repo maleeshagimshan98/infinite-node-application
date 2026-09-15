@@ -1,23 +1,35 @@
 import { container } from '@/app/core/service.container';
 import { UserModel } from '@/infrastructure/persistance/database/repositories/mongoose/user/user.model';
-import type { SignupService } from '@/domain/auth/service/signup.service';
+import type { SignupApplicationService } from '@/application/services/auth/signup.application.service';
 import type { UserGroupService } from '@/domain/user/service/user-group.service';
+import type { RoleService } from '@/domain/auth/service/role.service';
+import type { UserService } from '@/domain/user/service/user.service';
 import type { INewUser } from '@/domain/user/models/user';
 
 /**
- * Seeds the database with sample users using SignupService
+ * Seeds the database with sample users using SignupApplicationService
  * @returns boolean indicating if seeding was successful (true) or skipped (false)
  */
 export async function seedUsers(): Promise<boolean> {
   try {
     // Resolve services from the container
-    const signupService = container.resolve<SignupService>('signupService');
+    const signupApplicationService = container.resolve<SignupApplicationService>('signupApplicationService');
     const userGroupService = container.resolve<UserGroupService>('userGroupService');
+    const roleService = container.resolve<RoleService>('roleService');
+    const userService = container.resolve<UserService>('userService');
 
-    // Ensure default customer group exists
+    // Ensure default customer group and default role exist. This is purely a friendly early-exit
+    // for the seeding script — SignupApplicationService.register() re-resolves both defaults
+    // authoritatively regardless, so this pre-check is belt-and-suspenders, not load-bearing.
     const defaultGroup = await userGroupService.getDefaultGroup();
     if (!defaultGroup) {
       console.log('   ⚠️  No default customer group found. Please seed customer groups first.');
+      return false;
+    }
+
+    const defaultRole = await roleService.getDefaultRole();
+    if (!defaultRole) {
+      console.log('   ⚠️  No default role found. Please seed roles first.');
       return false;
     }
 
@@ -28,42 +40,45 @@ export async function seedUsers(): Promise<boolean> {
         password: 'password123',
         status: 'pending_verification',
         ug_id: defaultGroup.id,
+        role_id: defaultRole.id,
       },
       {
         email: 'jane@example.com',
         password: 'password123',
         status: 'pending_verification',
         ug_id: defaultGroup.id,
+        role_id: defaultRole.id,
       },
       {
         email: 'bob@example.com',
         password: 'password123',
         status: 'pending_verification',
         ug_id: defaultGroup.id,
+        role_id: defaultRole.id,
       },
     ];
 
-    // Register users using SignupService
-    const createdUsers = [];
-    const skippedUsers = [];
+    // Register users using SignupApplicationService
+    const createdUsers: { email: string; id: string; status: string }[] = [];
+    const skippedUsers: string[] = [];
 
-    for (const userData of usersToSeed) {
-      try {
-        const result = await signupService.register(userData);
-        createdUsers.push({
-          email: userData.email,
-          id: result.id,
-          status: result.status,
-        });
-      } catch (error) {
-        // If user already exists, skip it
-        if (error instanceof Error && error.message.includes('already associated')) {
-          skippedUsers.push(userData.email);
-        } else {
-          throw error;
-        }
+    const registrations = usersToSeed.map(async (userData) => {
+      const existingUser = await userService.getByEmail(userData.email);
+      if (existingUser) {
+        skippedUsers.push(userData.email);
+        return;
       }
-    }
+
+      // sendEmail: false — seeded addresses (john/jane/bob@example.com) aren't real inboxes.
+      const result = await signupApplicationService.register(userData, false);
+      createdUsers.push({
+        email: userData.email,
+        id: result.id,
+        status: result.status,
+      });
+    });
+
+    await Promise.all(registrations);
 
     if (createdUsers.length > 0) {
       console.log(`   ✅ Successfully seeded ${createdUsers.length} users`);

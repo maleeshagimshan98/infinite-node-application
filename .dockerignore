@@ -45,6 +45,7 @@ README.md
 .editorconfig
 .prettierrc.json
 .prettierignore
-ecosystem.config.js
+ecosystem.dev.config.js
+ecosystem.prod.config.js
 .gitattributes
 .env.test.example

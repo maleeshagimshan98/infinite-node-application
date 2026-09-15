@@ -1,34 +1,36 @@
 import path from 'path';
 
-import { asValue } from 'awilix';
 import dotenv from 'dotenv';
 
 import { container, autoRegisterApplicationComponents } from '@/app/core/service.container';
-import { DatabaseMapperServiceFactory } from '@/infrastructure/persistance/database/service/database-mapper-service.factory';
+import { InfrastructureManager } from '@/infrastructure/infrastructure.manager';
 
 import { seedUsers } from './user.seeder';
 import { seedUserGroups } from './user-group.seeder';
+import { seedResources } from './resource.seeder';
+import { seedRoles } from './role.seeder';
 
 /**
- * Initialize service container and infrastructure services
- * Database connection is handled by DatabaseMapperService
+ * Initialize the DI container: register all infrastructure services via InfrastructureManager,
+ * then auto-register application services, repositories, and controllers.
+ * Database connection is handled by DatabaseMapperService, one of the registered infra services.
  */
 async function initializeServices(): Promise<void> {
   try {
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('🔧 Initializing Service Container...');
 
+    // Register infrastructure services (logger, cache, email, database mapper, etc.). Uses
+    // initForWorker() (not init()) because the seeder is a one-shot CLI script with no HTTP
+    // server — init() would also load SocketServiceFactory, which requires an `httpServer`
+    // already registered in the container.
+    const infrastructureManager = new InfrastructureManager();
+    await infrastructureManager.initForWorker(container);
+    console.log('✅ Infrastructure Services Registered');
+
     // Register application components (services, repositories, controllers)
     autoRegisterApplicationComponents();
     console.log('✅ Application Components Registered');
-
-    // Initialize database mapper service (handles MongoDB connection internally)
-    const databaseMapperFactory = new DatabaseMapperServiceFactory();
-    const databaseMapper = await databaseMapperFactory.create();
-    container.register({
-      databaseMapper: asValue(databaseMapper),
-    });
-    console.log('✅ Database Mapper Service Registered');
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   } catch (error) {
@@ -55,6 +57,16 @@ export async function runAllSeeders(): Promise<void> {
     // Step 2: Run all seeders
     console.log('📍 Step 2/2: Running Seeders');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    console.log('🔹 Seeding Resources...');
+    const resourcesSeeded = await seedResources();
+    const resourceStatus = resourcesSeeded ? '✅ Successfully Seeded' : '⏭️  Skipped (Already Exists)';
+    console.log(`   ${resourceStatus}\n`);
+
+    console.log('🔹 Seeding Roles...');
+    const rolesSeeded = await seedRoles();
+    const roleStatus = rolesSeeded ? '✅ Successfully Seeded' : '⏭️  Skipped (Already Exists)';
+    console.log(`   ${roleStatus}\n`);
 
     console.log('🔹 Seeding User Groups...');
     const groupsSeeded = await seedUserGroups();
@@ -100,6 +112,8 @@ export async function clearAllSeeders(): Promise<void> {
 
     const { clearUsers } = await import('./user.seeder');
     const { clearUserGroups } = await import('./user-group.seeder');
+    const { clearRoles } = await import('./role.seeder');
+    const { clearResources } = await import('./resource.seeder');
 
     console.log('🔹 Clearing Users...');
     await clearUsers();
@@ -108,6 +122,14 @@ export async function clearAllSeeders(): Promise<void> {
     console.log('🔹 Clearing User Groups...');
     await clearUserGroups();
     console.log('✅ User Groups Cleared Successfully\n');
+
+    console.log('🔹 Clearing Roles...');
+    await clearRoles();
+    console.log('✅ Roles Cleared Successfully\n');
+
+    console.log('🔹 Clearing Resources...');
+    await clearResources();
+    console.log('✅ Resources Cleared Successfully\n');
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('╔═══════════════════════════════════════════════════════════╗');

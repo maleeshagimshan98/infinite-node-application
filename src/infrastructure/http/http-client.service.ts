@@ -74,6 +74,7 @@ export class HTTPClientService implements IHTTPClient {
    *
    * @param {Omit<RequestConfig, 'method'>} config - Request configuration
    * @returns {Promise<HTTPResponse>}
+   * @throws {InfrastructureError}
    */
   public get(config: Omit<RequestConfig, 'method'>): Promise<HTTPResponse> {
     return this.createRequest({
@@ -146,14 +147,7 @@ export class HTTPClientService implements IHTTPClient {
    * @returns {Promise<HTTPResponse>}
    * @throws {InfrastructureError}
    */
-  private async createRequest(config: {
-    url: string;
-    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-    headers?: Record<string, string>;
-    params?: Record<string, string>;
-    data?: Record<string, unknown>;
-    timeout?: number;
-  }): Promise<HTTPResponse> {
+  private async createRequest(config: RequestConfig): Promise<HTTPResponse> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const axiosConfig: any = {
       url: config.url ?? '',
@@ -181,7 +175,7 @@ export class HTTPClientService implements IHTTPClient {
       );
     });
 
-    return new HTTPResponse(response.data.status, response.data.code, response.data.message, response.data.data);
+    return new HTTPResponse(response.statusText, response.status, response.data.message, response.data);
   }
 }
 

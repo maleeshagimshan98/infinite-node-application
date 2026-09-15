@@ -13,6 +13,7 @@ import express from 'express';
 import type { ILogger } from '@/application/interfaces/logger.interface';
 
 import { coreMiddlewareConfig } from './middleware.config';
+import { buildRateLimitStore } from './rate-limit-store.factory';
 
 import type { RequestHandler } from 'express';
 import type { AwilixContainer } from 'awilix';
@@ -35,11 +36,14 @@ export const coreMiddleware = async (container: AwilixContainer): Promise<Record
         exposedHeaders: middlewareConfigInstance.cors.exposedHeaders,
       }),
     helmet: (): RequestHandler => helmet(),
-    rateLimit: (): RequestHandler =>
-      rateLimit({
-        windowMs: middlewareConfigInstance.rateLimit.windowMs!,
-        max: middlewareConfigInstance.rateLimit.max!,
-      }),
+    rateLimit: (): RequestHandler => {
+      const logger = container.resolve<ILogger>('logger');
+      const store = buildRateLimitStore(container, logger);
+      return rateLimit({
+        ...middlewareConfigInstance.rateLimit,
+        store,
+      });
+    },
     morgan: (): RequestHandler => morgan(middlewareConfigInstance.morgan.format),
     json: (): RequestHandler =>
       express.json({

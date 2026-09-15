@@ -2,126 +2,216 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import argon2 from 'argon2';
+import crypto from 'crypto';
 
-import type { UserGroup } from '@/domain/user/models/user-group';
-import { NewUser, type User } from '@/domain/user/models/user';
-import type { IUserRepository } from '@/application/interfaces/repositories/user/user.repository.interface';
-import type { IUserGroupRepository } from '@/application/interfaces/repositories/user-groups/user-group.repository.interface';
+import type { User } from '@/domain/user/models/user';
+import type { UserService } from '@/domain/user/service/user.service';
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
-import type { INewUser } from '@/domain/user/models/user';
+import { NewEmailVerificationCode, type EmailVerificationCode } from '@/domain/auth/models/email-verification-code';
+import type { IEmailVerificationCodeRepository } from '@/application/interfaces/repositories/auth/email-verification-code.repository.interface';
 import type { TransactionOptions } from '@/application/interfaces/database-mapper.interface';
+
+const VERIFICATION_CODE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export class SignupService extends BaseDomainService {
   /**
-   * User repository instance
+   * User service instance
    *
    * @private
    */
-  private readonly userRepository: IUserRepository;
+  private readonly userService: UserService;
 
   /**
-   * Customer group repository instance
+   * Email verification code repository instance
    *
    * @private
    */
-  private readonly userGroupRepository: IUserGroupRepository;
+  private readonly emailVerificationCodeRepository: IEmailVerificationCodeRepository;
 
-  constructor(userRepository: IUserRepository, userGroupRepository: IUserGroupRepository) {
+  constructor(userService: UserService, emailVerificationCodeRepository: IEmailVerificationCodeRepository) {
     super();
-    this.userRepository = userRepository;
-    this.userGroupRepository = userGroupRepository;
+    this.userService = userService;
+    this.emailVerificationCodeRepository = emailVerificationCodeRepository;
   }
 
   /**
-   * Check if user exists by email
+   * Hash a verification code string using SHA-256 — only the hash is ever persisted.
    *
-   * @param {string} email - User email
-   * @returns {Promise<User | null>}
+   * @param {string} code - The raw verification code string to hash.
+   * @returns {string} The hex-encoded SHA-256 digest.
    */
-  async getUserByEmail(email: string): Promise<User | null> {
-    return this.wrapInfrastructureErrors(async () => {
-      return await this.userRepository.findOne({ email });
-    });
+  private hashCode(code: string): string {
+    return crypto.createHash('sha256').update(code).digest('hex');
   }
 
   /**
-   * Get default customer group
+   * Generate a cryptographically random verification code.
    *
-   * @returns {Promise<UserGroup | null>}
+   * @returns {string} A random hex-encoded token.
    */
-  async getDefaultUserGroup(): Promise<UserGroup | null> {
-    return this.wrapInfrastructureErrors(async () => {
-      return await this.userGroupRepository.findOne({ default: true });
-    });
+  private generateCode(): string {
+    return crypto.randomBytes(32).toString('hex');
   }
 
   /**
-   * Register a new user
+   * Expire every pending email verification code for an email address.
    *
-   * @param {INewUser} userData - User registration data
-   * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
-   * @returns {Promise<{ id: string; status: string }>}
-   * @throws {DomainServiceError}
+   * @param {string} email - The email address whose pending codes should be invalidated.
+   * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations.
+   * @returns {Promise<void>}
+   * @throws {DomainServiceError} NOT_FOUND if a code is concurrently deleted mid-invalidation.
    */
-  async register(userData: INewUser, transactionOptions?: TransactionOptions): Promise<{ id: string; status: string }> {
+  private async invalidatePendingCodes(email: string, transactionOptions?: TransactionOptions): Promise<void> {
+    const codes: EmailVerificationCode[] = await this.emailVerificationCodeRepository.find(
+      { email, status: 'pending' },
+      undefined,
+      undefined,
+      {},
+      transactionOptions,
+    );
+    // TODO: Should use a transaction or bulkWrite
+    await Promise.all(
+      codes.map(async (code) => {
+        code.expire();
+        const updated = await this.emailVerificationCodeRepository.update(code.id, code, transactionOptions);
+        if (!updated) {
+          throw new DomainServiceError(
+            `The Email verification code with the id equal to ${code.id} could not be found.`,
+            'NOT_FOUND',
+          );
+        }
+      }),
+    );
+  }
+
+  /**
+   * Generate and persist a fresh email verification code, invalidating any existing pending
+   * codes for the same email first.
+   *
+   * @param {string} userId - The id of the user the code belongs to.
+   * @param {string} email - The email address to verify.
+   * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations.
+   * @returns {Promise<{ record: EmailVerificationCode; rawCode: string }>} The persisted record and the raw
+   * (unhashed) code — the raw code is never stored and must be delivered to the user out-of-band (e.g. email).
+   * @throws {DomainServiceError} NOT_FOUND if a pending code is concurrently deleted mid-invalidation.
+   */
+  async createVerificationCode(
+    userId: string,
+    email: string,
+    transactionOptions?: TransactionOptions,
+  ): Promise<{ record: EmailVerificationCode; rawCode: string }> {
     return this.wrapInfrastructureErrors(async () => {
-      // Check if user already exists
-      const existingUser = await this.getUserByEmail(userData.email);
+      await this.invalidatePendingCodes(email, transactionOptions);
 
-      if (existingUser) {
-        throw new DomainServiceError('This email is already associated with another account', 'VALIDATION_ERROR');
-      }
-
-      // Hash password
-      const hashedPassword = await argon2.hash(userData.password);
-
-      // Get default customer group
-      const defaultUserGroup = await this.getDefaultUserGroup();
-
-      if (!defaultUserGroup) {
-        throw new DomainServiceError('No default customer group is available', 'UNKNOWN_ERROR');
-      }
-      const newUser = new NewUser({
-        ...userData,
-        password: hashedPassword,
-        ug_id: defaultUserGroup.id,
-        status: 'pending_verification',
+      const rawCode = this.generateCode();
+      const newCode = new NewEmailVerificationCode({
+        user_id: userId,
+        email,
+        code: this.hashCode(rawCode),
+        status: 'pending',
+        valid_till: new Date(Date.now() + VERIFICATION_CODE_TTL_MS),
       });
 
-      // Create new user
-      const createdUser = await this.userRepository.create(newUser, transactionOptions);
-
-      return {
-        id: createdUser.id,
-        status: createdUser.status,
-      };
+      const record = await this.emailVerificationCodeRepository.create(newCode, transactionOptions);
+      return { record, rawCode };
     });
   }
 
   /**
-   * Verify user email and activate account
+   * Verify a user's email using a previously issued verification code, then activate the account.
    *
-   * @param {string} email - User email
-   * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
+   * @param {string} email - User email.
+   * @param {string} code - The raw verification code presented by the user.
+   * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations.
    * @returns {Promise<void>}
-   * @throws {DomainServiceError}
+   * @throws {DomainServiceError} NOT_FOUND if the user does not exist, or no matching pending code is found.
+   * @throws {DomainServiceError} VALIDATION_ERROR if the matching code has expired.
    */
-  async verifyEmail(email: string, transactionOptions?: TransactionOptions): Promise<void> {
+  async verifyEmail(email: string, code: string, transactionOptions?: TransactionOptions): Promise<void> {
     return this.wrapInfrastructureErrors(async () => {
-      const user: User | null = await this.getUserByEmail(email);
+      const user: User | null = await this.userService.getByEmail(email, transactionOptions);
 
       if (!user) {
         throw new DomainServiceError(`The User with the email equal to ${email} could not be found.`, 'NOT_FOUND');
       }
 
-      user.status = 'active';
-      const updatedUser = await this.userRepository.update(user.id, user, transactionOptions);
+      const record = await this.emailVerificationCodeRepository.findOne(
+        { email, code: this.hashCode(code), status: 'pending' },
+        {},
+        transactionOptions,
+      );
 
-      if (!updatedUser) {
-        throw new DomainServiceError(`The User with the id equal to ${user.id} could not be found.`, 'NOT_FOUND');
+      // Deliberately do not echo the submitted code in this error message — it's a secret token,
+      // not a business identifier, and shouldn't appear in logs/responses.
+      if (!record) {
+        throw new DomainServiceError(`Invalid or expired email verification code for ${email}.`, 'NOT_FOUND');
       }
+
+      if (record.isExpired()) {
+        record.expire();
+        await this.emailVerificationCodeRepository.update(record.id, record, transactionOptions);
+        throw new DomainServiceError(`The email verification code for ${email} has expired.`, 'VALIDATION_ERROR');
+      }
+
+      record.markVerified();
+      const updated = await this.emailVerificationCodeRepository.update(record.id, record, transactionOptions);
+      if (!updated) {
+        throw new DomainServiceError(
+          `The Email verification code with the id equal to ${record.id} could not be found.`,
+          'NOT_FOUND',
+        );
+      }
+
+      await this.invalidatePendingCodes(email, transactionOptions);
+
+      if (!user.isActive()) {
+        user.activate();
+        // Pass only the changed field — UserService.update() re-hashes `password` whenever it's
+        // present in the payload, and `user.password` here already holds the stored hash.
+        await this.userService.update(user.id, { status: user.status }, transactionOptions);
+      }
+    });
+  }
+
+  /**
+   * Request a fresh email verification code for an already-registered, not-yet-verified user.
+   * Only reissues a code when a pending one already exists for the email — a user with no
+   * pending code (none ever issued, or the existing one was already consumed/expired) must go
+   * through registration again rather than resending.
+   *
+   * @param {string} email - User email.
+   * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations.
+   * @returns {Promise<{ userId: string; rawCode: string }>} The user's id and the raw (unhashed) code.
+   * @throws {DomainServiceError} NOT_FOUND if the user does not exist, or no pending verification code exists for the email.
+   * @throws {DomainServiceError} INVALID_OPERATION if the user's email is already verified.
+   */
+  async resendVerificationCode(
+    email: string,
+    transactionOptions?: TransactionOptions,
+  ): Promise<{ userId: string; rawCode: string }> {
+    return this.wrapInfrastructureErrors(async () => {
+      const user: User | null = await this.userService.getByEmail(email, transactionOptions);
+
+      if (!user) {
+        throw new DomainServiceError(`The User with the email equal to ${email} could not be found.`, 'NOT_FOUND');
+      }
+
+      if (user.isActive()) {
+        throw new DomainServiceError(`The email for ${email} is already verified.`, 'INVALID_OPERATION');
+      }
+
+      const existingCode = await this.emailVerificationCodeRepository.findOne(
+        { email, status: 'pending' },
+        {},
+        transactionOptions,
+      );
+      if (!existingCode) {
+        throw new DomainServiceError(`No pending email verification code found for ${email}.`, 'NOT_FOUND');
+      }
+
+      const { rawCode } = await this.createVerificationCode(user.id, email, transactionOptions);
+      return { userId: user.id, rawCode };
     });
   }
 }

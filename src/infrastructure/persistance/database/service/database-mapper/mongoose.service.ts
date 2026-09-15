@@ -122,11 +122,19 @@ export class MongooseService implements IDatabaseMapper {
    * Gracefully shutdown the MongoDB connection
    *
    * @returns {Promise<void>}
+   * @throws {PersistanceError} If the MongoDB connection fails to close
    */
   async shutdown(): Promise<void> {
-    if (this.client) {
+    if (!this.client) {
+      return;
+    }
+    try {
       await this.client.connection.close();
       console.log('  MongoDB connection closed');
+    } catch (err: unknown) {
+      throw new PersistanceError(
+        `Failed to close MongoDB connection: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      );
     }
   }
 }

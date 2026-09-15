@@ -3,6 +3,7 @@
  */
 
 import { DomainEntity } from '../../base/DomainEntity';
+import { DomainEntityError } from '../../base/DomainEntityError';
 
 type PasswordResetCodeStatus = 'active' | 'used' | 'cancelled' | 'expired';
 
@@ -93,5 +94,35 @@ export class PasswordResetCode extends NewPasswordResetCode {
   }
 
   // All other getters and setters are inherited from NewPasswordResetCode
-  // Business logic methods can be added here
+
+  /**
+   * Determine whether the reset code has passed its validity window.
+   *
+   * @returns {boolean} True when the current time is at or past `valid_till`.
+   */
+  isExpired(): boolean {
+    return this._valid_till < new Date();
+  }
+
+  /**
+   * Mark the reset code as used after a successful password reset.
+   *
+   * @returns {void}
+   * @throws {DomainEntityError} When the code is not active or has expired.
+   */
+  markUsed(): void {
+    if (this._status !== 'active' || this.isExpired()) {
+      throw new DomainEntityError('Password reset code is not active or has expired');
+    }
+    this._status = 'used';
+  }
+
+  /**
+   * Cancel the reset code, superseding it regardless of its current status.
+   *
+   * @returns {void}
+   */
+  cancel(): void {
+    this._status = 'cancelled';
+  }
 }

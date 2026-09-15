@@ -1,18 +1,18 @@
 import { matchedData } from 'express-validator';
 
 import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
-import type { SignupService } from '@/domain/auth/service/signup.service';
+import type { SignupApplicationService } from '@/application/services/auth/signup.application.service';
 import type { INewUser } from '@/domain/user/models/user';
 
 import { BaseController } from '../base.controller';
 
 import type { Request, Response } from 'express';
 export class SignupController extends BaseController {
-  private signupService: SignupService;
+  private signupApplicationService: SignupApplicationService;
 
-  constructor(signupService: SignupService) {
+  constructor(signupApplicationService: SignupApplicationService) {
     super();
-    this.signupService = signupService;
+    this.signupApplicationService = signupApplicationService;
   }
 
   /**
@@ -25,7 +25,7 @@ export class SignupController extends BaseController {
   async register(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
       const userData = matchedData<INewUser>(req);
-      const result = await this.signupService.register(userData);
+      const result = await this.signupApplicationService.register(userData);
 
       return ApiResponseUtils.apiOkResponse(201, false, null, 'User registered successfully', result);
     });
@@ -43,9 +43,27 @@ export class SignupController extends BaseController {
   async verifyEmail(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
       const verifyCred = matchedData(req);
-      await this.signupService.verifyEmail(verifyCred.email);
+      await this.signupApplicationService.verifyEmail(verifyCred.email, verifyCred.code);
 
       return ApiResponseUtils.apiOkResponse(200, false, null, 'Email verified successfully', null);
+    });
+
+    return ApiResponseUtils.createResponse(response, res);
+  }
+
+  /**
+   * Request a fresh email verification code
+   *
+   * @param {Request} req - The incoming request object
+   * @param {Response} res - The response object
+   * @returns {Promise<Response>}
+   */
+  async resendVerificationCode(req: Request, res: Response): Promise<Response> {
+    const response = await this.catchExceptionsWrapper(async () => {
+      const { email } = matchedData(req);
+      await this.signupApplicationService.resendVerificationCode(email);
+
+      return ApiResponseUtils.apiOkResponse(201, false, null, 'Verification email sent', null);
     });
 
     return ApiResponseUtils.createResponse(response, res);

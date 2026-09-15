@@ -95,13 +95,22 @@ export class RedisCacheService implements ICache {
    *
    * @param {string} key - Cache key
    * @returns {Promise<T | null>} resolving to the cached value or null if not found
+   * @throws {InfrastructureError} CACHE_ERROR if the Redis operation fails
    */
   async get<T>(key: string): Promise<T | null> {
-    const value = await this.redisClient.get(key);
-    if (!value) {
-      return null;
+    try {
+      const value = await this.redisClient.get(key);
+      if (!value) {
+        return null;
+      }
+      return JSON.parse(value) as T;
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to get cache key "${key}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'CACHE_ERROR',
+        { key },
+      );
     }
-    return JSON.parse(value) as T;
   }
 
   /**
@@ -111,16 +120,25 @@ export class RedisCacheService implements ICache {
    * @param {T} value - Value to cache
    * @param {number} ttl - Optional time-to-live in seconds
    * @returns {Promise<void>} resolving when value is cached
+   * @throws {InfrastructureError} CACHE_ERROR if the Redis operation fails
    */
   async set<T>(key: string, value: T, ttl?: number): Promise<void> {
-    const serializedValue = JSON.stringify(value);
+    try {
+      const serializedValue = JSON.stringify(value);
 
-    if (ttl) {
-      // Set with expiration time
-      await this.redisClient.setEx(key, ttl, serializedValue);
-    } else {
-      // Set without expiration
-      await this.redisClient.set(key, serializedValue);
+      if (ttl) {
+        // Set with expiration time
+        await this.redisClient.setEx(key, ttl, serializedValue);
+      } else {
+        // Set without expiration
+        await this.redisClient.set(key, serializedValue);
+      }
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to set cache key "${key}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'CACHE_ERROR',
+        { key },
+      );
     }
   }
 
@@ -129,18 +147,35 @@ export class RedisCacheService implements ICache {
    *
    * @param {string} key - Cache key to delete
    * @returns {Promise<void>} resolving when key is deleted
+   * @throws {InfrastructureError} CACHE_ERROR if the Redis operation fails
    */
   async delete(key: string): Promise<void> {
-    await this.redisClient.del(key);
+    try {
+      await this.redisClient.del(key);
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to delete cache key "${key}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'CACHE_ERROR',
+        { key },
+      );
+    }
   }
 
   /**
    * Clear all cached values
    *
    * @returns {Promise<void>} resolving when cache is cleared
+   * @throws {InfrastructureError} CACHE_ERROR if the Redis operation fails
    */
   async clear(): Promise<void> {
-    await this.redisClient.flushAll();
+    try {
+      await this.redisClient.flushAll();
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to clear cache: ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'CACHE_ERROR',
+      );
+    }
   }
 
   /**
@@ -150,9 +185,18 @@ export class RedisCacheService implements ICache {
    * @param {string} field - Field name within the hash
    * @param {T} value - Value to store for the field
    * @returns {Promise<void>} resolving when the field is set
+   * @throws {InfrastructureError} CACHE_ERROR if the Redis operation fails
    */
   async hSet<T>(key: string, field: string, value: T): Promise<void> {
-    await this.redisClient.hSet(key, field, JSON.stringify(value));
+    try {
+      await this.redisClient.hSet(key, field, JSON.stringify(value));
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to set cache hash field "${field}" on key "${key}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'CACHE_ERROR',
+        { key, field },
+      );
+    }
   }
 
   /**
@@ -161,13 +205,22 @@ export class RedisCacheService implements ICache {
    * @param {string} key - Hash key
    * @param {string} field - Field name within the hash
    * @returns {Promise<T | null>} resolving to the parsed value or null if key/field not found
+   * @throws {InfrastructureError} CACHE_ERROR if the Redis operation fails
    */
   async hGet<T>(key: string, field: string): Promise<T | null> {
-    const value = await this.redisClient.hGet(key, field);
-    if (!value) {
-      return null;
+    try {
+      const value = await this.redisClient.hGet(key, field);
+      if (!value) {
+        return null;
+      }
+      return JSON.parse(value) as T;
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to get cache hash field "${field}" on key "${key}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'CACHE_ERROR',
+        { key, field },
+      );
     }
-    return JSON.parse(value) as T;
   }
 
   /**
@@ -175,14 +228,23 @@ export class RedisCacheService implements ICache {
    *
    * @param {string} key - Hash key
    * @returns {Promise<Record<string, T>>} resolving to a map of fields to parsed values ({} if empty)
+   * @throws {InfrastructureError} CACHE_ERROR if the Redis operation fails
    */
   async hGetAll<T>(key: string): Promise<Record<string, T>> {
-    const entries = await this.redisClient.hGetAll(key);
-    const result: Record<string, T> = {};
-    for (const [field, value] of Object.entries(entries)) {
-      result[field] = JSON.parse(value) as T;
+    try {
+      const entries = await this.redisClient.hGetAll(key);
+      const result: Record<string, T> = {};
+      for (const [field, value] of Object.entries(entries)) {
+        result[field] = JSON.parse(value) as T;
+      }
+      return result;
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to get all cache hash fields on key "${key}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'CACHE_ERROR',
+        { key },
+      );
     }
-    return result;
   }
 
   /**
@@ -191,9 +253,18 @@ export class RedisCacheService implements ICache {
    * @param {string} key - Hash key
    * @param {string} field - Field name to delete
    * @returns {Promise<void>} resolving when the field is deleted
+   * @throws {InfrastructureError} CACHE_ERROR if the Redis operation fails
    */
   async hDel(key: string, field: string): Promise<void> {
-    await this.redisClient.hDel(key, field);
+    try {
+      await this.redisClient.hDel(key, field);
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to delete cache hash field "${field}" on key "${key}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'CACHE_ERROR',
+        { key, field },
+      );
+    }
   }
 
   /**
@@ -202,24 +273,40 @@ export class RedisCacheService implements ICache {
    * @param {string} key - Hash key
    * @param {string} field - Field name to check
    * @returns {Promise<boolean>} resolving to true if the field exists, false otherwise
+   * @throws {InfrastructureError} CACHE_ERROR if the Redis operation fails
    */
   async hExists(key: string, field: string): Promise<boolean> {
-    return Boolean(await this.redisClient.hExists(key, field));
+    try {
+      return Boolean(await this.redisClient.hExists(key, field));
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to check cache hash field "${field}" on key "${key}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'CACHE_ERROR',
+        { key, field },
+      );
+    }
   }
 
   /**
    * Gracefully shutdown the Redis connection
    *
    * @returns {Promise<void>}
+   * @throws {InfrastructureError} CACHE_ERROR if the connection cannot be closed or force-disconnected
    */
   async shutdown(): Promise<void> {
     try {
       await this.redisClient.quit();
-      console.log('  Redis connection closed');
     } catch (error) {
-      console.error('  Error closing Redis connection:', error);
-      // Force disconnect if quit fails
-      await this.redisClient.disconnect();
+      try {
+        // Force disconnect if a graceful quit fails
+        await this.redisClient.disconnect();
+      } catch (disconnectError: unknown) {
+        throw new InfrastructureError(
+          `Failed to shut down Redis connection: ${disconnectError instanceof Error ? disconnectError.message : 'Unknown error'}`,
+          'CACHE_ERROR',
+          { quitError: error instanceof Error ? error.message : String(error) },
+        );
+      }
     }
   }
 }

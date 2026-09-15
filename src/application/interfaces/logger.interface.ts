@@ -35,4 +35,13 @@ export interface ILogger extends IBaseInfrastructureService {
    * @returns {void}
    */
   logDebug(message: string, meta?: Record<string, unknown>): void;
+
+  /**
+   * Log a warning message
+   *
+   * @param {string} message - Warning message
+   * @param {Record<string, unknown>} [meta] - Optional metadata object
+   * @returns {void}
+   */
+  logWarn(message: string, meta?: Record<string, unknown>): void;
 }

@@ -1,355 +1,815 @@
 {
-    "info": {
-        "name": "Infinite Node Application API",
-        "description": "API collection for testing Infinite Node Application endpoints",
-        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-        "_exporter_id": "0"
+  "info": {
+    "name": "Infinite Node Application API",
+    "description": "API collection for testing Infinite Node Application endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
     },
-    "variable": [
+    {
+      "key": "apiPrefix",
+      "value": "api/v1",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
         {
-            "key": "baseUrl",
-            "value": "http://localhost:3000",
-            "type": "string"
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "health"]
+            },
+            "description": "Comprehensive health status including service latencies"
+          },
+          "response": []
         },
         {
-            "key": "apiPrefix",
-            "value": "/api/v1",
-            "type": "string"
+          "name": "Liveness Probe",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/health/live",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "health", "live"]
+            },
+            "description": "Quick check to see if the service process is alive (Kubernetes liveness probe)"
+          },
+          "response": []
         },
         {
-            "key": "authToken",
-            "value": "",
-            "type": "string"
+          "name": "Readiness Probe",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/health/ready",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "health", "ready"]
+            },
+            "description": "Full check to see if the service is ready to accept traffic (Kubernetes readiness probe)"
+          },
+          "response": []
         }
-    ],
-    "item": [
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
         {
-            "name": "Health",
-            "item": [
-                {
-                    "name": "Health Check",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}{{apiPrefix}}/health",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "{{apiPrefix}}",
-                                "health"
-                            ]
-                        },
-                        "description": "Comprehensive health status including service latencies"
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Liveness Probe",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}{{apiPrefix}}/health/live",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "{{apiPrefix}}",
-                                "health",
-                                "live"
-                            ]
-                        },
-                        "description": "Quick check to see if the service process is alive (Kubernetes liveness probe)"
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Readiness Probe",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}{{apiPrefix}}/health/ready",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "{{apiPrefix}}",
-                                "health",
-                                "ready"
-                            ]
-                        },
-                        "description": "Full check to see if the service is ready to accept traffic (Kubernetes readiness probe)"
-                    },
-                    "response": []
-                }
-            ]
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.id) {",
+                  "        pm.environment.set('userId', jsonData.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"SecurePassword123!\",\n  \"status\": \"pending_verification\",\n  \"cg_id\": \"default-customer-group-id\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "register"]
+            },
+            "description": "Register a new user account"
+          },
+          "response": []
         },
         {
-            "name": "Authentication",
-            "item": [
+          "name": "Verify Email",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/verify-email?email=test@example.com&code=abc123xyz",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "verify-email"],
+              "query": [
                 {
-                    "name": "Register User",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "exec": [
-                                    "if (pm.response.code === 201) {",
-                                    "    const jsonData = pm.response.json();",
-                                    "    if (jsonData.data && jsonData.data.id) {",
-                                    "        pm.environment.set('userId', jsonData.data.id);",
-                                    "    }",
-                                    "}"
-                                ],
-                                "type": "text/javascript"
-                            }
-                        }
-                    ],
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"SecurePassword123!\",\n  \"status\": \"pending_verification\",\n  \"cg_id\": \"default-customer-group-id\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}{{apiPrefix}}/auth/register",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "{{apiPrefix}}",
-                                "auth",
-                                "register"
-                            ]
-                        },
-                        "description": "Register a new user account"
-                    },
-                    "response": []
+                  "key": "email",
+                  "value": "test@example.com"
                 },
                 {
-                    "name": "Verify Email",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}{{apiPrefix}}/auth/verify-email?email=test@example.com",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "{{apiPrefix}}",
-                                "auth",
-                                "verify-email"
-                            ],
-                            "query": [
-                                {
-                                    "key": "email",
-                                    "value": "test@example.com"
-                                }
-                            ]
-                        },
-                        "description": "Verify user email address and activate account"
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Login",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "exec": [
-                                    "if (pm.response.code === 201) {",
-                                    "    const jsonData = pm.response.json();",
-                                    "    if (jsonData.data && jsonData.data.token) {",
-                                    "        pm.collectionVariables.set('authToken', jsonData.data.token);",
-                                    "        pm.environment.set('authToken', jsonData.data.token);",
-                                    "    }",
-                                    "}"
-                                ],
-                                "type": "text/javascript"
-                            }
-                        }
-                    ],
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"SecurePassword123!\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}{{apiPrefix}}/auth/login",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "{{apiPrefix}}",
-                                "auth",
-                                "login"
-                            ]
-                        },
-                        "description": "Login with email and password credentials"
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Validate Token",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{authToken}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}{{apiPrefix}}/auth/validate",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "{{apiPrefix}}",
-                                "auth",
-                                "validate"
-                            ]
-                        },
-                        "description": "Validate authentication token and return user data"
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Logout",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "exec": [
-                                    "if (pm.response.code === 200) {",
-                                    "    pm.collectionVariables.set('authToken', '');",
-                                    "    pm.environment.set('authToken', '');",
-                                    "}"
-                                ],
-                                "type": "text/javascript"
-                            }
-                        }
-                    ],
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{authToken}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}{{apiPrefix}}/auth/logout",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "{{apiPrefix}}",
-                                "auth",
-                                "logout"
-                            ]
-                        },
-                        "description": "Logout user and invalidate authentication token"
-                    },
-                    "response": []
+                  "key": "code",
+                  "value": "abc123xyz"
                 }
-            ]
+              ]
+            },
+            "description": "Verify user email address using the code emailed on registration (or via Resend Verification Code), and activate the account"
+          },
+          "response": []
         },
         {
-            "name": "Account Recovery",
-            "item": [
-                {
-                    "name": "Forgot Password",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "exec": [
-                                    "// In a real scenario, you would get the verification code from email",
-                                    "// For testing, you might need to check the database or logs",
-                                    "console.log('Password reset code sent to email');"
-                                ],
-                                "type": "text/javascript"
-                            }
-                        }
-                    ],
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"test@example.com\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}{{apiPrefix}}/auth/forgot-password",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "{{apiPrefix}}",
-                                "auth",
-                                "forgot-password"
-                            ]
-                        },
-                        "description": "Initiate password reset process - sends verification code to email"
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Reset Password",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"test@example.com\",\n  \"verification_code\": \"abc123xyz\",\n  \"password\": \"NewSecurePassword123!\",\n  \"password_confirmation\": \"NewSecurePassword123!\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}{{apiPrefix}}/auth/reset-password",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "{{apiPrefix}}",
-                                "auth",
-                                "reset-password"
-                            ]
-                        },
-                        "description": "Reset password using verification code received via email"
-                    },
-                    "response": []
-                }
-            ]
+          "name": "Resend Verification Code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// In a real scenario, you would get the verification code from email",
+                  "// For testing, you might need to check the database or logs",
+                  "console.log('Email verification code sent');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/resend-verification-email",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "resend-verification-email"]
+            },
+            "description": "Request a fresh email verification code — invalidates any previously issued pending code for the email"
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.token) {",
+                  "        pm.collectionVariables.set('authToken', jsonData.data.token);",
+                  "        pm.environment.set('authToken', jsonData.data.token);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"SecurePassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "login"]
+            },
+            "description": "Login with email and password credentials"
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const authHeader = pm.response.headers.get('Authorization');",
+                  "    if (authHeader) {",
+                  "        const token = authHeader.replace('Bearer ', '');",
+                  "        pm.collectionVariables.set('authToken', token);",
+                  "        pm.environment.set('authToken', token);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "refresh"]
+            },
+            "description": "Rotate the access/refresh token pair. Requires the current access token in the Authorization header and the refresh_token httpOnly cookie set by Login (Postman's cookie jar sends this automatically for requests to the same baseUrl domain). Expires the old login record and issues a new one."
+          },
+          "response": []
+        },
+        {
+          "name": "Validate Token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/validate",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "validate"]
+            },
+            "description": "Validate authentication token and return user data"
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    pm.collectionVariables.set('authToken', '');",
+                  "    pm.environment.set('authToken', '');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "logout"]
+            },
+            "description": "Logout user and invalidate authentication token"
+          },
+          "response": []
         }
-    ]
+      ]
+    },
+    {
+      "name": "Account Recovery",
+      "item": [
+        {
+          "name": "Forgot Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// In a real scenario, you would get the verification code from email",
+                  "// For testing, you might need to check the database or logs",
+                  "console.log('Password reset code sent to email');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/forgot-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "forgot-password"]
+            },
+            "description": "Initiate password reset process - sends verification code to email"
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"verification_code\": \"abc123xyz\",\n  \"password\": \"NewSecurePassword123!\",\n  \"password_confirmation\": \"NewSecurePassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/reset-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "reset-password"]
+            },
+            "description": "Reset password using verification code received via email"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Create User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.id) {",
+                  "        pm.environment.set('userId', jsonData.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newuser@example.com\",\n  \"password\": \"SecurePassword123!\",\n  \"status\": \"pending_verification\",\n  \"ug_id\": \"default-user-group-id\",\n  \"role_id\": \"default-role-id\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "users"]
+            },
+            "description": "Create a new user"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/users?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "users"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get a paginated list of users"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User By Id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "users", "{{userId}}"]
+            },
+            "description": "Get a single user by its id"
+          },
+          "response": []
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "users", "{{userId}}"]
+            },
+            "description": "Update a user by its id"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "users", "{{userId}}"]
+            },
+            "description": "Delete a user by its id"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Resources",
+      "item": [
+        {
+          "name": "Create Resource",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.id) {",
+                  "        pm.environment.set('resourceId', jsonData.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"orders\",\n  \"description\": \"Order management resource\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/resources",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "resources"]
+            },
+            "description": "Create a new resource"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Resources",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/resources?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "resources"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get a paginated list of resources"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Resource By Id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/resources/{{resourceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "resources", "{{resourceId}}"]
+            },
+            "description": "Get a single resource by its id"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Resource",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Updated order management resource\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/resources/{{resourceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "resources", "{{resourceId}}"]
+            },
+            "description": "Update a resource by its id"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Resource",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/resources/{{resourceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "resources", "{{resourceId}}"]
+            },
+            "description": "Delete a resource by its id"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Roles",
+      "item": [
+        {
+          "name": "Create Role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.id) {",
+                  "        pm.environment.set('roleId', jsonData.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"order-manager\",\n  \"description\": \"Can manage orders\",\n  \"default\": false,\n  \"resource_permissions\": [\n    {\n      \"resource_id\": \"{{resourceId}}\",\n      \"permission\": {\n        \"read\": true,\n        \"write\": true,\n        \"update\": true,\n        \"delete\": false\n      }\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "roles"]
+            },
+            "description": "Create a new role with resource permissions"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Roles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/roles?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "roles"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get a paginated list of roles"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Role By Id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/roles/{{roleId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "roles", "{{roleId}}"]
+            },
+            "description": "Get a single role by its id"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Can manage and review orders\",\n  \"resource_permissions\": [\n    {\n      \"resource_id\": \"{{resourceId}}\",\n      \"permission\": {\n        \"read\": true,\n        \"write\": true,\n        \"update\": true,\n        \"delete\": true\n      }\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/roles/{{roleId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "roles", "{{roleId}}"]
+            },
+            "description": "Update a role by its id"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Role",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/roles/{{roleId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{apiPrefix}}", "auth", "roles", "{{roleId}}"]
+            },
+            "description": "Delete a role by its id"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
 }

@@ -106,6 +106,43 @@ export class LoginRecord extends NewLoginRecord {
   get id(): string {
     return this._id;
   }
+
+  /**
+   * Determine whether the access token tied to this login record is expired.
+   *
+   * @returns {boolean} True when the record is not active or its access token TTL has elapsed.
+   */
+  isExpired(): boolean {
+    return this._status !== 'active' || this._access_token_valid_till < new Date();
+  }
+
+  /**
+   * Determine whether the refresh token TTL for this login record has elapsed.
+   *
+   * @returns {boolean} True when the current time is at or past `refresh_token_valid_till`.
+   */
+  isRefreshTokenExpired(): boolean {
+    return this._refresh_token_valid_till < new Date();
+  }
+
+  /**
+   * Mark the login record as expired.
+   *
+   * @returns {void}
+   */
+  expire(): void {
+    this._status = 'expired';
+  }
+
+  /**
+   * Revoke the login record (explicit logout) and immediately invalidate its access token.
+   *
+   * @returns {void}
+   */
+  revoke(): void {
+    this._status = 'revoked';
+    this._access_token_valid_till = new Date();
+  }
 }
 
 export default LoginRecord;

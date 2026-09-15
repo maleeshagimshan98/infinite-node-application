@@ -105,6 +105,7 @@ export class SocketIOService implements ISocket {
    * @param {string} event - The event name to emit
    * @param {Record<string, unknown>} data - The data payload to send with the event
    * @returns {void}
+   * @throws {SocketError} If the event cannot be emitted
    *
    * @example
    * ```typescript
@@ -119,7 +120,11 @@ export class SocketIOService implements ISocket {
    * ```
    */
   emitEvent(event: string, data: Record<string, unknown>): void {
-    this.client.emit(event, data);
+    try {
+      this.client.emit(event, data);
+    } catch (e: unknown) {
+      throw new SocketError(`Failed to emit event "${event}": ${e instanceof Error ? e.message : 'Unknown error'}`);
+    }
   }
 
   /**
@@ -128,6 +133,7 @@ export class SocketIOService implements ISocket {
    * @param {string} event - The event name to listen for
    * @param {(data: Record<string, unknown>) => void} handler - The callback function to handle the event
    * @returns {void}
+   * @throws {SocketError} If the listener cannot be registered
    *
    * @example
    * ```typescript
@@ -144,13 +150,20 @@ export class SocketIOService implements ISocket {
    * ```
    */
   onEvent(event: string, handler: (data: Record<string, unknown>) => void): void {
-    this.client.on(event, handler);
+    try {
+      this.client.on(event, handler);
+    } catch (e: unknown) {
+      throw new SocketError(
+        `Failed to register listener for event "${event}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+      );
+    }
   }
 
   /**
    * Disconnects all socket clients and closes the server
    *
    * @returns {Promise<void>}
+   * @throws {SocketError} If the server cannot be closed
    *
    * @example
    * ```typescript
@@ -167,7 +180,7 @@ export class SocketIOService implements ISocket {
     await new Promise<void>((resolve, reject) => {
       this.client.close((err) => {
         if (err) {
-          reject(err);
+          reject(new SocketError(`Failed to close Socket.IO server: ${err.message}`, { cause: err }));
         } else {
           resolve();
         }

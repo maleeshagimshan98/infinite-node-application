@@ -9,7 +9,7 @@ import { InfrastructureError } from '../core/errors/infrastructure.error';
 
 import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 
-export type StorageDriverType = 'local' | 'aws' | 'gcp' | 'azure';
+export type StorageDriverType = 'filesystem' | 'aws' | 'gcp' | 'azure';
 
 export class StorageServiceFactory implements IServiceFactory<IStorage> {
   /**
@@ -29,7 +29,7 @@ export class StorageServiceFactory implements IServiceFactory<IStorage> {
    * @throws {InfrastructureError} if driver is not supported
    */
   async create(): Promise<IStorage> {
-    const driver = process.env.STORAGE_DRIVER || 'local';
+    const driver = process.env.STORAGE_DRIVER || 'filesystem';
     switch (driver) {
       case 'filesystem':
         return new LocalStorageService();

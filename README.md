@@ -8,10 +8,11 @@ This repo is designed to be cloned, configured via environment files, and run lo
 
 - TypeScript-first, strict tsconfig and ESLint + Prettier
 - Express server with a clean startup flow and health endpoint
-- Awilix DI container and modular service loaders
+- Awilix DI container and modular infrastructure services (auto-registered via
+  `infrastructure.loader.ts`)
   - Redis cache (Node-redis)
-  - Mongoose (MongoDB)
-  - MySQL or MongoDB native client (choose by env)
+  - MongoDB via Mongoose (swappable via `DATABASE_MAPPER_DRIVER`; only `mongoose` is implemented
+    today — a **replica set** is required, the domain layer runs multi-document transactions)
   - BullMQ queue (Redis)
   - Socket.io (bound to the HTTP server)
   - Winston logging with daily rotate files (logs/)
@@ -26,18 +27,25 @@ This repo is designed to be cloned, configured via environment files, and run lo
 - Framework: Express 4
 - Language: TypeScript 5
 - DI: Awilix + awilix-express
-- DB: MongoDB (Mongoose), MySQL (mysql driver)
+- DB: MongoDB (Mongoose), configured as a replica set (transactions)
 - Cache/Queue: Redis (node-redis, BullMQ)
 - Logging: Winston + winston-daily-rotate-file
 - Validation: express-validator
 
 ## Quickstart
 
+> For the full first-run walkthrough (Docker Compose vs. local setup, generating JWT keys,
+> what the seeders create and why order matters, production notes), see
+> [`Docs/Getting_Started.md`](Docs/Getting_Started.md). The steps below are the short version.
+
 Prerequisites
 
 - Node.js 18+ (LTS recommended) and npm
-- MongoDB running locally (or connection URI)
-- Redis running locally
+- MongoDB 7+ running as a **replica set** (a single-node `rs0` is enough) — required, the
+  application/domain services run multi-document transactions, which MongoDB only supports inside
+  a replica set
+- Redis running locally (the rate limiter is Redis-backed; `REDIS_SERVICE_OPTIONAL=true` lets the
+  app boot without it, but treat it as required outside quick experiments)
 
 1. Clone and install
 
@@ -66,20 +74,17 @@ APP_BASE_URL=http://localhost:3000
 API_URL_PREFIX=/api/v1
 NODE_PORT=3000
 
-# MongoDB
-MONGODB_URI=mongodb://localhost:27017/infinite-node
+# MongoDB — replicaSet is required, the domain layer runs multi-document transactions
+MONGODB_URI=mongodb://localhost:27017/infinite-node?replicaSet=rs0
 
 # Redis / Cache
 CACHE_DRIVER=redis
 CACHE_SERVER_URL=redis://127.0.0.1:6379
 CACHE_TTL=3600
 
-# MySQL (only if DB_DRIVER=mysql)
-DB_DRIVER=mysql
-MYSQL_DATABASE_SERVER_HOST=localhost
-MYSQL_DATABASE_USERNAME=root
-MYSQL_DATABASE_PASSWORD=
-MYSQL_DATABASE_NAME=infinite_node
+# JWT (RS256) — see Docs/Getting_Started.md#4-generating-jwt-rs256-keys to generate these
+JWT_PRIVATE_KEY=
+JWT_PUBLIC_KEY=
 
 # Sessions & Cookies
 COOKIE_SECRET=dev_cookie_secret
@@ -109,17 +114,33 @@ WINSTON_LOG_DATE_PATTERN=YYYY-MM-DD
 WINSTON_LOG_LEVEL=info
 ```
 
-3. Run in development
+3. Seed default data
+
+The app expects some default data to exist before it's usable — default RBAC resources/roles and
+the default user group new signups are assigned to. See
+[`Docs/Getting_Started.md`](Docs/Getting_Started.md#5-what-gets-seeded-and-why-the-order-matters)
+for exactly what gets created and why the order matters.
+
+```powershell
+npm run seed
+```
+
+Safe to re-run — every seeder skips data that already exists.
+
+4. Run in development
 
 ```powershell
 npm run dev
 ```
 
-The server prints startup info and listens on NODE_PORT (default 3000). Health check is available at:
+The server prints startup info and listens on NODE_PORT (default 3000). Health checks are
+mounted under the API prefix:
 
-- GET http://localhost:3000/health → 200 OK
+- GET http://localhost:3000/api/v1/health → full status (DB/cache/queue/etc.)
+- GET http://localhost:3000/api/v1/health/live → liveness probe
+- GET http://localhost:3000/api/v1/health/ready → readiness probe
 
-4. Build and run in production mode
+5. Build and run in production mode
 
 ```powershell
 npm run build
@@ -128,12 +149,20 @@ npm start
 
 ## NPM scripts
 
-- dev: Run ts-node-dev on src/index.ts
-- build: Prettier format then tsc emit to dist/
+- dev: Type-check then run `tsx watch` on src/index.ts
+- worker:dev: Type-check then run `tsx watch` on src/worker.ts (BullMQ worker process)
+- build: Prettier format, then `tsc` emit to dist/ and resolve path aliases with `tsc-alias`
 - start: node dist/index.js
+- worker:start: node dist/worker.js
+- start:all / dev:all: Run app + worker together via PM2 (dev: `ecosystem.dev.config.js`, runs
+  `src/*.ts` via ts-node with file watching; prod: `ecosystem.prod.config.js`, runs the compiled
+  `dist/*.js` — `start:all` rebuilds first via a `prestart:all` hook)
 - lint / lint:fix: ESLint with TypeScript + Prettier
+- format: Prettier write across the repo
 - test: Jest (ts-jest + babel-jest configured)
-- seed: Run TypeScript DB seeder
+- seed / seed:clear: Run the TypeScript DB seeder directly (`tsx`) — seed or clear default data
+- seed:prod / seed:prod:clear: Same, against the compiled `dist/` output (requires `npm run build`
+  first, unless using the Docker image's build stage)
 
 ## How it works
 
@@ -145,9 +174,9 @@ npm start
   2.  Loads config via configLoader()
   3.  Creates Express app and HTTP server
   4.  Registers httpServer and expressServer into Awilix container
-  5.  Initializes core services (DI): cache, db, queue, mongoose, socket, storage, email, notification, logger
+  5.  Initializes infrastructure services (DI) via `InfrastructureManager`: cache, database mapper (Mongoose), queue, socket, storage, email, notification, http client, logger
   6.  Builds middleware stack (cookie-parser, session, CORS, helmet, rate-limit with Redis store, morgan, JSON, urlencoded, content-type, request logger)
-  7.  Adds /health endpoint
+  7.  Mounts /health, /health/live, /health/ready
   8.  Mounts routes at {API_URL_PREFIX} (default /api/v1)
   9.  Starts listening on NODE_PORT
 
@@ -163,9 +192,14 @@ Located in src/app/core/config:
 
 ### Dependency Injection (Awilix)
 
-- Container in src/app/core/services/service.container.ts
-- Service loaders in src/app/core/services/\*\*/\*.service.loader.ts register concrete instances under well-known names (e.g., cache, db, mongoose, queue, socket, logger)
-- Service initialization order is governed by initializeCoreServices(); “deferred” services are queued then initialized afterwards in the same startup
+- Container in src/app/core/service.container.ts, using CLASSIC injection mode (constructor
+  parameter names must match DI token names)
+- Infrastructure services (cache, db, queue, socket, logger, email, notification, storage, http)
+  are registered by `InfrastructureManager.init()`, iterating the factory list in
+  src/infrastructure/infrastructure.loader.ts
+- `autoRegisterApplicationComponents()` glob-discovers application services, domain services,
+  repositories, and controllers and registers each under a camelCase token derived from its class
+  name (e.g. `CustomerService` → `customerService`)
 
 ### Middleware pipeline
 
@@ -175,18 +209,25 @@ Located in src/app/core/config:
 
 ### Routing, controllers, models
 
-- Routes are mounted at /api/v1 by default (configurable)
-- Current routes: src/routes/auth.routes.ts under /auth
+- Routes are mounted at /api/v1 by default (configurable via `API_URL_PREFIX`), registered in
+  src/presentation/http/routes/index.ts
+- src/presentation/http/routes/auth.routes.ts under /auth
   - POST /api/v1/auth/login → LoginController.login
-  - GET /api/v1/auth/validate → LoginController.validate
+  - GET /api/v1/auth/validate → LoginController.validate (Nginx `auth_request` style check)
+  - POST /api/v1/auth/refresh → LoginController.refresh
   - GET /api/v1/auth/logout → LoginController.logout
   - POST /api/v1/auth/register → SignupController.register
   - GET /api/v1/auth/verify-email → SignupController.verifyEmail
   - POST /api/v1/auth/forgot-password → AccountRecoveryController.forgotPassword
   - POST /api/v1/auth/reset-password → AccountRecoveryController.resetPassword
-- Validation: RequestValidatorMiddleware wraps express-validator schemas
-- API responses: APIResponse + helpers in app/utils/api-response
-- Mongoose models: User, LoginRecord, CustomerGroup, PasswordResetCodes
+- src/presentation/http/routes/auth-resource.routes.ts under /auth/resources — RBAC resource CRUD
+- src/presentation/http/routes/auth-role.routes.ts under /auth/roles — RBAC role CRUD
+- src/presentation/http/routes/user.routes.ts under /users — user CRUD
+- src/presentation/http/routes/health.routes.ts under /health — see [Quickstart](#quickstart)
+- Validation: RequestValidatorMiddleware wraps express-validator schemas; UserValidatorMiddleware
+  authenticates the request on every route (per §13 of `CLAUDE.md`)
+- API responses: ApiResponseUtils in app/core/utils/api-response
+- Mongoose models: User, LoginRecord, UserGroup, PasswordResetCodes, Resource, Role
 
 ### Logging
 
@@ -195,16 +236,31 @@ Located in src/app/core/config:
 
 ## Docker
 
-The Dockerfile is multi-stage (development, build, production) and uses dumb-init and basic dependency checks for Redis and MongoDB.
+The Dockerfile is multi-stage (development, build, production) and uses dumb-init.
+`docker-compose.yml` at the repo root runs the full local stack — app, a separate BullMQ **worker**
+container, MongoDB (with a one-shot job that initializes its `rs0` replica set), Redis, and a
+one-shot seed job that runs before the app/worker containers start. The `app` and `worker`
+containers are built from the exact same image (only `app` declares a `build:` section; `worker`
+and `seed` just reference the resulting tag) and differ only in their `command` — `worker` has no
+HTTP server, so it has no port mapping and its healthcheck is disabled. Container names and the
+shared image tag are derived from the `APP_NAME` variable in `.env` (copied from `.env.example`).
+See [`Docs/Getting_Started.md`](Docs/Getting_Started.md#2-option-a--full-stack-via-docker-compose-fastest-path)
+for the step-by-step (env file to copy, secrets to fill in, how to confirm seeding succeeded).
+
+```powershell
+cp .env.example .env.production   # then fill in COOKIE_SECRET, SESSION_SECRET, JWT_PRIVATE_KEY, JWT_PUBLIC_KEY
+docker compose up -d --build
+```
 
 Important notes
 
-- Healthcheck probes http://localhost:3001/health. Either:
-  - Set NODE_PORT=3001 inside the container, or
-  - Change EXPOSE/healthcheck port to match your chosen NODE_PORT
-- The container waits for hosts named mongodb:27017 and redis:6379; prefer Docker Compose with those service names or adjust the start command
+- Healthcheck probes `http://localhost:3001/api/v1/health/live`. Either set `NODE_PORT=3001`
+  inside the container, or change the `EXPOSE`/`HEALTHCHECK` line in the Dockerfile and the
+  compose port mapping to match your chosen `NODE_PORT`
+- Outside Compose, the app expects MongoDB and Redis reachable at whatever `MONGODB_URI` /
+  `REDIS_SERVER_URL` point to — supply those to target external services instead
 
-Example build/run
+Standalone image build/run (bring your own MongoDB/Redis):
 
 ```powershell
 docker build -t infinite-node-app .
@@ -212,15 +268,21 @@ docker run --rm -p 3000:3000 -e NODE_ENV=production -e NODE_PORT=3000 `
 	--add-host=host.docker.internal:host-gateway infinite-node-app
 ```
 
-If running MongoDB/Redis as sibling containers, use a compose file so their hostnames are mongodb and redis. Alternatively supply MONGODB_URI and CACHE_SERVER_URL to point at external services.
-
 ## PM2
 
-Run with TypeScript via PM2:
+Run app + worker together via PM2. In development this runs TypeScript sources directly
+(ts-node + file watching); in production it runs the compiled `dist/` output:
 
 ```powershell
 npm i -g pm2
-pm2 start ecosystem.config.js --env development
+
+# Development — src/*.ts via ts-node, file watching enabled
+npm run dev:all
+# equivalent to: pm2 start ecosystem.dev.config.js
+
+# Production — builds dist/ first, then runs it via plain node
+npm run start:all
+# equivalent to: npm run build && pm2 start ecosystem.prod.config.js
 ```
 
 ## Testing
@@ -234,14 +296,19 @@ Jest matches tests under src/\*_/_.spec.(ts|js). There are example specs in app/
 ## Troubleshooting
 
 - 429 Too many requests: Ensure Redis is reachable; the rate limiter uses a Redis store via the DI cache service
-- MongoDB connection errors: Verify MONGODB_URI; models use Mongoose, separate from the native MongoDB client optionally registered when DB_DRIVER=mongodb
+- Transaction/session errors on signup or seeding: `MONGODB_URI` is missing `?replicaSet=rs0`, or the replica set was never initiated — connect with `mongosh` and run `rs.status()` to confirm
 - Health check failing in Docker: Ensure NODE_PORT matches the healthcheck port (3001 by default in Dockerfile) or adjust Dockerfile
 - Logs not created: Confirm write permissions to ./logs in container/host
+- More seeding-specific issues: see [`Docs/Getting_Started.md`](Docs/Getting_Started.md#7-troubleshooting)
 
 ## Extending
 
-- Add services by creating a service loader and adding it in src/app/core/services/services.loader.ts and corresponding config in src/app/core/config/service
-- Add feature routes under src/routes and controllers under src/controllers; mount new routes in src/routes/index.ts
+- Add an infrastructure service by following the pattern in §14 of `CLAUDE.md` (interface → driver
+  → service → factory), then register the factory in
+  src/infrastructure/infrastructure.loader.ts
+- Add feature routes under src/presentation/http/routes and controllers under
+  src/presentation/http/controllers; mount new routes in
+  src/presentation/http/routes/index.ts
 
 ## License
 

@@ -16,6 +16,12 @@ export class PasswordResetCodeMapper extends BaseMapper<
   PasswordResetCode,
   NewPasswordResetCode
 > {
+  /**
+   * Convert a persisted password reset code document into a PasswordResetCode domain model.
+   *
+   * @param {IPasswordResetCodeSchema & { _id: Types.ObjectId }} data - The raw persisted document.
+   * @returns {PasswordResetCode} The mapped domain model.
+   */
   toDomain(data: IPasswordResetCodeSchema & { _id: Types.ObjectId }): PasswordResetCode {
     return new PasswordResetCode({
       id: data._id.toString(),
@@ -26,6 +32,12 @@ export class PasswordResetCodeMapper extends BaseMapper<
     });
   }
 
+  /**
+   * Convert a new/updated password reset code domain model into its persistence schema shape.
+   *
+   * @param {NewPasswordResetCode} data - The domain model data to persist.
+   * @returns {IPasswordResetCodeSchema} The persistence-ready schema object.
+   */
   toPersistence(data: NewPasswordResetCode): IPasswordResetCodeSchema {
     return !data.id
       ? {

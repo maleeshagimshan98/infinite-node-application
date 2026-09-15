@@ -27,22 +27,22 @@ export class LoginService extends BaseDomainService {
     this.loginRecordRepository = loginRecordRepository;
   }
 
-  /*
+  /**
    * Hash a token string using SHA-256.
    *
    * @param {string} token - The raw token string to hash.
-   * @returns {string}
+   * @returns {string} The SHA-256 hex digest of the token.
    */
   private hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
 
-  /*
+  /**
    * Sign a JWT access token with the RS256 private key.
    *
    * @param {string} userId - The subject claim (user ID) to embed in the token.
    * @param {string} groups - The user-group ID to embed as the `groups` claim.
-   * @returns {string}
+   * @returns {string} The signed JWT access token.
    */
   private signJwt(userId: string, groups: string): string {
     const privateKey = process.env.JWT_PRIVATE_KEY?.replace(/\\n/g, '\n') ?? '';
@@ -53,7 +53,7 @@ export class LoginService extends BaseDomainService {
     });
   }
 
-  /*
+  /**
    * Verify a JWT access token signature using the RS256 public key.
    *
    * Expiration is intentionally ignored: the login record's `access_token_valid_till` is the
@@ -61,39 +61,39 @@ export class LoginService extends BaseDomainService {
    * `exp` claim has already lapsed.
    *
    * @param {string} token - The raw JWT string to verify.
-   * @returns {jwt.JwtPayload}
-   * @throws {Error} — if the token signature is invalid (caught by the caller).
+   * @returns {jwt.JwtPayload} The decoded JWT payload.
+   * @throws {Error} if the token signature is invalid (caught by the caller).
    */
   private verifyJwt(token: string): jwt.JwtPayload {
     const publicKey = process.env.JWT_PUBLIC_KEY?.replace(/\\n/g, '\n') ?? '';
     return jwt.verify(token, publicKey, { algorithms: ['RS256'], ignoreExpiration: true }) as jwt.JwtPayload;
   }
 
-  /*
+  /**
    * Generate a cryptographically random refresh token.
    *
-   * @returns {string}
+   * @returns {string} A 64-character hex-encoded random token.
    */
   private generateRefreshToken(): string {
     return crypto.randomBytes(32).toString('hex');
   }
 
-  /*
+  /**
    * Read the refresh token TTL in milliseconds from the environment, defaulting to 7 days.
    *
-   * @returns {number}
+   * @returns {number} The refresh token TTL in milliseconds.
    */
   private refreshTokenTtlMs(): number {
     return parseInt(process.env.REFRESH_TOKEN_TTL_MS ?? String(7 * 24 * 60 * 60 * 1000), 10);
   }
 
-  /*
+  /**
    * Issue a fresh access/refresh token pair and persist a new active login record.
    *
    * @param {string} userId - The user the session belongs to.
    * @param {string} groups - The user-group ID to embed in the access token.
-   * @param {TransactionOptions} transactionOptions - Optional database transaction session.
-   * @returns {Promise<{ accessToken: string; refreshToken: string; loginRecord: LoginRecord }>}
+   * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
+   * @returns {Promise<{ accessToken: string; refreshToken: string; loginRecord: LoginRecord }>} The new token pair and its persisted login record.
    */
   private async issueTokensAndRecord(
     userId: string,
@@ -118,21 +118,21 @@ export class LoginService extends BaseDomainService {
     return { accessToken, refreshToken, loginRecord };
   }
 
-  /*
+  /**
    * Hash a raw access token into the value used as both the DB lookup key and the cache key.
    *
    * @param {string} token - The raw JWT access token.
-   * @returns {string}
+   * @returns {string} The hashed token.
    */
   public hashAccessToken(token: string): string {
     return this.hashToken(token);
   }
 
-  /*
+  /**
    * Fetch a user by their ID from the repository.
    *
    * @param {string} userId - The unique identifier of the user to retrieve.
-   * @returns {Promise<User | null>}
+   * @returns {Promise<User | null>} The user, or null if none matched.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR — if a database error occurs.
    */
   async getUserById(userId: string): Promise<User | null> {
@@ -141,28 +141,22 @@ export class LoginService extends BaseDomainService {
     });
   }
 
-  /*
-   * Authenticate a user with email and password and create a new login session.
+  /**
+   * Verify a resolved user's password and create a new login session.
    *
-   * @param {string} email - The user's email address.
+   * @param {User} user - The user to authenticate, already resolved by email (e.g. via UserService).
    * @param {string} password - The plain-text password to verify against the stored hash.
-   * @param {TransactionOptions} transactionOptions - Optional database transaction session.
-   * @returns {Promise<{ id: string; status: string; accessToken: string; refreshToken: string; loginRecord: LoginRecord }>}
-   * @throws {DomainServiceError} AUTHENTICATION_ERROR — if credentials are invalid.
+   * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
+   * @returns {Promise<{ id: string; status: string; accessToken: string; refreshToken: string; loginRecord: LoginRecord }>} The authenticated user's identity plus the new token pair and login record.
+   * @throws {DomainServiceError} AUTHENTICATION_ERROR — if the password does not match.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR — if a database error occurs.
    */
   async login(
-    email: string,
+    user: User,
     password: string,
     transactionOptions?: TransactionOptions,
   ): Promise<{ id: string; status: string; accessToken: string; refreshToken: string; loginRecord: LoginRecord }> {
     return this.wrapInfrastructureErrors(async () => {
-      const user = await this.userRepository.findOne({ email });
-
-      if (!user) {
-        throw new DomainServiceError('Invalid credentials', 'AUTHENTICATION_ERROR');
-      }
-
       const isPasswordMatching = await argon2.verify(user.password, password);
       if (!isPasswordMatching) {
         throw new DomainServiceError('Invalid credentials', 'AUTHENTICATION_ERROR');
@@ -184,7 +178,7 @@ export class LoginService extends BaseDomainService {
     });
   }
 
-  /*
+  /**
    * Validate an access token's authenticity by verifying its RS256 signature.
    *
    * This performs no database lookup, status, or expiry check — those belong to the application
@@ -192,7 +186,7 @@ export class LoginService extends BaseDomainService {
    * deliberately ignored here so a clock-expired token can still be authenticated for refresh.
    *
    * @param {string} token - The raw JWT access token to validate.
-   * @returns {Promise<{ id: string; groups: string }>}
+   * @returns {Promise<{ id: string; groups: string }>} The token's subject id and embedded groups claim.
    * @throws {DomainServiceError} AUTHENTICATION_ERROR — if the token is missing or its signature is invalid.
    */
   async validateToken(token: string): Promise<{ id: string; groups: string }> {
@@ -210,12 +204,12 @@ export class LoginService extends BaseDomainService {
     return { id: payload.sub ?? '', groups: payload['groups'] ?? '' };
   }
 
-  /*
+  /**
    * Look up a login record by the hash of its raw access token.
    *
    * @param {string} token - The raw JWT access token.
-   * @param {TransactionOptions} transactionOptions - Optional database transaction session.
-   * @returns {Promise<LoginRecord | null>}
+   * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
+   * @returns {Promise<LoginRecord | null>} The matching login record, or null if none matched.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR — if a database error occurs.
    */
   async getLoginRecordByToken(token: string, transactionOptions?: TransactionOptions): Promise<LoginRecord | null> {
@@ -224,41 +218,31 @@ export class LoginService extends BaseDomainService {
     });
   }
 
-  /*
-   * Determine whether the access token tied to a login record is expired.
-   *
-   * @param {LoginRecord} loginRecord - The login record to evaluate.
-   * @returns {boolean}
-   */
-  isAccessTokenExpired(loginRecord: LoginRecord): boolean {
-    return loginRecord.status !== 'active' || loginRecord.access_token_valid_till < new Date();
-  }
-
-  /*
+  /**
    * Determine whether a provided refresh token is valid for a login record: it must match the
    * stored hash and must not be expired.
    *
    * @param {LoginRecord} loginRecord - The login record to evaluate.
    * @param {string} refreshToken - The raw refresh token presented by the client.
-   * @returns {boolean}
+   * @returns {boolean} True when the refresh token matches and has not expired.
    */
   isRefreshTokenValid(loginRecord: LoginRecord, refreshToken: string): boolean {
     const matches = loginRecord.refresh_token === this.hashToken(refreshToken);
-    const notExpired = loginRecord.refresh_token_valid_till >= new Date();
-    return matches && notExpired;
+    return matches && !loginRecord.isRefreshTokenExpired();
   }
 
-  /*
+  /**
    * Mark a login record as expired in the database.
    *
    * @param {LoginRecord} loginRecord - The login record to expire.
-   * @param {TransactionOptions} transactionOptions - Optional database transaction session.
+   * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
    * @returns {Promise<void>}
+   * @throws {DomainServiceError} NOT_FOUND — if the login record no longer exists.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR — if a database error occurs.
    */
   async expireLoginRecord(loginRecord: LoginRecord, transactionOptions?: TransactionOptions): Promise<void> {
     return this.wrapInfrastructureErrors(async () => {
-      loginRecord.status = 'expired';
+      loginRecord.expire();
       const updated = await this.loginRecordRepository.update(loginRecord.id, loginRecord, transactionOptions);
 
       if (!updated) {
@@ -270,18 +254,18 @@ export class LoginService extends BaseDomainService {
     });
   }
 
-  /*
+  /**
    * Mark a login record as revoked (explicit logout) in the database.
    *
    * @param {LoginRecord} loginRecord - The login record to revoke.
-   * @param {TransactionOptions} transactionOptions - Optional database transaction session.
+   * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
    * @returns {Promise<void>}
+   * @throws {DomainServiceError} NOT_FOUND — if the login record no longer exists.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR — if a database error occurs.
    */
   async revokeLoginRecord(loginRecord: LoginRecord, transactionOptions?: TransactionOptions): Promise<void> {
     return this.wrapInfrastructureErrors(async () => {
-      loginRecord.status = 'revoked';
-      loginRecord.access_token_valid_till = new Date();
+      loginRecord.revoke();
       const updated = await this.loginRecordRepository.update(loginRecord.id, loginRecord, transactionOptions);
 
       if (!updated) {
@@ -293,13 +277,13 @@ export class LoginService extends BaseDomainService {
     });
   }
 
-  /*
+  /**
    * Issue a brand-new active login session for a user, used when rotating tokens on refresh.
    *
    * @param {string} userId - The user the new session belongs to.
    * @param {string} groups - The user-group ID to embed in the new access token.
-   * @param {TransactionOptions} transactionOptions - Optional database transaction session.
-   * @returns {Promise<{ accessToken: string; refreshToken: string; loginRecord: LoginRecord }>}
+   * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
+   * @returns {Promise<{ accessToken: string; refreshToken: string; loginRecord: LoginRecord }>} The new token pair and its persisted login record.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR — if a database error occurs.
    */
   async createLoginRecord(

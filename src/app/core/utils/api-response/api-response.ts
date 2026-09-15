@@ -1,3 +1,4 @@
+import type { Response } from 'express';
 import type { Paginator } from '../pagination/paginator';
 
 export type APIResponseData = Record<string, unknown>[];
@@ -9,6 +10,7 @@ class APIResponse {
   private page: Paginator | null;
   private message: string;
   private data: APIResponseData;
+  private headers: Record<string, string>;
 
   constructor(
     status: string,
@@ -17,6 +19,7 @@ class APIResponse {
     page: Paginator | null,
     message: string,
     data: APIResponseData = [],
+    headers: Record<string, string> = {},
   ) {
     this.status = status;
     this.code = code;
@@ -29,6 +32,8 @@ class APIResponse {
     } else {
       throw new Error(`APIResponse: Data must be an array but received ${typeof data}`);
     }
+
+    this.headers = headers;
   }
 
   //   private snakeCaseToCamelCase(data: Record<string, unknown>[]): Record<string, unknown>[] {
@@ -115,6 +120,26 @@ class APIResponse {
 
   public setData(data: APIResponseData): void {
     this.data = data;
+  }
+
+  public getHeaders(): Record<string, string> {
+    return this.headers;
+  }
+
+  public setHeaders(headers: Record<string, string>): void {
+    this.headers = headers;
+  }
+
+  /**
+   * Applies every header stored on this APIResponse onto an Express Response object.
+   *
+   * @param {Response} res - The Express response object to receive the headers.
+   * @returns {void}
+   */
+  public applyHeaders(res: Response): void {
+    for (const [name, value] of Object.entries(this.headers)) {
+      res.setHeader(name, value);
+    }
   }
 }
 

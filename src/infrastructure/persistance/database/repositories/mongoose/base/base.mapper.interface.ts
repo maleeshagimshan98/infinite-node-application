@@ -9,7 +9,7 @@ export interface IBaseMapper<DBSchema, DomainModel, NewDomainModel> {
    * Convert raw database data to a domain model instance of type DomainModel
    *
    * @param {DBSchema} data An interface representing the raw data from the database
-   * @return {DomainModel} An instance of type DomainModel representing the domain model
+   * @returns {DomainModel} An instance of type DomainModel representing the domain model
    */
   toDomain: (data: DBSchema & { _id: Types.ObjectId }) => DomainModel;
 
@@ -17,7 +17,7 @@ export interface IBaseMapper<DBSchema, DomainModel, NewDomainModel> {
    * Convert a domain model instance of type K to a format suitable for persistence in the database
    *
    * @param {NewDomainModel} data An instance of type NewDomainModel representing the domain model
-   * @return {DBSchema} A plain object representing the data to be stored in the database
+   * @returns {DBSchema} A plain object representing the data to be stored in the database
    */
   toPersistence: (data: NewDomainModel) => DBSchema;
 
@@ -26,7 +26,7 @@ export interface IBaseMapper<DBSchema, DomainModel, NewDomainModel> {
    * Maps domain field names (e.g. `id`) to database field names (e.g. `_id`).
    *
    * @param {Partial<NewDomainModel>} filter Partial domain model fields used as query criteria
-   * @return {Partial<DBSchema>} Partial database schema object for use in Mongoose queries
+   * @returns {Partial<DBSchema>} Partial database schema object for use in Mongoose queries
    */
   toFilter: (filter: Partial<NewDomainModel>) => Partial<DBSchema>;
 }

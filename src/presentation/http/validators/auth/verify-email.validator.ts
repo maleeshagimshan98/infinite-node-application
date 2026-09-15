@@ -5,8 +5,9 @@ export const verifyEmailValidator = (): Schema => {
     email: {
       isEmail: true,
     },
-    token: {
+    code: {
       isString: true,
+      notEmpty: true,
     },
   };
 };

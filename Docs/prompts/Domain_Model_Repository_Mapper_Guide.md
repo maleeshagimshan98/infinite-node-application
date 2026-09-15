@@ -21,6 +21,34 @@ Two worked examples run through the whole guide:
 
 ---
 
+<!-- keep in sync with: Docs/architecture/infrastructure-layer-pattern.md, Docs/prompts/API_Resource_Guide.md -->
+
+## Where This Guide Fits in the Full Resource File Set
+
+A complete resource is made up of nine files (some optional). This guide covers four of them in
+depth — the domain model, persistence model/schema, mapper, and repository. The rest are covered
+by the other two guides.
+
+| #   | Layer / File                           | Covered here?                                     |
+| --- | -------------------------------------- | ------------------------------------------------- |
+| 1   | Route                                  | No — see `Docs/prompts/API_Resource_Guide.md`     |
+| 2   | Controller                             | No — see `Docs/prompts/API_Resource_Guide.md`     |
+| 3   | Application Service _(optional)_       | No — see `Docs/prompts/API_Resource_Guide.md`     |
+| 4   | Domain Service                         | No — see `Docs/prompts/API_Resource_Guide.md`     |
+| 5   | Domain Model _(+ optional Type Guard)_ | **Yes — this guide**                              |
+| 6   | Persistence Repository                 | **Yes — this guide**                              |
+| 7   | Persistence Model (schema)             | **Yes — this guide**                              |
+| 8   | Persistence Mapper                     | **Yes — this guide**                              |
+| 9   | Seeder _(if applicable)_               | No — see `Docs/prompts/Database_Seeding_Guide.md` |
+
+Path patterns for all nine, and the caveat about mongoose directory names not always matching
+domain feature folder names, are in `Docs/architecture/infrastructure-layer-pattern.md`.
+
+If a change to the domain model needs to ripple into the other five files, see the keep-in-sync
+callout at the end of the `## End-to-End Checklist` below.
+
+---
+
 ## The Big Picture
 
 ```
@@ -37,13 +65,13 @@ Two worked examples run through the whole guide:
 
 File layout for the two worked examples (paths relative to the service root):
 
-| Artifact | Flat example (UserGroup) | Aggregate example (Order) |
-|---|---|---|
-| Domain model | `src/domain/user/models/user-group.ts` | `src/domain/order/models/order.ts`, `order-item.ts`, `discount-entry.ts`, … |
+| Artifact                   | Flat example (UserGroup)                                                                        | Aggregate example (Order)                                                                                    |
+| -------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Domain model               | `src/domain/user/models/user-group.ts`                                                          | `src/domain/order/models/order.ts`, `order-item.ts`, `discount-entry.ts`, …                                  |
 | Persistence model + schema | `src/infrastructure/persistance/database/repositories/mongoose/user-groups/user-group.model.ts` | `.../mongoose/order/order.model.ts` (root), `order-item.model.ts`, `discount-entry.model.ts` (sub-documents) |
-| Mapper | `.../mongoose/user-groups/user-group.mapper.ts` | `.../mongoose/order/order.mapper.ts` (root), `order-item.mapper.ts` (sub-document) |
-| Repository | `.../mongoose/user-groups/user-group.repository.ts` | `.../mongoose/order/order.repository.ts` |
-| Base classes | `.../mongoose/base/base.mapper.ts`, `base-repository.ts` | plus `base-subdocument.mapper.ts` for sub-documents |
+| Mapper                     | `.../mongoose/user-groups/user-group.mapper.ts`                                                 | `.../mongoose/order/order.mapper.ts` (root), `order-item.mapper.ts` (sub-document)                           |
+| Repository                 | `.../mongoose/user-groups/user-group.repository.ts`                                             | `.../mongoose/order/order.repository.ts`                                                                     |
+| Base classes               | `.../mongoose/base/base.mapper.ts`, `base-repository.ts`                                        | plus `base-subdocument.mapper.ts` for sub-documents                                                          |
 
 ---
 
@@ -470,11 +498,7 @@ The sub-document mapper composes its own child mappers the same way:
 
 ```typescript
 // src/infrastructure/persistance/database/repositories/mongoose/order/order-item.mapper.ts
-export class OrderItemMapper extends BaseSubDocumentMapper<
-  IOrderItemSchema,
-  INewOrderItem,
-  NewOrderItem
-> {
+export class OrderItemMapper extends BaseSubDocumentMapper<IOrderItemSchema, INewOrderItem, NewOrderItem> {
   private readonly discountMapper = new DiscountEntryMapper();
   private readonly taxLineMapper = new TaxLineMapper();
   private readonly fulfillmentPolicyMapper = new FulfillmentPolicyMapper();
@@ -628,7 +652,27 @@ toPersistence(data: NewOrder): INewOrderSchema {
 ☐ 9.  Repository interface in application/interfaces/repositories/; class extends BaseRepository;
       no CRUD duplication; export default
 ☐ 10. JSDoc on every non-trivial method; npm run lint clean; npx tsc --noEmit passes
+☐ 11. Route, controller, domain/application service, and validator are the remaining pieces of
+      this resource's file set — see Docs/prompts/API_Resource_Guide.md for those steps, and
+      Docs/prompts/Database_Seeding_Guide.md if the resource needs seeded default data
 ```
+
+> ⚠️ **Keep the file set in sync.** The domain model is the source of truth for a resource's
+> shape. Any change to it — adding, removing, renaming, or retyping a field, or changing a
+> validation invariant — is **not complete** until it has been propagated through every other file
+> in the set that touches the changed field:
+>
+> - **Persistence model/schema** — add/remove/rename the corresponding schema field and its type
+> - **Persistence mapper** — update `toDomain`/`toPersistence` for the field
+> - **Persistence repository** — update any custom queries, filters, or indexes that reference the field
+> - **Validator** — update the express-validator schema for the field
+> - **Controller** — update request/response shape (DTOs, serialized fields) that exposes the field
+> - **Seeder** — update default/bootstrap data to match the new shape, if the resource has a seeder
+>
+> A change that touches only the domain model is incomplete. Treat "the domain model changed" as a
+> trigger to grep the resource's other files (route, controller, application service, domain
+> service, mapper, persistence model, repository, seeder) for the affected field name before
+> considering the work done.
 
 ---
 
