@@ -156,6 +156,21 @@ export class WinstonLoggerService implements ILogger {
   }
 
   /**
+   * Log a warning message
+   *
+   * @param {string} message - Warning message
+   * @param {Record<string, unknown>} [meta] - Optional metadata object
+   * @returns {void}
+   */
+  logWarn(message: string, meta?: Record<string, unknown>): void {
+    try {
+      this.winstonLogger.warn(message, meta);
+    } catch (e: unknown) {
+      console.error('Failed to write warn log:', e);
+    }
+  }
+
+  /**
    * Gracefully shutdown the Winston logger
    *
    * Ensures all logs are flushed before closing

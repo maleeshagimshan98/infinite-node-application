@@ -5,7 +5,6 @@
 import { createClient } from 'redis';
 
 import type { ICoreDriver, IDriverHealthStatus } from '@/infrastructure/core/driver/core.driver';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 import type { RedisClientType } from 'redis';
 import type { IRedisConfig } from './redis.config';
@@ -31,12 +30,10 @@ export class RedisDriver implements ICoreDriver<RedisClientType, IRedisConfig> {
 
   async init(): Promise<void> {
     this._client = createClient(this._config.params);
-    //... TODO - check error types and see what can you do to handle them properly
-    this._client.on('error', (err: Error) => {
-      throw new InfrastructureError(`Redis client error: ${err.message}`, 'CONNECTION_ERROR', {
-        originalError: err.message,
-      });
-    });
+    // Redis emits 'error' on real connection failures (not just failed commands). Throwing
+    // here would become an uncaughtException and kill the whole process — swallow it so a
+    // live outage degrades gracefully instead. health() independently reports connectivity.
+    this._client.on('error', () => {});
     await this._client.connect();
   }
 

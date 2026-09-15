@@ -37,7 +37,7 @@ export interface MiddlewareConfig {
   };
 }
 
-export const coreMiddlewareConfig: (container: AwilixContainer) => MiddlewareConfig = (container: AwilixContainer) => {
+export const coreMiddlewareConfig: (container: AwilixContainer) => MiddlewareConfig = (_container: AwilixContainer) => {
   return {
     cookieParser: {
       secret: process.env.COOKIE_SECRET || 'your_cookie_secret',
@@ -95,14 +95,6 @@ export const coreMiddlewareConfig: (container: AwilixContainer) => MiddlewareCon
         });
       },
       passOnStoreError: process.env.PASS_ON_STORE_ERROR === 'true',
-      //... TODO
-      //... handle if redis is not present or fails to connect (fallback to in-memory store or allow all requests)
-      // store: new RedisStore({
-      //   sendCommand: async (...args: string[]): Promise<RedisReply> => {
-      //     const client = container.resolve('cache');
-      //     return await client.sendCommand(args);
-      //   },
-      // }),
     },
     morgan: {
       format: process.env.MORGAN_FORMAT || 'dev',
