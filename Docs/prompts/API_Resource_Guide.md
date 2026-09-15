@@ -1533,7 +1533,9 @@ export class MyDriver implements ICoreDriver<MyClient, IMyDriverConfig> {
       this._client = new MyClient(this._config.params);
       await this._client.connect();
     } catch (error) {
-      throw new InfrastructureError(`Failed to initialize MyDriver: ${(error as Error).message}`);
+      throw new InfrastructureError(
+        `Failed to initialize MyDriver: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -2361,6 +2363,10 @@ import { BaseController } from '../base.controller';
 
 import type { Request, Response } from 'express';
 
+// Note: `req.user!` below is the pre-approved AuthenticatedRequest exception to the Type
+// Assertions Policy — UserValidatorMiddleware guarantees req.user is populated by the time a
+// controller runs, but AuthenticatedRequest.user stays optional in the type. No need to ask
+// before reusing this exact pattern; any other assertion in this controller still requires asking.
 export class PostController extends BaseController {
   private postService: PostService;
   private postRepository: PostRepository;
@@ -2423,7 +2429,7 @@ export class PostController extends BaseController {
 
   async getPublished(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
-      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+      const limit = typeof req.query.limit === 'string' ? parseInt(req.query.limit, 10) : undefined;
       const result = await this.postService.getPublished(limit);
 
       return ApiResponseUtils.apiOkResponse(200, false, null, 'Posts retrieved successfully', result);
@@ -2669,7 +2675,9 @@ You've completed the step-by-step implementation. **Now validate everything**:
    - [ ] Extends BaseRepository with correct generics
    - [ ] Exports as default
    - [ ] Does NOT create workaround interfaces
-   - [ ] If you added `as any` without understanding why → **ASK**
+   - [ ] If you added any type assertion (`as`, `<Type>`, or `!`) → confirm it's one of the
+     pre-approved exceptions in the Type Assertions Policy (`CLAUDE.md` §24 / `AGENTS.md`), or
+     **ASK** the user first
 
 4. **Service Files** (`*.service.ts`):
    - [ ] Extends BaseDomainService

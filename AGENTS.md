@@ -32,6 +32,7 @@
     */
    ```
 9. **Full-tag JSDoc on every non-trivial method/function** (see [JSDoc Documentation](#jsdoc-documentation)). Exempt: trivial getters/setters and constructors.
+10. **Never use a type assertion** (`as Type`, `<Type>value`, non-null `!`) **without the user's explicit consent** — see [Type Assertions Policy](#type-assertions-policy) for the narrow list of pre-approved structural exceptions.
 
 ---
 
@@ -150,6 +151,11 @@ export class ModelMapper extends BaseMapper<INewModelSchema, Model, NewModel> {
   }
 }
 ```
+
+> **Exception**: the casts through `Record<string, unknown>` in `toFilter` above are pre-approved
+> under the [Type Assertions Policy](#type-assertions-policy) — they bridge the generic
+> `NewDomainModel`/`DBSchema` relationship at a base-class boundary TS can't verify structurally.
+> Don't add further assertions elsewhere in a mapper without asking first.
 
 - `toDomain` parameter type is always `INew{Model}Schema & { _id: Types.ObjectId }` — the intersection narrows the schema's optional `_id` to required for a hydrated read; never create a separate interface for it
 - `toPersistence` omits `_id` when `data.id` is falsy; when present, convert with `new Types.ObjectId(data.id)` — the schema declares `_id?: Types.ObjectId`, so never assign the raw string
@@ -432,3 +438,38 @@ Every code change must pass **all four** before it is considered complete:
 3. **No lint errors** — `npm run lint` is clean (ESLint + Prettier). Auto-fix with
    `npm run lint:fix` / `npm run format`.
 4. **No type errors** — `npx tsc --noEmit` passes and `npm run build` succeeds.
+
+---
+
+## Type Assertions Policy
+
+**Never use a type assertion** (`as Type`, `<Type>value`, or the non-null assertion `!`)
+**without the user's explicit consent first.** Default to type guards, discriminated unions,
+generics, or an explicit type annotation on the source value instead of casting the result
+afterward. `as const` (literal/tuple narrowing) is **not** a type assertion under this rule — it
+never claims anything false about a value's runtime type, so it never needs consent.
+
+**Pre-approved exceptions** — real, established structural patterns in this codebase that do
+**not** require asking each time:
+
+1. **Generic base-class boundaries** — e.g. `BaseMapper.toFilter`'s narrowing between
+   `NewDomainModel` and `DBSchema`, or a generic sub-document helper narrowing `S` → `S & { _id:
+   string }`. The relationship between the generic type parameters is only guaranteed by the
+   concrete subclass, not provable structurally by TS.
+2. **`TransactionOptions.session` crossing into a concrete driver type** — it's deliberately typed
+   `session?: unknown` to stay database-agnostic; a concrete Mongoose repository asserting it to
+   `mongoose.mongo.ClientSession` (or similar) to actually use it is expected.
+3. **Inside a hand-written `is` type-guard function's own implementation** — the guard's entire
+   job is to prove an invariant TS can't infer; the assertion belongs there, never at a call site
+   of the guard.
+4. **`req.user!` in a controller method typed `AuthenticatedRequest`** — `UserValidatorMiddleware`
+   guarantees `req.user` is populated by the time a controller runs (Rule 5 above), but
+   `AuthenticatedRequest.user` stays optional in the type so it can also represent pre-auth
+   request state.
+5. **Narrowing a Mongoose `ref` field after `.populate()`** — the schema declares `Types.ObjectId`,
+   but a populated field holds the referenced document at runtime; Mongoose's typings don't
+   reflect population, so the mapper must assert to the known populated shape (see [Population
+   Strategy](#population-strategy-mongoose-ref--populate)).
+
+**Everything else** — any new assertion in domain services, controllers, application logic, or
+anywhere not covered above — requires asking the user first, even when it "obviously" works.

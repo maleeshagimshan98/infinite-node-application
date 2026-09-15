@@ -542,6 +542,7 @@ Adding a new infrastructure service (e.g. new database, third-party API):
 | Inline comments       | Write inline comments only when the WHY is non-obvious — never narrate obvious code                                                                                                                                                                                 |
 | JSDoc                 | Every non-trivial method/function needs a full-tag JSDoc block (see §22). Exempt: trivial getters/setters and constructors                                                                                                                                          |
 | Repository interfaces | Domain services and controllers must use `IXxxRepository` from `application/interfaces/repositories/` — never import concrete repository classes                                                                                                                    |
+| Type assertions       | Never use `as Type`, `<Type>value`, or non-null `!` without the user's explicit consent first — prefer type guards/generics/explicit annotations. `as const` is exempt. See §24 for the pre-approved structural exceptions.                                          |
 
 ---
 
@@ -652,6 +653,7 @@ import type { Request, Response } from 'express';
 
 - **`no-console` _(warn)_**: Never use `console.log / error / warn`. Use the `logger` DI token (`ILogger`) via constructor injection instead.
 - Every `.ts` file must end with exactly one newline (LF). Configure your editor to enforce LF line endings, not CRLF.
+- **No type assertions without consent** — this is a project convention, not (yet) an ESLint rule (`@typescript-eslint/consistent-type-assertions` and `@typescript-eslint/no-non-null-assertion` aren't configured in `eslint.config.mjs`), so it's enforced by review/agent discipline only. See §24.
 
 ---
 
@@ -708,3 +710,51 @@ Every code change must pass **all four** before it is considered complete:
 3. **No lint errors** — `npm run lint` is clean (ESLint + Prettier). Auto-fix with
    `npm run lint:fix` / `npm run format`.
 4. **No type errors** — `npx tsc --noEmit` passes and `npm run build` succeeds.
+
+---
+
+## 24. Type Assertions Policy
+
+**Never use a type assertion** (`as Type`, `<Type>value`, or the non-null assertion `!`)
+**without the user's explicit consent first.** Default to type guards, discriminated unions,
+generics, or an explicit type annotation on the source value instead of casting the result
+afterward. `as const` (literal/tuple narrowing) is **not** a type assertion under this rule — it
+never claims anything false about a value's runtime type, so it never needs consent.
+
+```typescript
+// ❌ Bad — asserts, hides that error could be any thrown value
+} catch (error) {
+  throw new InfrastructureError(`Failed: ${(error as Error).message}`);
+}
+
+// ✅ Good — narrows with a type guard, no assertion
+} catch (error) {
+  throw new InfrastructureError(`Failed: ${error instanceof Error ? error.message : String(error)}`);
+}
+```
+
+### Pre-approved exceptions
+
+These are real, already-established structural patterns in this codebase. They do **not**
+require asking each time — everything outside this list does, even when the cast "obviously"
+works.
+
+1. **Generic base-class boundaries** — e.g. `BaseMapper.toFilter` (§7) narrowing between
+   `NewDomainModel` and `DBSchema`, or a generic sub-document helper narrowing `S` → `S & { _id:
+   string }`. The relationship between the generic type parameters is only guaranteed by the
+   concrete subclass wiring them together, not provable structurally by TS.
+2. **`TransactionOptions.session` crossing into a concrete driver type** — it's deliberately typed
+   `session?: unknown` in `IDatabaseMapper` to stay database-agnostic (Mongoose today, potentially
+   Sequelize or another driver later); a concrete Mongoose repository asserting it to
+   `mongoose.mongo.ClientSession` to actually pass it to a Mongoose call is expected.
+3. **Inside a hand-written `is` type-guard function's own implementation** — the guard's entire
+   job is to prove an invariant TS can't infer from `unknown`/a wider type; the assertion belongs
+   there, never at a call site of the guard.
+4. **`req.user!` in a controller method typed `AuthenticatedRequest`** — `UserValidatorMiddleware`
+   guarantees `req.user` is populated by the time a controller runs, but `AuthenticatedRequest.user`
+   stays optional (`user?: User`) so the type can also represent pre-auth request state; the
+   runtime guarantee isn't structurally expressible.
+5. **Narrowing a Mongoose `ref` field after `.populate()`** — the schema declares `Types.ObjectId`,
+   but a populated field holds the referenced document at runtime; Mongoose's typings don't
+   reflect population, so the mapper must assert to the known populated shape (see §8 Population
+   Strategy).
