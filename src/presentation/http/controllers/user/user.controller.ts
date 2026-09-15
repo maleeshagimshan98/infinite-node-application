@@ -88,7 +88,7 @@ export class UserController extends BaseController {
    */
   async getById(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
-      const result = await this.userService.getById(req.params.id as string);
+      const result = await this.userService.getById(this.getStringParam(req, 'id'));
 
       return ApiResponseUtils.apiOkResponse(200, false, null, 'User retrieved successfully', this.toSafeUser(result));
     });
@@ -105,7 +105,7 @@ export class UserController extends BaseController {
   async update(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
       const data = matchedData<Partial<INewUser>>(req);
-      const result = await this.userService.update(req.params.id as string, data);
+      const result = await this.userService.update(this.getStringParam(req, 'id'), data);
 
       return ApiResponseUtils.apiOkResponse(200, false, null, 'User updated successfully', this.toSafeUser(result));
     });
@@ -121,7 +121,7 @@ export class UserController extends BaseController {
    */
   async delete(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
-      const result = await this.userService.delete(req.params.id as string);
+      const result = await this.userService.delete(this.getStringParam(req, 'id'));
 
       return ApiResponseUtils.apiOkResponse(200, false, null, 'User deleted successfully', this.toSafeUser(result));
     });

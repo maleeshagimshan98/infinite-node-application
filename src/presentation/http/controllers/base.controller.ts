@@ -5,6 +5,7 @@
 import type { APIResponse } from '@/app/core/utils/api-response/api-response';
 import { Paginator } from '@/app/core/utils/pagination/paginator';
 import { PaginationException } from '@/app/core/utils/pagination/pagination-exception';
+import { RouteParamException } from '@/app/core/utils/request/route-param-exception';
 import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
@@ -97,6 +98,10 @@ class BaseController {
         this.logErrors(e);
         return ApiResponseUtils.apiErrorResponse(400, e.message);
       }
+      if (e instanceof RouteParamException) {
+        this.logErrors(e);
+        return ApiResponseUtils.apiErrorResponse(400, e.message);
+      }
       if (e instanceof DomainEntityError) {
         this.logErrors(e);
         return ApiResponseUtils.apiErrorResponse(400, e.message);
@@ -151,6 +156,22 @@ class BaseController {
     const limit = Number(request.query.limit);
     const paginator = new Paginator(page, totalResultCount, limit);
     return paginator;
+  }
+
+  /**
+   * Extracts and validates a route parameter as a string.
+   *
+   * @param {Request} request - The Express request object.
+   * @param {string} paramName - The name of the route parameter to extract.
+   * @returns {string} The validated string value of the route parameter.
+   * @throws {RouteParamException} When the parameter is missing or is not a string.
+   */
+  protected getStringParam(request: Request, paramName: string): string {
+    const value = request.params[paramName];
+    if (typeof value !== 'string') {
+      throw new RouteParamException(`Route parameter "${paramName}" is missing or invalid.`);
+    }
+    return value;
   }
 
   //   protected getDataAccessClosure(

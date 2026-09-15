@@ -65,7 +65,7 @@ export class ResourceController extends BaseController {
    */
   async getById(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
-      const result = await this.resourceService.getById(req.params.id as string);
+      const result = await this.resourceService.getById(this.getStringParam(req, 'id'));
 
       return ApiResponseUtils.apiOkResponse(200, false, null, 'Resource retrieved successfully', result);
     });
@@ -82,7 +82,7 @@ export class ResourceController extends BaseController {
   async update(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
       const data = matchedData<Partial<INewResource>>(req);
-      const result = await this.resourceService.update(req.params.id as string, data);
+      const result = await this.resourceService.update(this.getStringParam(req, 'id'), data);
 
       return ApiResponseUtils.apiOkResponse(200, false, null, 'Resource updated successfully', result);
     });
@@ -98,7 +98,7 @@ export class ResourceController extends BaseController {
    */
   async delete(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
-      const result = await this.resourceService.delete(req.params.id as string);
+      const result = await this.resourceService.delete(this.getStringParam(req, 'id'));
 
       return ApiResponseUtils.apiOkResponse(200, false, null, 'Resource deleted successfully', result);
     });
