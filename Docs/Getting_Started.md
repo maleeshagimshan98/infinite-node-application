@@ -10,7 +10,7 @@
 | Requirement | Notes                                                                                                                                                                                                                                                                                                                                               |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Node.js     | 18+ LTS for local dev (the Docker image uses Node 22)                                                                                                                                                                                                                                                                                               |
-| MongoDB     | 7+, configured as a **replica set** (a single-node set named `rs0` is enough). This is not optional — the application/domain services run multi-document transactions (`IDatabaseMapper.withTransaction`), which MongoDB only supports inside a replica set. Standalone MongoDB will fail at the first transactional write (signup, seeding, etc.). |
+| MongoDB     | 7+, configured as a **replica set** (a single-node set named `rs0` is enough). This is not optional — the application/domain services run multi-document transactions (`IDatabaseMapper.withTransaction`), which MongoDB only supports inside a replica set. Standalone MongoDB will fail at the first transactional write (signup, seeding, etc.). For a native (non-Docker) install on Windows or Linux, see [`guides/REPLICA_SET_SETUP_GUIDE.md`](guides/REPLICA_SET_SETUP_GUIDE.md). |
 | Redis       | 7+. `REDIS_SERVICE_OPTIONAL=true` lets the app boot without it, but the rate limiter is designed to use it — treat it as required outside quick local experiments.                                                                                                                                                                                  |
 | npm         | Ships with Node.js                                                                                                                                                                                                                                                                                                                                  |
 
@@ -101,7 +101,9 @@ hand-rolling a replica set locally.
 
 No Docker at all is also possible (install MongoDB and Redis natively, initiate the replica set
 yourself with `mongosh --eval "rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] })"`)
-— everything past that point is identical to steps 2–4 above.
+— everything past that point is identical to steps 2–4 above. For the complete walkthrough (a
+two-member replica set running as native OS services, service management, troubleshooting — both
+Windows and Linux), see [`guides/REPLICA_SET_SETUP_GUIDE.md`](guides/REPLICA_SET_SETUP_GUIDE.md).
 
 ## 4. Generating JWT RS256 keys
 
@@ -214,7 +216,7 @@ build` must have already produced `dist/` if you're not using the Docker image's
 
 | Symptom                                                                   | Cause                                                                                                                                        |
 | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Seeding (or any write) fails with a transaction/session error immediately | `MONGODB_URI` is missing `?replicaSet=rs0`, or the replica set was never initiated — connect with `mongosh` and run `rs.status()` to confirm |
+| Seeding (or any write) fails with a transaction/session error immediately | `MONGODB_URI` is missing `?replicaSet=rs0`, or the replica set was never initiated — connect with `mongosh` and run `rs.status()` to confirm. See [`guides/REPLICA_SET_SETUP_GUIDE.md`](guides/REPLICA_SET_SETUP_GUIDE.md#troubleshooting-windows) ([Linux](guides/REPLICA_SET_SETUP_GUIDE.md#troubleshooting-linux)) for a from-scratch native setup |
 | Role seeder logs `⚠️ No resources found. Please seed resources first.`    | Resource seeding failed or was skipped unexpectedly — check the `🔹 Seeding Resources...` log lines above it                                 |
 | Every seeder logs `⏭️ Skipped (Already Exists)`                           | Expected on a re-run — not a failure                                                                                                         |
 | 429 Too Many Requests on every route                                      | Redis is unreachable; the rate limiter uses a Redis-backed store via the DI `cache` service                                                  |
@@ -224,3 +226,5 @@ build` must have already produced `dist/` if you're not using the Docker image's
 - [`prompts/Database_Seeding_Guide.md`](prompts/Database_Seeding_Guide.md) — seeder implementation
   pattern and how to add a new one
 - [`rbac_plan.md`](rbac_plan.md) — the RBAC model the resource/role seeders populate
+- [`guides/REPLICA_SET_SETUP_GUIDE.md`](guides/REPLICA_SET_SETUP_GUIDE.md) — full walkthrough for
+  setting up a native (non-Docker) MongoDB replica set on Windows or Linux
