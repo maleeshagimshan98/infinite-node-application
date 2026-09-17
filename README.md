@@ -34,8 +34,9 @@ This repo is designed to be cloned, configured via environment files, and run lo
 
 ## Quickstart
 
-> For the full first-run walkthrough (Docker Compose vs. local setup, generating JWT keys,
-> what the seeders create and why order matters, production notes), see
+> For the full first-run walkthrough (Docker Compose vs. local setup, generating JWT keys for
+> local and production environments, what the seeders create and why order matters, production
+> notes), see
 > [`Docs/Getting_Started.md`](Docs/Getting_Started.md). The steps below are the short version.
 
 Prerequisites
@@ -259,6 +260,12 @@ Important notes
   compose port mapping to match your chosen `NODE_PORT`
 - Outside Compose, the app expects MongoDB and Redis reachable at whatever `MONGODB_URI` /
   `REDIS_SERVER_URL` point to — supply those to target external services instead
+- Hand-filling `.env.production` as shown above is fine for local/quick Compose testing only —
+  the file is gitignored. For a real deployment, don't keep secrets in a plaintext env file on
+  the host at all; generate and inject them properly instead — see
+  [`Docs/Getting_Started.md`](Docs/Getting_Started.md#4-generating-jwt-rs256-keys) for the
+  local-vs-production breakdown (key generation, storing in a secret manager, and injecting into
+  the container)
 
 Standalone image build/run (bring your own MongoDB/Redis):
 

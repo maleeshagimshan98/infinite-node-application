@@ -107,7 +107,13 @@ yourself with `mongosh --eval "rs.initiate({ _id: 'rs0', members: [{ _id: 0, hos
 
 Auth uses RS256, so both a private and public PEM key are required (`JWT_PRIVATE_KEY` /
 `JWT_PUBLIC_KEY`). The env value must be the PEM content on a single line with literal `\n`
-between lines:
+between lines.
+
+> **Note:** The straightforward "generate, then paste into `.env`" flow below is for **local
+> development only**. Never store a production key as a plaintext value in a `.env` file on a
+> server or in CI — see [Production](#production) below for how to handle it there instead.
+
+### Local development
 
 ```powershell
 openssl genrsa -out jwt_private.pem 2048
@@ -118,8 +124,52 @@ node -e "console.log(require('fs').readFileSync('jwt_private.pem','utf8').split(
 node -e "console.log(require('fs').readFileSync('jwt_public.pem','utf8').split('\n').join('\\n'))"
 ```
 
-Paste each command's output as the value of `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` respectively.
-Discard the `.pem` files afterwards — only the `.env` value is used at runtime.
+Paste each command's output as the value of `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` respectively in
+`.env.development`. Discard the `.pem` files afterwards — only the `.env` value is used at
+runtime.
+
+### Production
+
+Generate the key pair the same way (`openssl genrsa` / `openssl rsa -pubout`), but don't hand-type
+the PEM values into a plaintext `.env.production` that lives on a server or in CI — that file
+persists on disk (and often in build logs) indefinitely, unlike a secret pulled fresh at deploy
+time.
+
+1. **Store the pair in a managed secret store.** Worked example with AWS Secrets Manager:
+
+   ```powershell
+   aws secretsmanager create-secret --name infinite-node/jwt-private-key --secret-string file://jwt_private.pem
+   aws secretsmanager create-secret --name infinite-node/jwt-public-key  --secret-string file://jwt_public.pem
+   ```
+
+   Any other cloud provider's equivalent works the same way — GCP Secret Manager, Azure Key
+   Vault, HashiCorp Vault, etc. Delete the local `.pem` files once they're stored.
+
+2. **Inject the values as environment variables at deploy time**, not by committing them to a
+   file ahead of time:
+
+   - **Docker Compose** (this repo's `docker-compose.yml`, e.g. a single-VM deployment) — have
+     your deploy step pull the secret and write `.env.production` immediately before
+     `docker compose up -d --build`, instead of that file being hand-populated once and left
+     sitting on the host:
+
+     ```powershell
+     aws secretsmanager get-secret-value --secret-id infinite-node/jwt-private-key `
+       --query SecretString --output text
+     ```
+
+     Write the result as `JWT_PRIVATE_KEY=<value>` (same single-line `\n`-escaped form as above)
+     into `.env.production` as part of the deploy script/pipeline. Regenerate the file on every
+     deploy; never commit it or leave it pre-populated between deploys.
+
+   - **AWS ECS Fargate** (or another container orchestrator) — reference the secret's ARN
+     directly in the task definition's `secrets` block; the platform injects it as a container
+     environment variable at task start, so the value never touches disk, a CI log, or a deploy
+     script at all. This repo doesn't yet ship the Terraform/ECS task-definition config for that —
+     treat this as the target pattern once that infra exists, not something already wired up here.
+
+Either way, the app only ever reads `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` from `process.env` — how
+those variables get populated is entirely a deployment concern, not a difference in app behavior.
 
 ## 5. What gets seeded, and why the order matters
 
