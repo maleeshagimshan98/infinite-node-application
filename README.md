@@ -34,8 +34,9 @@ This repo is designed to be cloned, configured via environment files, and run lo
 
 ## Quickstart
 
-> For the full first-run walkthrough (Docker Compose vs. local setup, generating JWT keys,
-> what the seeders create and why order matters, production notes), see
+> For the full first-run walkthrough (Docker Compose vs. local setup, generating JWT keys for
+> local and production environments, what the seeders create and why order matters, production
+> notes), see
 > [`Docs/Getting_Started.md`](Docs/Getting_Started.md). The steps below are the short version.
 
 Prerequisites
@@ -43,7 +44,9 @@ Prerequisites
 - Node.js 18+ (LTS recommended) and npm
 - MongoDB 7+ running as a **replica set** (a single-node `rs0` is enough) — required, the
   application/domain services run multi-document transactions, which MongoDB only supports inside
-  a replica set
+  a replica set. Setting it up via Docker Compose (below) handles this for you; for a native
+  install on Windows or Linux, see
+  [`Docs/guides/REPLICA_SET_SETUP_GUIDE.md`](Docs/guides/REPLICA_SET_SETUP_GUIDE.md)
 - Redis running locally (the rate limiter is Redis-backed; `REDIS_SERVICE_OPTIONAL=true` lets the
   app boot without it, but treat it as required outside quick experiments)
 
@@ -259,6 +262,12 @@ Important notes
   compose port mapping to match your chosen `NODE_PORT`
 - Outside Compose, the app expects MongoDB and Redis reachable at whatever `MONGODB_URI` /
   `REDIS_SERVER_URL` point to — supply those to target external services instead
+- Hand-filling `.env.production` as shown above is fine for local/quick Compose testing only —
+  the file is gitignored. For a real deployment, don't keep secrets in a plaintext env file on
+  the host at all; generate and inject them properly instead — see
+  [`Docs/Getting_Started.md`](Docs/Getting_Started.md#4-generating-jwt-rs256-keys) for the
+  local-vs-production breakdown (key generation, storing in a secret manager, and injecting into
+  the container)
 
 Standalone image build/run (bring your own MongoDB/Redis):
 
@@ -296,7 +305,7 @@ Jest matches tests under src/\*_/_.spec.(ts|js). There are example specs in app/
 ## Troubleshooting
 
 - 429 Too many requests: Ensure Redis is reachable; the rate limiter uses a Redis store via the DI cache service
-- Transaction/session errors on signup or seeding: `MONGODB_URI` is missing `?replicaSet=rs0`, or the replica set was never initiated — connect with `mongosh` and run `rs.status()` to confirm
+- Transaction/session errors on signup or seeding: `MONGODB_URI` is missing `?replicaSet=rs0`, or the replica set was never initiated — connect with `mongosh` and run `rs.status()` to confirm. For a from-scratch native setup, see [`Docs/guides/REPLICA_SET_SETUP_GUIDE.md`](Docs/guides/REPLICA_SET_SETUP_GUIDE.md)
 - Health check failing in Docker: Ensure NODE_PORT matches the healthcheck port (3001 by default in Dockerfile) or adjust Dockerfile
 - Logs not created: Confirm write permissions to ./logs in container/host
 - More seeding-specific issues: see [`Docs/Getting_Started.md`](Docs/Getting_Started.md#7-troubleshooting)

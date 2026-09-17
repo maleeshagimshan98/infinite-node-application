@@ -10,7 +10,7 @@
 | Requirement | Notes                                                                                                                                                                                                                                                                                                                                               |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Node.js     | 18+ LTS for local dev (the Docker image uses Node 22)                                                                                                                                                                                                                                                                                               |
-| MongoDB     | 7+, configured as a **replica set** (a single-node set named `rs0` is enough). This is not optional — the application/domain services run multi-document transactions (`IDatabaseMapper.withTransaction`), which MongoDB only supports inside a replica set. Standalone MongoDB will fail at the first transactional write (signup, seeding, etc.). |
+| MongoDB     | 7+, configured as a **replica set** (a single-node set named `rs0` is enough). This is not optional — the application/domain services run multi-document transactions (`IDatabaseMapper.withTransaction`), which MongoDB only supports inside a replica set. Standalone MongoDB will fail at the first transactional write (signup, seeding, etc.). For a native (non-Docker) install on Windows or Linux, see [`guides/REPLICA_SET_SETUP_GUIDE.md`](guides/REPLICA_SET_SETUP_GUIDE.md). |
 | Redis       | 7+. `REDIS_SERVICE_OPTIONAL=true` lets the app boot without it, but the rate limiter is designed to use it — treat it as required outside quick local experiments.                                                                                                                                                                                  |
 | npm         | Ships with Node.js                                                                                                                                                                                                                                                                                                                                  |
 
@@ -101,13 +101,21 @@ hand-rolling a replica set locally.
 
 No Docker at all is also possible (install MongoDB and Redis natively, initiate the replica set
 yourself with `mongosh --eval "rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] })"`)
-— everything past that point is identical to steps 2–4 above.
+— everything past that point is identical to steps 2–4 above. For the complete walkthrough (a
+two-member replica set running as native OS services, service management, troubleshooting — both
+Windows and Linux), see [`guides/REPLICA_SET_SETUP_GUIDE.md`](guides/REPLICA_SET_SETUP_GUIDE.md).
 
 ## 4. Generating JWT RS256 keys
 
 Auth uses RS256, so both a private and public PEM key are required (`JWT_PRIVATE_KEY` /
 `JWT_PUBLIC_KEY`). The env value must be the PEM content on a single line with literal `\n`
-between lines:
+between lines.
+
+> **Note:** The straightforward "generate, then paste into `.env`" flow below is for **local
+> development only**. Never store a production key as a plaintext value in a `.env` file on a
+> server or in CI — see [Production](#production) below for how to handle it there instead.
+
+### Local development
 
 ```powershell
 openssl genrsa -out jwt_private.pem 2048
@@ -118,8 +126,52 @@ node -e "console.log(require('fs').readFileSync('jwt_private.pem','utf8').split(
 node -e "console.log(require('fs').readFileSync('jwt_public.pem','utf8').split('\n').join('\\n'))"
 ```
 
-Paste each command's output as the value of `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` respectively.
-Discard the `.pem` files afterwards — only the `.env` value is used at runtime.
+Paste each command's output as the value of `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` respectively in
+`.env.development`. Discard the `.pem` files afterwards — only the `.env` value is used at
+runtime.
+
+### Production
+
+Generate the key pair the same way (`openssl genrsa` / `openssl rsa -pubout`), but don't hand-type
+the PEM values into a plaintext `.env.production` that lives on a server or in CI — that file
+persists on disk (and often in build logs) indefinitely, unlike a secret pulled fresh at deploy
+time.
+
+1. **Store the pair in a managed secret store.** Worked example with AWS Secrets Manager:
+
+   ```powershell
+   aws secretsmanager create-secret --name infinite-node/jwt-private-key --secret-string file://jwt_private.pem
+   aws secretsmanager create-secret --name infinite-node/jwt-public-key  --secret-string file://jwt_public.pem
+   ```
+
+   Any other cloud provider's equivalent works the same way — GCP Secret Manager, Azure Key
+   Vault, HashiCorp Vault, etc. Delete the local `.pem` files once they're stored.
+
+2. **Inject the values as environment variables at deploy time**, not by committing them to a
+   file ahead of time:
+
+   - **Docker Compose** (this repo's `docker-compose.yml`, e.g. a single-VM deployment) — have
+     your deploy step pull the secret and write `.env.production` immediately before
+     `docker compose up -d --build`, instead of that file being hand-populated once and left
+     sitting on the host:
+
+     ```powershell
+     aws secretsmanager get-secret-value --secret-id infinite-node/jwt-private-key `
+       --query SecretString --output text
+     ```
+
+     Write the result as `JWT_PRIVATE_KEY=<value>` (same single-line `\n`-escaped form as above)
+     into `.env.production` as part of the deploy script/pipeline. Regenerate the file on every
+     deploy; never commit it or leave it pre-populated between deploys.
+
+   - **AWS ECS Fargate** (or another container orchestrator) — reference the secret's ARN
+     directly in the task definition's `secrets` block; the platform injects it as a container
+     environment variable at task start, so the value never touches disk, a CI log, or a deploy
+     script at all. This repo doesn't yet ship the Terraform/ECS task-definition config for that —
+     treat this as the target pattern once that infra exists, not something already wired up here.
+
+Either way, the app only ever reads `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` from `process.env` — how
+those variables get populated is entirely a deployment concern, not a difference in app behavior.
 
 ## 5. What gets seeded, and why the order matters
 
@@ -164,7 +216,7 @@ build` must have already produced `dist/` if you're not using the Docker image's
 
 | Symptom                                                                   | Cause                                                                                                                                        |
 | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Seeding (or any write) fails with a transaction/session error immediately | `MONGODB_URI` is missing `?replicaSet=rs0`, or the replica set was never initiated — connect with `mongosh` and run `rs.status()` to confirm |
+| Seeding (or any write) fails with a transaction/session error immediately | `MONGODB_URI` is missing `?replicaSet=rs0`, or the replica set was never initiated — connect with `mongosh` and run `rs.status()` to confirm. See [`guides/REPLICA_SET_SETUP_GUIDE.md`](guides/REPLICA_SET_SETUP_GUIDE.md#troubleshooting-windows) ([Linux](guides/REPLICA_SET_SETUP_GUIDE.md#troubleshooting-linux)) for a from-scratch native setup |
 | Role seeder logs `⚠️ No resources found. Please seed resources first.`    | Resource seeding failed or was skipped unexpectedly — check the `🔹 Seeding Resources...` log lines above it                                 |
 | Every seeder logs `⏭️ Skipped (Already Exists)`                           | Expected on a re-run — not a failure                                                                                                         |
 | 429 Too Many Requests on every route                                      | Redis is unreachable; the rate limiter uses a Redis-backed store via the DI `cache` service                                                  |
@@ -174,3 +226,5 @@ build` must have already produced `dist/` if you're not using the Docker image's
 - [`prompts/Database_Seeding_Guide.md`](prompts/Database_Seeding_Guide.md) — seeder implementation
   pattern and how to add a new one
 - [`rbac_plan.md`](rbac_plan.md) — the RBAC model the resource/role seeders populate
+- [`guides/REPLICA_SET_SETUP_GUIDE.md`](guides/REPLICA_SET_SETUP_GUIDE.md) — full walkthrough for
+  setting up a native (non-Docker) MongoDB replica set on Windows or Linux

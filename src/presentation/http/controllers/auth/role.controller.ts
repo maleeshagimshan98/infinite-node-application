@@ -65,7 +65,7 @@ export class RoleController extends BaseController {
    */
   async getById(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
-      const result = await this.roleService.getById(req.params.id as string);
+      const result = await this.roleService.getById(this.getStringParam(req, 'id'));
 
       return ApiResponseUtils.apiOkResponse(200, false, null, 'Role retrieved successfully', result);
     });
@@ -82,7 +82,7 @@ export class RoleController extends BaseController {
   async update(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
       const data = matchedData<Partial<INewRole>>(req);
-      const result = await this.roleService.update(req.params.id as string, data);
+      const result = await this.roleService.update(this.getStringParam(req, 'id'), data);
 
       return ApiResponseUtils.apiOkResponse(200, false, null, 'Role updated successfully', result);
     });
@@ -98,7 +98,7 @@ export class RoleController extends BaseController {
    */
   async delete(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
-      const result = await this.roleService.delete(req.params.id as string);
+      const result = await this.roleService.delete(this.getStringParam(req, 'id'));
 
       return ApiResponseUtils.apiOkResponse(200, false, null, 'Role deleted successfully', result);
     });

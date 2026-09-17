@@ -368,6 +368,11 @@ export abstract class BaseMapper<DBSchema, DomainModel, NewDomainModel> implemen
 }
 ```
 
+> **Exception**: the casts through `Record<string, unknown>` in `toFilter` above are pre-approved
+> under this project's Type Assertions Policy (`CLAUDE.md` §24 / `AGENTS.md`) — they bridge the
+> generic `NewDomainModel`/`DBSchema` relationship at a base-class boundary TS can't verify
+> structurally. Don't add further assertions elsewhere in a mapper without asking first.
+
 > **RULE**: Concrete root mappers must **extend `BaseMapper`**, never implement `IBaseMapper`
 > directly. `toFilter` (the `id → _id` query translation) is inherited — do not override it.
 
@@ -565,6 +570,12 @@ private mapToPersistenceMap<S, D>(record: Record<string, D>, mapper: { toPersist
 }
 ```
 
+> **Exception**: `mapper.toDomain(value as S & { _id: string })` above is the same generic
+> base-class-boundary case as `toDomain`'s `INew{Model}Schema & { _id: Types.ObjectId }`
+> intersection type (§ above) — a hydrated Map entry always has `_id` set at runtime, but `S`'s
+> generic constraint (`{ _id?: string }`) can't prove that structurally. Pre-approved under the
+> Type Assertions Policy; not a license to add further assertions elsewhere in the helper.
+
 And `toDomain` returns the **constructor interface** shape, handling `_id` internally:
 
 ```typescript
@@ -618,8 +629,14 @@ toDomain(data: INewOrderSchema & { _id: Types.ObjectId }): Order {
         Array.from(data.items.entries()).map(([key, item]) => [key, this.itemMapper.toDomain(item)]),
       )
     : {};
-  // ... assemble orderData with items, billing_details, shipments
-  return new Order(orderData as IOrder);
+  // Declare orderData with an explicit type annotation as it's assembled — this proves the shape
+  // to TS at the source, so no cast is needed when constructing Order below.
+  const orderData: IOrder = {
+    id: data._id.toString(),
+    items,
+    // ... billing_details, shipments, remaining fields
+  };
+  return new Order(orderData);
 }
 
 toPersistence(data: NewOrder): INewOrderSchema {
