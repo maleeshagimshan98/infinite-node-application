@@ -279,10 +279,10 @@ This step connects the two MongoDB instances so they work together as a replica 
 
 ```javascript
 rs.initiate({
-  _id: "rs0",
+  _id: 'rs0',
   members: [
-    { _id: 0, host: "localhost:27017" },
-    { _id: 1, host: "localhost:27018" },
+    { _id: 0, host: 'localhost:27017' },
+    { _id: 1, host: 'localhost:27018' },
   ],
 });
 ```
@@ -665,10 +665,10 @@ Then run:
 
 ```javascript
 rs.initiate({
-  _id: "rs0",
+  _id: 'rs0',
   members: [
-    { _id: 0, host: "localhost:27017" },
-    { _id: 1, host: "localhost:27018" },
+    { _id: 0, host: 'localhost:27017' },
+    { _id: 1, host: 'localhost:27018' },
   ],
 });
 ```
@@ -819,9 +819,9 @@ This part is identical on Windows and Linux — only the connection string matte
 ### In Your Application Code (Mongoose)
 
 ```javascript
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
-mongoose.connect("mongodb://localhost:27017,localhost:27018/?replicaSet=rs0", {
+mongoose.connect('mongodb://localhost:27017,localhost:27018/?replicaSet=rs0', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
@@ -862,7 +862,7 @@ mongodb://localhost:27018/?replicaSet=rs0
 Replace `<MONGODB_INSTALL_PATH>` with your actual path:
 
 | Service Name | Port  | Data Directory                       | Log File                                        |
-| ------------ | ----- | ------------------------------------ | ------------------------------------------------ |
+| ------------ | ----- | ------------------------------------ | ----------------------------------------------- |
 | MongoDB-rs1  | 27017 | `<MONGODB_INSTALL_PATH>\replica\rs1` | `<MONGODB_INSTALL_PATH>\replica\rs1\mongod.log` |
 | MongoDB-rs2  | 27018 | `<MONGODB_INSTALL_PATH>\replica\rs2` | `<MONGODB_INSTALL_PATH>\replica\rs2\mongod.log` |
 
@@ -872,8 +872,8 @@ Replace `<MONGODB_INSTALL_PATH>` with your actual path:
 
 Replace `<MONGODB_DATA_PATH>` with your actual path:
 
-| Service Name | Port  | Data Directory                    | Log File                    |
-| ------------ | ----- | ---------------------------------- | ---------------------------- |
+| Service Name | Port  | Data Directory                    | Log File                   |
+| ------------ | ----- | --------------------------------- | -------------------------- |
 | mongod-rs1   | 27017 | `<MONGODB_DATA_PATH>/replica/rs1` | `/var/log/mongodb/rs1.log` |
 | mongod-rs2   | 27018 | `<MONGODB_DATA_PATH>/replica/rs2` | `/var/log/mongodb/rs2.log` |
 

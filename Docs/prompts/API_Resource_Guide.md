@@ -2676,8 +2676,8 @@ You've completed the step-by-step implementation. **Now validate everything**:
    - [ ] Exports as default
    - [ ] Does NOT create workaround interfaces
    - [ ] If you added any type assertion (`as`, `<Type>`, or `!`) → confirm it's one of the
-     pre-approved exceptions in the Type Assertions Policy (`CLAUDE.md` §24 / `AGENTS.md`), or
-     **ASK** the user first
+         pre-approved exceptions in the Type Assertions Policy (`CLAUDE.md` §24 / `AGENTS.md`), or
+         **ASK** the user first
 
 4. **Service Files** (`*.service.ts`):
    - [ ] Extends BaseDomainService
