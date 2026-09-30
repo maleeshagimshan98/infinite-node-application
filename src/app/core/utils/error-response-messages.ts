@@ -1,6 +1,7 @@
 class ErrorResponseMessages {
   private static _SERVER_ERROR: string =
     'The server encountered an unexpected error while processing your request. Please try again later.';
+  private static _SERVICE_UNAVAILABLE_ERROR: string = 'The service is temporarily unavailable. Please try again later.';
   private static _REQUEST_VALIDATION_ERROR: string =
     'The request data is invalid. Please check the provided information and try again.';
   private static _NOT_FOUND_ERROR: string = 'The requested resource could not be found.';
@@ -10,6 +11,10 @@ class ErrorResponseMessages {
 
   public static SERVER_ERROR(): string {
     return this._SERVER_ERROR;
+  }
+
+  public static SERVICE_UNAVAILABLE(): string {
+    return this._SERVICE_UNAVAILABLE_ERROR;
   }
 
   public static NO_AUTHORIZATION_HEADER(): string {

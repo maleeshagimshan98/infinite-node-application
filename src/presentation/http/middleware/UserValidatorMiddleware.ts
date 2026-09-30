@@ -38,7 +38,11 @@ export const UserValidatorMiddleware =
       next();
     } catch (error) {
       if (error instanceof DomainServiceError) {
-        const apiResponse = APIResponseUtils.apiErrorResponse(401, error.message);
+        // A dependency outage is not an authentication failure, and its message is infrastructure-internal.
+        const apiResponse =
+          error.type === 'INFRASTRUCTURE_ERROR'
+            ? APIResponseUtils.infrastructureErrorResponse(error.data.type)
+            : APIResponseUtils.apiErrorResponse(401, error.message);
         res.status(apiResponse.getCode()).send(apiResponse.toJson());
         return;
       }

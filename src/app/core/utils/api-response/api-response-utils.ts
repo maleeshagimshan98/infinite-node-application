@@ -77,6 +77,30 @@ const getServerErrorAPIResponse = (): APIResponse => {
   return apiErrorResponse(500, ErrorResponseMessages.SERVER_ERROR());
 };
 
+/**
+ * Builds a generic 503 error APIResponse for temporarily unavailable dependencies.
+ *
+ * @returns {APIResponse} The 503 error APIResponse.
+ */
+const getServiceUnavailableAPIResponse = (): APIResponse => {
+  return apiErrorResponse(503, ErrorResponseMessages.SERVICE_UNAVAILABLE());
+};
+
+/**
+ * Builds the client-facing response for an infrastructure failure. The message is always generic so
+ * that driver/internal details (collection names, index keys, hosts) never reach the client; the full
+ * error must be logged by the caller instead.
+ *
+ * @param {unknown} infraType - The InfrastructureErrorType of the failure (e.g. 'NETWORK_ERROR').
+ * @returns {APIResponse} A 503 response for network/connection failures, otherwise a 500 response.
+ */
+const infrastructureErrorResponse = (infraType: unknown): APIResponse => {
+  if (infraType === 'NETWORK_ERROR' || infraType === 'CONNECTION_ERROR') {
+    return getServiceUnavailableAPIResponse();
+  }
+  return getServerErrorAPIResponse();
+};
+
 const noAuthorizationHeaderFoundResponse = (): APIResponse => {
   return apiErrorResponse(401, ErrorResponseMessages.NO_AUTHORIZATION_HEADER());
 };
@@ -129,6 +153,8 @@ export default {
   apiOkResponse,
   apiErrorResponse,
   getServerErrorAPIResponse,
+  getServiceUnavailableAPIResponse,
+  infrastructureErrorResponse,
   noAuthorizationHeaderFoundResponse,
   invalidAuthorizationHeaderResponse,
   resourceNotFoundErrorResponse,

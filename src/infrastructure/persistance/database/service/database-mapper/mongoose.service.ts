@@ -4,6 +4,7 @@
 
 import type { IDatabaseMapper, TransactionOptions } from '@/application/interfaces/database-mapper.interface';
 
+import { isMongooseDriverError } from '../../errors/mongoose-error.guards';
 import { PersistanceError } from '../../errors/persistance.error';
 
 import type { Connection } from 'mongoose';
@@ -96,25 +97,27 @@ export class MongooseService implements IDatabaseMapper {
   }
 
   /**
-   * Executes a series of database operations within a transaction, if supported by the underlying mapper
+   * Executes a series of database operations within a transaction, if supported by the underlying mapper.
+   * Errors thrown by the callback (domain, entity or other infrastructure errors) are rethrown unchanged;
+   * only Mongoose / MongoDB driver errors are translated into a PersistanceError.
    *
    * @param {(options: TransactionOptions) => Promise<T>} callback - An asynchronous function containing the database operations to execute within the transaction
    * @returns {Promise<T>} The result of the transaction callback
-   * @throws {PersistanceError} If the service is not initialized or the transaction fails
+   * @throws {PersistanceError} If Mongoose or the MongoDB driver fails while running, committing or aborting the transaction
    */
   async transaction<T>(callback: (options: TransactionOptions) => Promise<T>): Promise<T> {
     const connection: Connection = this.client.connection;
     try {
-      return connection.transaction(async (session) => {
-        return await callback({ session });
+      return await connection.transaction((session) => {
+        return callback({ session });
       });
     } catch (err: unknown) {
-      throw new PersistanceError(
-        `Failed to execute transaction: ${err instanceof Error ? err.message : 'Unknown error'}`,
-        {
-          cause: err,
-        },
-      );
+      // Translate only here, after withTransaction has finished: it retries on TransientTransactionError
+      // only while the raw MongoError is still unwrapped inside the callback.
+      if (!isMongooseDriverError(err)) {
+        throw err;
+      }
+      throw new PersistanceError(`Failed to execute transaction: ${err.message}`, { cause: err });
     }
   }
 

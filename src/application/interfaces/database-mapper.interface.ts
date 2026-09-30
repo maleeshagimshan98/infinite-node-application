@@ -27,11 +27,12 @@ export interface IDatabaseMapper extends IBaseInfrastructureService {
   mapper(): unknown;
 
   /**
-   * Executes a series of database operations within a transaction, if supported by the underlying mapper
+   * Executes a series of database operations within a transaction, if supported by the underlying mapper.
+   * Errors thrown by the callback itself are rethrown unchanged.
    *
    * @param {(options: TransactionOptions) => Promise<T>} callback - An asynchronous function containing the database operations to execute within the transaction
    * @returns {Promise<T>} The result of the transaction callback
-   * @throws {PersistanceError} If the underlying mapper does not support transactions or if the transaction fails
+   * @throws {PersistanceError} If the underlying mapper/driver fails (e.g. transactions unsupported, commit or connection failure)
    */
   transaction<T>(callback: (options: TransactionOptions) => Promise<T>): Promise<T>;
 }

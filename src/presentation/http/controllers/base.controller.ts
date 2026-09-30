@@ -28,16 +28,13 @@ class BaseController {
   }
 
   /**
-   * Generates an API response based on the type of infrastructure exception.
+   * Generates a generic API response for an infrastructure exception; its message is never exposed to the client.
    *
    * @param {InfrastructureError} infrastructureException The infrastructure exception to handle.
    * @returns {APIResponse} The corresponding API response.
    */
   protected getInfrastructureErrorResponse(infrastructureException: InfrastructureError): APIResponse {
-    if (infrastructureException.type === 'NETWORK_ERROR' || infrastructureException.type === 'CONNECTION_ERROR') {
-      return ApiResponseUtils.apiErrorResponse(503, infrastructureException.message);
-    }
-    return ApiResponseUtils.apiErrorResponse(500, infrastructureException.message);
+    return ApiResponseUtils.infrastructureErrorResponse(infrastructureException.type);
   }
 
   /**
@@ -75,11 +72,8 @@ class BaseController {
       return ApiResponseUtils.apiErrorResponse(500, serviceException.message, serviceException.data);
     }
     if (serviceException.type === 'INFRASTRUCTURE_ERROR') {
-      const infraType = serviceException.data?.type as string | undefined;
-      if (infraType === 'NETWORK_ERROR' || infraType === 'CONNECTION_ERROR') {
-        return ApiResponseUtils.apiErrorResponse(503, serviceException.message);
-      }
-      return ApiResponseUtils.apiErrorResponse(500, serviceException.message);
+      // The message is copied from the underlying infrastructure error, so it must not reach the client.
+      return ApiResponseUtils.infrastructureErrorResponse(serviceException.data.type);
     }
     return ApiResponseUtils.apiErrorResponse(500, 'An unknown error occurred.');
   }
