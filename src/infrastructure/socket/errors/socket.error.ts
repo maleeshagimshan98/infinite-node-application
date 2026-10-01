@@ -5,8 +5,8 @@
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 export class SocketError extends InfrastructureError {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, 'SOCKET_ERROR', undefined, options);
+  constructor(message: string, data?: Record<string, unknown>, options?: ErrorOptions) {
+    super(message, 'SOCKET_ERROR', data, options);
     this.name = 'SocketError';
   }
 }

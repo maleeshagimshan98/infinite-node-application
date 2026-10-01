@@ -73,7 +73,7 @@ export class SignupApplicationService extends BaseApplicationService {
    * non-interactive registrations (e.g. database seeding) that use placeholder addresses.
    * @returns {Promise<{ id: string; status: string }>} The created user's id and status.
    * @throws {DomainServiceError} UNKNOWN_ERROR when no default user group or default role is available.
-   * @throws {DomainServiceError} VALIDATION_ERROR when the email is already associated with another account.
+   * @throws {DomainServiceError} ALREADY_EXISTS when the email is already associated with another account.
    */
   async register(userData: INewUser, sendEmail: boolean = true): Promise<{ id: string; status: string }> {
     const { id, status, email, rawCode } = await this.dbTransaction(async ({ session }) => {

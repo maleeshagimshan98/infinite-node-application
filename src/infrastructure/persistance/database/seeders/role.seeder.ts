@@ -1,4 +1,5 @@
 import { container } from '@/app/core/service.container';
+import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import type { RoleService } from '@/domain/auth/service/role.service';
 import type { ResourceService } from '@/domain/auth/service/resource.service';
 import type { INewRole } from '@/domain/auth/models/role';
@@ -51,7 +52,7 @@ export async function seedRoles(): Promise<boolean> {
           id: result.id,
         });
       } catch (error) {
-        if (error instanceof Error && error.message.includes('already exists')) {
+        if (error instanceof DomainServiceError && error.type === 'ALREADY_EXISTS') {
           console.log(`   ⏭️  Role "${roleData.name}" already exists. Skipping.`);
         } else {
           throw error;

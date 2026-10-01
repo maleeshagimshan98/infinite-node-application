@@ -28,6 +28,12 @@ export class QueueDriver implements ICoreDriver<Queue, IQueueConfig> {
     this._config = config;
   }
 
+  /**
+   * Create the default BullMQ queue and wait until its Redis connection is ready.
+   *
+   * @returns {Promise<void>}
+   * @throws {DriverError} If the queue cannot be created or connected
+   */
   async init(): Promise<void> {
     try {
       const queue = new Queue(this._config.queueName, {
@@ -45,6 +51,7 @@ export class QueueDriver implements ICoreDriver<Queue, IQueueConfig> {
     } catch (err: unknown) {
       throw new DriverError(
         `Failed to initialize QueueDriver: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        err instanceof Error ? err : undefined,
       );
     }
   }
@@ -76,12 +83,21 @@ export class QueueDriver implements ICoreDriver<Queue, IQueueConfig> {
     return this._config;
   }
 
+  /**
+   * Close the default BullMQ queue.
+   *
+   * @returns {Promise<void>}
+   * @throws {DriverError} If the queue fails to close
+   */
   async shutdown(): Promise<void> {
     if (!this._default_client) return;
     try {
       await this._default_client.close();
-    } catch {
-      //... TODO
+    } catch (e: unknown) {
+      throw new DriverError(
+        `Failed to shutdown QueueDriver: ${e instanceof Error ? e.message : 'Unknown error'}`,
+        e instanceof Error ? e : undefined,
+      );
     } finally {
       this._default_client = undefined;
     }

@@ -120,8 +120,8 @@ export class UserService extends BaseDomainService {
    * @param {INewUser} data - The user data.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<User>} The created user.
-   * @throws {DomainServiceError} VALIDATION_ERROR when the email is already associated with another account,
-   * or when the given role_id/ug_id does not exist.
+   * @throws {DomainServiceError} ALREADY_EXISTS when the email is already associated with another account.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the given role_id/ug_id does not exist.
    */
   async create(data: INewUser, transactionOptions?: TransactionOptions): Promise<User> {
     return this.wrapInfrastructureErrors(async () => {
@@ -129,7 +129,7 @@ export class UserService extends BaseDomainService {
       if (existingUser) {
         throw new DomainServiceError(
           `The User with the email equal to ${data.email} already exists.`,
-          'VALIDATION_ERROR',
+          'ALREADY_EXISTS',
         );
       }
 
@@ -151,8 +151,8 @@ export class UserService extends BaseDomainService {
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<User>} The updated user.
    * @throws {DomainServiceError} NOT_FOUND when no user exists with the given id.
-   * @throws {DomainServiceError} VALIDATION_ERROR when renaming to an email already used by another
-   * account, or when the given role_id/ug_id does not exist.
+   * @throws {DomainServiceError} ALREADY_EXISTS when renaming to an email already used by another account.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the given role_id/ug_id does not exist.
    */
   async update(id: string, data: Partial<INewUser>, transactionOptions?: TransactionOptions): Promise<User> {
     return this.wrapInfrastructureErrors(async () => {
@@ -163,7 +163,7 @@ export class UserService extends BaseDomainService {
         if (duplicateUser) {
           throw new DomainServiceError(
             `The User with the email equal to ${data.email} already exists.`,
-            'VALIDATION_ERROR',
+            'ALREADY_EXISTS',
           );
         }
       }

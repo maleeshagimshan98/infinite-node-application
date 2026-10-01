@@ -47,7 +47,7 @@ export class SMTPEmailService implements IEmail {
   constructor(driver: SMTPDriver) {
     this.driver = driver;
     const client = this.driver.client();
-    if (!client || !(client instanceof Object)) {
+    if (!client) {
       throw new SmtpError('Invalid SMTP client provided to SMTPEmailService', {});
     }
     this.transporter = client;

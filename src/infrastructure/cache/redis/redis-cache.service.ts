@@ -30,7 +30,7 @@ export class RedisCacheService implements ICache {
   constructor(driver: RedisDriver) {
     this.driver = driver;
     const redisClient = this.driver.client();
-    if (!redisClient || !(redisClient instanceof Object)) {
+    if (!redisClient) {
       throw new InfrastructureError('Invalid Redis client provided to RedisCacheService', 'CONNECTION_ERROR', {
         clientType: typeof redisClient,
         providedClient: redisClient,
@@ -108,7 +108,7 @@ export class RedisCacheService implements ICache {
       throw new InfrastructureError(
         `Failed to get cache key "${key}": ${e instanceof Error ? e.message : 'Unknown error'}`,
         'CACHE_ERROR',
-        { key },
+        { key, cause: e },
       );
     }
   }
@@ -120,12 +120,13 @@ export class RedisCacheService implements ICache {
    * @param {T} value - Value to cache
    * @param {number} ttl - Optional time-to-live in seconds
    * @returns {Promise<void>} resolving when value is cached
+   * @throws {TypeError} If `value` cannot be JSON-serialized (circular structure, BigInt)
    * @throws {InfrastructureError} CACHE_ERROR if the Redis operation fails
    */
   async set<T>(key: string, value: T, ttl?: number): Promise<void> {
+    // Serialize outside the try: an unserializable value is the caller's error, not a cache failure.
+    const serializedValue = JSON.stringify(value);
     try {
-      const serializedValue = JSON.stringify(value);
-
       if (ttl) {
         // Set with expiration time
         await this.redisClient.setEx(key, ttl, serializedValue);
@@ -137,7 +138,7 @@ export class RedisCacheService implements ICache {
       throw new InfrastructureError(
         `Failed to set cache key "${key}": ${e instanceof Error ? e.message : 'Unknown error'}`,
         'CACHE_ERROR',
-        { key },
+        { key, cause: e },
       );
     }
   }
@@ -156,7 +157,7 @@ export class RedisCacheService implements ICache {
       throw new InfrastructureError(
         `Failed to delete cache key "${key}": ${e instanceof Error ? e.message : 'Unknown error'}`,
         'CACHE_ERROR',
-        { key },
+        { key, cause: e },
       );
     }
   }
@@ -174,6 +175,7 @@ export class RedisCacheService implements ICache {
       throw new InfrastructureError(
         `Failed to clear cache: ${e instanceof Error ? e.message : 'Unknown error'}`,
         'CACHE_ERROR',
+        { cause: e },
       );
     }
   }
@@ -185,16 +187,19 @@ export class RedisCacheService implements ICache {
    * @param {string} field - Field name within the hash
    * @param {T} value - Value to store for the field
    * @returns {Promise<void>} resolving when the field is set
+   * @throws {TypeError} If `value` cannot be JSON-serialized (circular structure, BigInt)
    * @throws {InfrastructureError} CACHE_ERROR if the Redis operation fails
    */
   async hSet<T>(key: string, field: string, value: T): Promise<void> {
+    // Serialize outside the try: an unserializable value is the caller's error, not a cache failure.
+    const serializedValue = JSON.stringify(value);
     try {
-      await this.redisClient.hSet(key, field, JSON.stringify(value));
+      await this.redisClient.hSet(key, field, serializedValue);
     } catch (e: unknown) {
       throw new InfrastructureError(
         `Failed to set cache hash field "${field}" on key "${key}": ${e instanceof Error ? e.message : 'Unknown error'}`,
         'CACHE_ERROR',
-        { key, field },
+        { key, field, cause: e },
       );
     }
   }
@@ -218,7 +223,7 @@ export class RedisCacheService implements ICache {
       throw new InfrastructureError(
         `Failed to get cache hash field "${field}" on key "${key}": ${e instanceof Error ? e.message : 'Unknown error'}`,
         'CACHE_ERROR',
-        { key, field },
+        { key, field, cause: e },
       );
     }
   }
@@ -242,7 +247,7 @@ export class RedisCacheService implements ICache {
       throw new InfrastructureError(
         `Failed to get all cache hash fields on key "${key}": ${e instanceof Error ? e.message : 'Unknown error'}`,
         'CACHE_ERROR',
-        { key },
+        { key, cause: e },
       );
     }
   }
@@ -262,7 +267,7 @@ export class RedisCacheService implements ICache {
       throw new InfrastructureError(
         `Failed to delete cache hash field "${field}" on key "${key}": ${e instanceof Error ? e.message : 'Unknown error'}`,
         'CACHE_ERROR',
-        { key, field },
+        { key, field, cause: e },
       );
     }
   }
@@ -282,7 +287,7 @@ export class RedisCacheService implements ICache {
       throw new InfrastructureError(
         `Failed to check cache hash field "${field}" on key "${key}": ${e instanceof Error ? e.message : 'Unknown error'}`,
         'CACHE_ERROR',
-        { key, field },
+        { key, field, cause: e },
       );
     }
   }
@@ -304,7 +309,7 @@ export class RedisCacheService implements ICache {
         throw new InfrastructureError(
           `Failed to shut down Redis connection: ${disconnectError instanceof Error ? disconnectError.message : 'Unknown error'}`,
           'CACHE_ERROR',
-          { quitError: error instanceof Error ? error.message : String(error) },
+          { quitError: error instanceof Error ? error.message : String(error), cause: disconnectError },
         );
       }
     }

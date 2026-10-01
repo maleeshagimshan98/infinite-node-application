@@ -79,7 +79,7 @@ export class ResourceService extends BaseDomainService {
    * @param {INewResource} data - The resource data.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<Resource>} The created resource.
-   * @throws {DomainServiceError} VALIDATION_ERROR when a resource with the same name already exists.
+   * @throws {DomainServiceError} ALREADY_EXISTS when a resource with the same name already exists.
    */
   async create(data: INewResource, transactionOptions?: TransactionOptions): Promise<Resource> {
     return this.wrapInfrastructureErrors(async () => {
@@ -87,7 +87,7 @@ export class ResourceService extends BaseDomainService {
       if (existingResource) {
         throw new DomainServiceError(
           `The Resource with the name equal to ${data.name} already exists.`,
-          'VALIDATION_ERROR',
+          'ALREADY_EXISTS',
         );
       }
 
@@ -103,7 +103,7 @@ export class ResourceService extends BaseDomainService {
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<Resource>} The updated resource.
    * @throws {DomainServiceError} NOT_FOUND when no resource exists with the given id.
-   * @throws {DomainServiceError} VALIDATION_ERROR when renaming to a name already used by another resource.
+   * @throws {DomainServiceError} ALREADY_EXISTS when renaming to a name already used by another resource.
    */
   async update(id: string, data: Partial<INewResource>, transactionOptions?: TransactionOptions): Promise<Resource> {
     return this.wrapInfrastructureErrors(async () => {
@@ -114,7 +114,7 @@ export class ResourceService extends BaseDomainService {
         if (duplicateResource) {
           throw new DomainServiceError(
             `The Resource with the name equal to ${data.name} already exists.`,
-            'VALIDATION_ERROR',
+            'ALREADY_EXISTS',
           );
         }
       }

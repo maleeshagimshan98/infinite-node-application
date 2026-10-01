@@ -1,4 +1,5 @@
 import { container } from '@/app/core/service.container';
+import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import type { UserGroupService } from '@/domain/user/service/user-group.service';
 import type { INewUserGroup } from '@/domain/user/models/user-group';
 
@@ -46,7 +47,7 @@ export async function seedUserGroups(): Promise<boolean> {
           id: result.id,
         });
       } catch (error) {
-        if (error instanceof Error && error.message.includes('already exists')) {
+        if (error instanceof DomainServiceError && error.type === 'ALREADY_EXISTS') {
           console.log(`   ⏭️  User group "${groupData.name}" already exists. Skipping.`);
         } else {
           throw error;

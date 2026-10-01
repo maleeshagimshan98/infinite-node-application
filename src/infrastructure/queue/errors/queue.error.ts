@@ -9,8 +9,8 @@
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 export class QueueError extends InfrastructureError {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, 'QUEUE_ERROR', undefined, options);
+  constructor(message: string, data?: Record<string, unknown>, options?: ErrorOptions) {
+    super(message, 'QUEUE_ERROR', data, options);
     this.name = 'QueueError';
   }
 }

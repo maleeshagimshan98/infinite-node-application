@@ -28,6 +28,12 @@ export class MongooseDriver implements ICoreDriver<typeof mongoose, IMongooseCon
     this._config = config;
   }
 
+  /**
+   * Connect Mongoose to the configured MongoDB URI.
+   *
+   * @returns {Promise<void>}
+   * @throws {DriverError} If the connection cannot be established
+   */
   async init(): Promise<void> {
     try {
       const conn = await mongoose.connect(this._config.uri, this._config.options);
@@ -35,6 +41,7 @@ export class MongooseDriver implements ICoreDriver<typeof mongoose, IMongooseCon
     } catch (error: unknown) {
       throw new DriverError(
         `Failed to initialize MongooseDriver: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error : undefined,
       );
     }
   }
@@ -47,6 +54,12 @@ export class MongooseDriver implements ICoreDriver<typeof mongoose, IMongooseCon
     return this._client;
   }
 
+  /**
+   * Disconnect Mongoose from MongoDB.
+   *
+   * @returns {Promise<void>}
+   * @throws {DriverError} If the connection fails to close
+   */
   async shutdown(): Promise<void> {
     if (this._client) {
       try {
@@ -54,6 +67,7 @@ export class MongooseDriver implements ICoreDriver<typeof mongoose, IMongooseCon
       } catch (error: unknown) {
         throw new DriverError(
           `Failed to shutdown MongooseDriver: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error instanceof Error ? error : undefined,
         );
       }
     }

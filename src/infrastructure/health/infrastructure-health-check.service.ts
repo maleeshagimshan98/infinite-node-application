@@ -162,7 +162,7 @@ export class InfrastructureHealthCheckService implements IHealthCheck {
    */
   private getFriendlyServiceName(serviceName: string): string {
     const nameMap: Record<string, string> = {
-      'database-mapper': 'database',
+      database_mapper: 'database',
       cache: 'cache',
       storage: 'storage',
       email: 'email',

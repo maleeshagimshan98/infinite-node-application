@@ -43,7 +43,7 @@ export class MongooseService implements IDatabaseMapper {
   constructor(driver: MongooseDriver) {
     this.driver = driver;
     const client = driver.client();
-    if (!client || !(client instanceof Object)) {
+    if (!client) {
       throw new PersistanceError('Invalid Mongoose client provided to MongooseService');
     }
     this.client = client;

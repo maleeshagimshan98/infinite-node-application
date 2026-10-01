@@ -57,7 +57,7 @@ export class SocketIOService implements ISocket {
   constructor(driver: SocketsDriver) {
     this.driver = driver;
     const client = driver.client();
-    if (!client || !(client instanceof Object)) {
+    if (!client) {
       throw new SocketError('Invalid Socket.IO client provided to SocketIOService');
     }
     this.client = client;
@@ -105,7 +105,7 @@ export class SocketIOService implements ISocket {
    * @param {string} event - The event name to emit
    * @param {Record<string, unknown>} data - The data payload to send with the event
    * @returns {void}
-   * @throws {SocketError} If the event cannot be emitted
+   * @throws {Error} If `event` is a reserved Socket.IO event name or `data` cannot be serialized
    *
    * @example
    * ```typescript
@@ -120,11 +120,8 @@ export class SocketIOService implements ISocket {
    * ```
    */
   emitEvent(event: string, data: Record<string, unknown>): void {
-    try {
-      this.client.emit(event, data);
-    } catch (e: unknown) {
-      throw new SocketError(`Failed to emit event "${event}": ${e instanceof Error ? e.message : 'Unknown error'}`);
-    }
+    // Not wrapped: emit only throws synchronously for caller errors; delivery failures are asynchronous.
+    this.client.emit(event, data);
   }
 
   /**
@@ -133,7 +130,6 @@ export class SocketIOService implements ISocket {
    * @param {string} event - The event name to listen for
    * @param {(data: Record<string, unknown>) => void} handler - The callback function to handle the event
    * @returns {void}
-   * @throws {SocketError} If the listener cannot be registered
    *
    * @example
    * ```typescript
@@ -150,13 +146,7 @@ export class SocketIOService implements ISocket {
    * ```
    */
   onEvent(event: string, handler: (data: Record<string, unknown>) => void): void {
-    try {
-      this.client.on(event, handler);
-    } catch (e: unknown) {
-      throw new SocketError(
-        `Failed to register listener for event "${event}": ${e instanceof Error ? e.message : 'Unknown error'}`,
-      );
-    }
+    this.client.on(event, handler);
   }
 
   /**

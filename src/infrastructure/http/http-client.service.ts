@@ -74,7 +74,8 @@ export class HTTPClientService implements IHTTPClient {
    *
    * @param {Omit<RequestConfig, 'method'>} config - Request configuration
    * @returns {Promise<HTTPResponse>}
-   * @throws {InfrastructureError}
+   * @throws {InfrastructureError} NETWORK_ERROR when the request was sent but failed
+   * @throws {Error} When the request could not be set up (caller or configuration error)
    */
   public get(config: Omit<RequestConfig, 'method'>): Promise<HTTPResponse> {
     return this.createRequest({
@@ -88,7 +89,8 @@ export class HTTPClientService implements IHTTPClient {
    *
    * @param {Omit<RequestConfig, 'method'>} config - Request configuration
    * @returns {Promise<HTTPResponse>}
-   * @throws {InfrastructureError}
+   * @throws {InfrastructureError} NETWORK_ERROR when the request was sent but failed
+   * @throws {Error} When the request could not be set up (caller or configuration error)
    */
   public post(config: Omit<RequestConfig, 'method'>): Promise<HTTPResponse> {
     return this.createRequest({
@@ -102,7 +104,8 @@ export class HTTPClientService implements IHTTPClient {
    *
    * @param {Omit<RequestConfig, 'method'>} config - Request configuration
    * @returns {Promise<HTTPResponse>}
-   * @throws {InfrastructureError}
+   * @throws {InfrastructureError} NETWORK_ERROR when the request was sent but failed
+   * @throws {Error} When the request could not be set up (caller or configuration error)
    */
   public put(config: Omit<RequestConfig, 'method'>): Promise<HTTPResponse> {
     return this.createRequest({
@@ -116,7 +119,8 @@ export class HTTPClientService implements IHTTPClient {
    *
    * @param {Omit<RequestConfig, 'method'>} config - Request configuration
    * @returns {Promise<HTTPResponse>}
-   * @throws {InfrastructureError}
+   * @throws {InfrastructureError} NETWORK_ERROR when the request was sent but failed
+   * @throws {Error} When the request could not be set up (caller or configuration error)
    */
   public patch(config: Omit<RequestConfig, 'method'>): Promise<HTTPResponse> {
     return this.createRequest({
@@ -130,7 +134,8 @@ export class HTTPClientService implements IHTTPClient {
    *
    * @param {Omit<RequestConfig, 'method'>} config - Request configuration
    * @returns {Promise<HTTPResponse>}
-   * @throws {InfrastructureError}
+   * @throws {InfrastructureError} NETWORK_ERROR when the request was sent but failed
+   * @throws {Error} When the request could not be set up (caller or configuration error)
    */
   public delete(config: Omit<RequestConfig, 'method'>): Promise<HTTPResponse> {
     return this.createRequest({
@@ -140,12 +145,15 @@ export class HTTPClientService implements IHTTPClient {
   }
 
   /**
-   * Internal method to create and execute HTTP requests
+   * Internal method to create and execute HTTP requests. Only failures after the request was sent
+   * (connection, DNS, timeout, redirects, unreadable response) are infrastructure errors; failures while
+   * setting the request up (unsupported protocol, invalid URL, unserializable body) are rethrown unchanged.
    *
    * @private
    * @param {RequestConfig} config - Request configuration
    * @returns {Promise<HTTPResponse>}
-   * @throws {InfrastructureError}
+   * @throws {InfrastructureError} NETWORK_ERROR when the request was sent but failed
+   * @throws {Error} When the request could not be set up (caller or configuration error)
    */
   private async createRequest(config: RequestConfig): Promise<HTTPResponse> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -163,14 +171,20 @@ export class HTTPClientService implements IHTTPClient {
     }
 
     const response = await axios(axiosConfig).catch((e: unknown) => {
-      const errorMessage = e instanceof Error ? e.message : String(e);
+      // axios sets `request` only once the request was actually sent.
+      if (!axios.isAxiosError(e) || e.request === undefined) {
+        throw e;
+      }
+      // The AxiosError itself is deliberately not attached: its `config` carries request headers (API keys,
+      // Authorization) that would end up in the logs.
       throw new InfrastructureError(
-        `Network request failed: ${config.method} ${config.url} - ${errorMessage}`,
+        `Network request failed: ${config.method} ${config.url} - ${e.message}`,
         'NETWORK_ERROR',
         {
           method: config.method,
           url: config.url,
-          error: errorMessage,
+          code: e.code,
+          error: e.message,
         },
       );
     });

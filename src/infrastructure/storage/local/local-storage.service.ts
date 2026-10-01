@@ -11,6 +11,17 @@ import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure
 import { storageConfig } from './local-file-storage.config';
 
 /**
+ * Determine whether a file system error means the path does not exist.
+ *
+ * @param {unknown} e - The thrown value to classify.
+ * @returns {boolean} True when `e` is an ENOENT error.
+ */
+function isNotFoundError(e: unknown): boolean {
+  // Shape check rather than `instanceof Error`: fs errors can come from another realm (e.g. under Jest).
+  return typeof e === 'object' && e !== null && 'code' in e && e.code === 'ENOENT';
+}
+
+/**
  * Local Storage Service Implementation
  *
  * Provides file storage functionality using the local file system.
@@ -102,8 +113,8 @@ export class LocalStorageService implements IStorage {
    * List all files in a folder
    *
    * @param {string} folderPath - Path to the folder relative to root
-   * @returns {Promise<string[]>} Promise resolving to array of relative file paths
-   * @throws {InfrastructureError} STORAGE_ERROR if the folder doesn't exist or cannot be read
+   * @returns {Promise<string[]>} Promise resolving to array of relative file paths, or [] when the folder does not exist
+   * @throws {InfrastructureError} STORAGE_ERROR if the folder cannot be read
    *
    * @example
    * ```typescript
@@ -118,10 +129,13 @@ export class LocalStorageService implements IStorage {
       const entries = await fs.readdir(fullPath, { withFileTypes: true });
       return entries.filter((entry) => entry.isFile()).map((entry) => path.join(folderPath, entry.name));
     } catch (e: unknown) {
+      if (isNotFoundError(e)) {
+        return [];
+      }
       throw new InfrastructureError(
         `Failed to list files in folder "${folderPath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
         'STORAGE_ERROR',
-        { folderPath },
+        { folderPath, cause: e },
       );
     }
   }
@@ -153,7 +167,7 @@ export class LocalStorageService implements IStorage {
       throw new InfrastructureError(
         `Failed to create file "${filePath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
         'STORAGE_ERROR',
-        { filePath },
+        { filePath, cause: e },
       );
     }
   }
@@ -162,24 +176,27 @@ export class LocalStorageService implements IStorage {
    * Read file content
    *
    * @param {string} filePath - File path relative to root
-   * @returns {Promise<Buffer>} Promise resolving to file content as Buffer
-   * @throws {InfrastructureError} STORAGE_ERROR if the file doesn't exist or cannot be read
+   * @returns {Promise<Buffer | null>} Promise resolving to file content as Buffer, or null when the file does not exist
+   * @throws {InfrastructureError} STORAGE_ERROR if the file cannot be read
    *
    * @example
    * ```typescript
    * const content = await storageService.readFile('docs/readme.txt');
-   * console.log(content.toString());
+   * console.log(content?.toString());
    * ```
    */
-  async readFile(filePath: string): Promise<Buffer> {
+  async readFile(filePath: string): Promise<Buffer | null> {
     const fullPath = path.join(this.rootPath, filePath);
     try {
       return await fs.readFile(fullPath);
     } catch (e: unknown) {
+      if (isNotFoundError(e)) {
+        return null;
+      }
       throw new InfrastructureError(
         `Failed to read file "${filePath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
         'STORAGE_ERROR',
-        { filePath },
+        { filePath, cause: e },
       );
     }
   }
@@ -205,7 +222,7 @@ export class LocalStorageService implements IStorage {
       throw new InfrastructureError(
         `Failed to update file "${filePath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
         'STORAGE_ERROR',
-        { filePath },
+        { filePath, cause: e },
       );
     }
   }
@@ -230,7 +247,7 @@ export class LocalStorageService implements IStorage {
       throw new InfrastructureError(
         `Failed to delete file "${filePath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
         'STORAGE_ERROR',
-        { filePath },
+        { filePath, cause: e },
       );
     }
   }
@@ -264,7 +281,7 @@ export class LocalStorageService implements IStorage {
       throw new InfrastructureError(
         `Failed to move file from "${srcPath}" to "${destPath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
         'STORAGE_ERROR',
-        { srcPath, destPath },
+        { srcPath, destPath, cause: e },
       );
     }
   }
@@ -289,7 +306,7 @@ export class LocalStorageService implements IStorage {
       throw new InfrastructureError(
         `Failed to create folder "${folderPath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
         'STORAGE_ERROR',
-        { folderPath },
+        { folderPath, cause: e },
       );
     }
   }
@@ -314,7 +331,7 @@ export class LocalStorageService implements IStorage {
       throw new InfrastructureError(
         `Failed to delete folder "${folderPath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
         'STORAGE_ERROR',
-        { folderPath },
+        { folderPath, cause: e },
       );
     }
   }

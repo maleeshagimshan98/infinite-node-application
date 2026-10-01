@@ -82,7 +82,8 @@ export class UserGroupService extends BaseDomainService {
    * @param {INewUserGroup} groupData - The data for the new user group.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<{ id: string; name: string }>} The created user group's id and name.
-   * @throws {DomainServiceError} VALIDATION_ERROR when a group with the same name already exists, or a default group already exists and `groupData.default` is true.
+   * @throws {DomainServiceError} ALREADY_EXISTS when a group with the same name already exists.
+   * @throws {DomainServiceError} VALIDATION_ERROR when a default group already exists and `groupData.default` is true.
    */
   async create(
     groupData: INewUserGroup,
@@ -94,7 +95,7 @@ export class UserGroupService extends BaseDomainService {
       if (existingGroup) {
         throw new DomainServiceError(
           `The User Group with the name equal to ${groupData.name} already exists.`,
-          'VALIDATION_ERROR',
+          'ALREADY_EXISTS',
         );
       }
 
@@ -126,7 +127,7 @@ export class UserGroupService extends BaseDomainService {
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<{ id: string; name: string }>} The updated user group's id and name.
    * @throws {DomainServiceError} NOT_FOUND when no user group exists with the given id, or the current default group could not be unset.
-   * @throws {DomainServiceError} VALIDATION_ERROR when another user group already has the requested name.
+   * @throws {DomainServiceError} ALREADY_EXISTS when another user group already has the requested name.
    */
   async update(
     id: string,
@@ -145,7 +146,7 @@ export class UserGroupService extends BaseDomainService {
         if (duplicateGroup) {
           throw new DomainServiceError(
             `The User Group with the name equal to ${updateData.name} already exists.`,
-            'VALIDATION_ERROR',
+            'ALREADY_EXISTS',
           );
         }
       }

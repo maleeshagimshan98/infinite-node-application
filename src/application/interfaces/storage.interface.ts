@@ -20,7 +20,7 @@ export interface IStorage extends IBaseInfrastructureService {
    * List all files in a folder
    *
    * @param {string} folderPath - Path to the folder
-   * @returns {Promise<string[]>} Promise resolving to array of file paths
+   * @returns {Promise<string[]>} Promise resolving to array of file paths, or [] when the folder does not exist
    */
   listFiles(folderPath: string): Promise<string[]>;
 
@@ -37,9 +37,9 @@ export interface IStorage extends IBaseInfrastructureService {
    * Read file content
    *
    * @param {string} path - File path to read
-   * @returns {Promise<Buffer>} Promise resolving to file content as Buffer
+   * @returns {Promise<Buffer | null>} Promise resolving to file content as Buffer, or null when the file does not exist
    */
-  readFile(path: string): Promise<Buffer>;
+  readFile(path: string): Promise<Buffer | null>;
 
   /**
    * Update existing file with new content

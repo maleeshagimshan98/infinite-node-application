@@ -98,8 +98,8 @@ export class RoleService extends BaseDomainService {
    * @param {INewRole} data - The role data.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<Role>} The created role.
-   * @throws {DomainServiceError} VALIDATION_ERROR when a role with the same name already exists, or
-   * when another role is already set as default.
+   * @throws {DomainServiceError} ALREADY_EXISTS when a role with the same name already exists.
+   * @throws {DomainServiceError} VALIDATION_ERROR when another role is already set as default.
    * @throws {DomainServiceError} NOT_FOUND when a resource_permissions entry references a resource id
    * that does not exist.
    */
@@ -107,10 +107,7 @@ export class RoleService extends BaseDomainService {
     return this.wrapInfrastructureErrors(async () => {
       const existingRole = await this.getByName(data.name, transactionOptions);
       if (existingRole) {
-        throw new DomainServiceError(
-          `The Role with the name equal to ${data.name} already exists.`,
-          'VALIDATION_ERROR',
-        );
+        throw new DomainServiceError(`The Role with the name equal to ${data.name} already exists.`, 'ALREADY_EXISTS');
       }
 
       if (data.default) {
@@ -138,7 +135,7 @@ export class RoleService extends BaseDomainService {
    * @returns {Promise<Role>} The updated role.
    * @throws {DomainServiceError} NOT_FOUND when no role exists with the given id, or a
    * resource_permissions entry references a resource id that does not exist.
-   * @throws {DomainServiceError} VALIDATION_ERROR when renaming to a name already used by another role.
+   * @throws {DomainServiceError} ALREADY_EXISTS when renaming to a name already used by another role.
    */
   async update(id: string, data: Partial<INewRole>, transactionOptions?: TransactionOptions): Promise<Role> {
     return this.wrapInfrastructureErrors(async () => {
@@ -149,7 +146,7 @@ export class RoleService extends BaseDomainService {
         if (duplicateRole) {
           throw new DomainServiceError(
             `The Role with the name equal to ${data.name} already exists.`,
-            'VALIDATION_ERROR',
+            'ALREADY_EXISTS',
           );
         }
       }

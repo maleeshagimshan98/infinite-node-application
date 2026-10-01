@@ -70,7 +70,7 @@ export class BullMQQueueService implements IQueue {
   constructor(driver: QueueDriver) {
     this.driver = driver;
     const client = driver.client();
-    if (!client || !(client instanceof Object)) {
+    if (!client) {
       throw new QueueError('Invalid BullMQ client provided to BullMQQueueService');
     }
     this.queues.set('default', client);
@@ -174,6 +174,7 @@ export class BullMQQueueService implements IQueue {
     } catch (e: unknown) {
       throw new QueueError(
         `Failed to add job to queue "${queueName}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        { cause: e },
       );
     }
   }
@@ -199,6 +200,7 @@ export class BullMQQueueService implements IQueue {
     } catch (e: unknown) {
       throw new QueueError(
         `Failed to retry jobs on queue "${queueName}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        { cause: e },
       );
     }
   }
@@ -263,6 +265,7 @@ export class BullMQQueueService implements IQueue {
     } catch (e: unknown) {
       throw new QueueError(
         `Failed to start worker for queue "${queueName}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        { cause: e },
       );
     }
   }
@@ -320,6 +323,7 @@ export class BullMQQueueService implements IQueue {
     } catch (e: unknown) {
       throw new QueueError(
         `Failed to get status for job "${jobId}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        { cause: e },
       );
     }
   }
@@ -346,6 +350,7 @@ export class BullMQQueueService implements IQueue {
     } catch (e: unknown) {
       throw new QueueError(
         `Failed to shut down BullMQ queue service: ${e instanceof Error ? e.message : 'Unknown error'}`,
+        { cause: e },
       );
     }
   }

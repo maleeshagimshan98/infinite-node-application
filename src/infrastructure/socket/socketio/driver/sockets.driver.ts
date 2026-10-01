@@ -37,24 +37,32 @@ export class SocketsDriver implements ICoreDriver<Server, ISocketConfig> {
     this._httpServer = httpServer;
   }
 
+  /**
+   * Create the Socket.IO server on the configured HTTP server.
+   *
+   * @returns {Promise<void>}
+   * @throws {DriverError} If the Socket.IO server cannot be created or fails basic validation
+   */
   async init(): Promise<void> {
+    const options: Partial<ServerOptions> = {};
+    if (this._config.params?.path) options.path = this._config.params.path;
+    if (this._config.params?.cors) options.cors = this._config.params.cors;
+
+    let io: Server;
     try {
-      const options: Partial<ServerOptions> = {};
-      if (this._config.params?.path) options.path = this._config.params.path;
-      if (this._config.params?.cors) options.cors = this._config.params.cors;
-
-      const io = new Server(this._httpServer, options);
-
-      if (typeof io.on !== 'function' || typeof io.emit !== 'function') {
-        throw new DriverError('Socket.io server failed basic validation.');
-      }
-
-      this._client = io;
+      io = new Server(this._httpServer, options);
     } catch (err: unknown) {
       throw new DriverError(
         `Failed to initialize SocketsDriver: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        err instanceof Error ? err : undefined,
       );
     }
+
+    if (typeof io.on !== 'function' || typeof io.emit !== 'function') {
+      throw new DriverError('Failed to initialize SocketsDriver: Socket.io server failed basic validation.');
+    }
+
+    this._client = io;
   }
 
   config(): ISocketConfig {
@@ -65,12 +73,21 @@ export class SocketsDriver implements ICoreDriver<Server, ISocketConfig> {
     return this._client;
   }
 
+  /**
+   * Close the Socket.IO server.
+   *
+   * @returns {Promise<void>}
+   * @throws {DriverError} If the server fails to close
+   */
   async shutdown(): Promise<void> {
     if (!this._client) return;
     try {
       await this._client.close();
     } catch (e: unknown) {
-      //... TODO
+      throw new DriverError(
+        `Failed to shutdown SocketsDriver: ${e instanceof Error ? e.message : 'Unknown error'}`,
+        e instanceof Error ? e : undefined,
+      );
     } finally {
       this._client = undefined;
     }
