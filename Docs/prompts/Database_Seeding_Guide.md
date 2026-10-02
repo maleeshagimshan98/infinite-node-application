@@ -176,7 +176,22 @@ own `serviceName()` automatically — no separate manual step is needed.
 > delete exists).
 
 > **RULE**: Every seeder is **idempotent** — check for existing data first (e.g.
-> `getDefaultGroup()`), skip or per-item catch "already exists" errors, and report what was skipped.
+> `getDefaultGroup()`), skip or per-item catch duplicate errors, and report what was skipped.
+> Detect a duplicate by its **type**, never by matching the message text — the domain service
+> throws `DomainServiceError` `'ALREADY_EXISTS'` for a duplicate unique value; rethrow everything
+> else:
+>
+> ```typescript
+> try {
+>   await roleService.create(roleData);
+> } catch (error) {
+>   if (error instanceof DomainServiceError && error.type === 'ALREADY_EXISTS') {
+>     console.log(`   ⏭️  Role "${roleData.name}" already exists. Skipping.`);
+>   } else {
+>     throw error;
+>   }
+> }
+> ```
 
 > **RULE**: Seed in **dependency order** — referenced data before referencing data (resources
 > before roles that reference them; user groups and roles before users that reference both via
@@ -189,7 +204,8 @@ own `serviceName()` automatically — no separate manual step is needed.
      exporting seed{Feature}(): Promise<boolean> and clear{Feature}(): Promise<void>
 ☐ 2. Resolve the domain service from the container (container.resolve<XService>('xService'))
 ☐ 3. Idempotency check first — return false (skipped) when the data already exists
-☐ 4. Build payloads as INewX domain-model interfaces; create via the domain service
+☐ 4. Build payloads as INewX domain-model interfaces; create via the domain service; per item, skip
+     a DomainServiceError of type 'ALREADY_EXISTS' and rethrow anything else
 ☐ 5. Wire seed{Feature}() into runAllSeeders() and clear{Feature}() into clearAllSeeders()
      in seeder.ts, respecting dependency order (seed: dependencies first; clear: reverse)
 ☐ 6. Run npm run seed twice — second run must skip cleanly

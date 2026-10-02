@@ -33,6 +33,7 @@
    ```
 9. **Full-tag JSDoc on every non-trivial method/function** (see [JSDoc Documentation](#jsdoc-documentation)). Exempt: trivial getters/setters and constructors.
 10. **Never use a type assertion** (`as Type`, `<Type>value`, non-null `!`) **without the user's explicit consent** — see [Type Assertions Policy](#type-assertions-policy) for the narrow list of pre-approved structural exceptions.
+11. **Infrastructure error types are for infrastructure failures only.** Wrap only the driver's own errors, rethrow caller errors unchanged, and never send an infrastructure error's message to the client — see [Infrastructure Service Checklist](#infrastructure-service-checklist-new-external-dependency) and [Error Types → HTTP Status](#error-types--http-status).
 
 ---
 
@@ -58,7 +59,7 @@ Clean architecture: **Presentation → Application → Domain → Infrastructure
 ### Application (`src/application/`)
 
 - **Interfaces** — every cross-layer contract lives here (`IDatabaseMapper`, `ICache`, `IStorage`, etc.)
-- **ApplicationServices** — only for multi-domain transactions; extend `BaseApplicationService`; `databaseMapperService` MUST be first constructor param; use `this.dbTransaction()`
+- **ApplicationServices** — only for multi-domain transactions; extend `BaseApplicationService`; `databaseMapperService` MUST be first constructor param; use `this.dbTransaction()`. Errors thrown inside the callback propagate unchanged (only driver failures become `PersistanceError`); never re-wrap Mongo errors inside it — that disables the automatic retry of transient write conflicts
 
 ### Domain (`src/domain/`)
 
@@ -70,7 +71,7 @@ Clean architecture: **Presentation → Application → Domain → Infrastructure
 - **Schema** — `INew{Model}Schema` only (no extending interfaces); `timestamps: true`
 - **Mapper** — implements `IBaseMapper<Schema, Model, NewModel>`; `toDomain(data: INewSchema & { _id: Types.ObjectId })` — always call `.toString()` on `_id`
 - **Repository** — extends `BaseRepository<Schema, Model, NewModel>`; no duplicate CRUD methods
-- **External services** — Driver → Service → Factory → registered in `infrastructure.loader.ts`
+- **External services** — Driver → Service → Factory → registered in `infrastructure.loader.ts`; wrap only the driver's own failures, keeping the original in `data.cause` (see Infrastructure Service Checklist)
 
 ---
 
@@ -215,6 +216,7 @@ export default ModelService;
   - `onError` is optional — use it for per-call logging or alerting without altering error propagation
 - Always accept `transactionOptions?: TransactionOptions` on write/transactional methods
 - Always pass `transactionOptions` to repository calls
+- A duplicate unique value (name, email) is `'ALREADY_EXISTS'`; `'VALIDATION_ERROR'` is for other rule violations — callers rely on the type, never on the message text
 - `delete()` always returns the deleted domain object — **never `void`**. Check existence before deleting (throw `'NOT_FOUND'`), then null-check the repository's delete result too (throw `'NOT_FOUND'` again) — `BaseRepository.delete()` returns `null` if nothing matched
 
 ---
@@ -271,18 +273,27 @@ export { router as ModelRoutes }; // named export ending in "Routes"
 
 ## Error Types → HTTP Status
 
-| Type                    | HTTP |
-| ----------------------- | ---- |
-| `NOT_FOUND`             | 404  |
-| `ALREADY_EXISTS`        | 400  |
-| `VALIDATION_ERROR`      | 400  |
-| `INVALID_OPERATION`     | 400  |
-| `INCOMPLETE_MODEL`      | 400  |
-| `AUTHENTICATION_ERROR`  | 401  |
-| `USER_PERMISSION_ERROR` | 403  |
-| `UNKNOWN_ERROR`         | 500  |
-| `DATABASE_ERROR`        | 500  |
-| `INFRASTRUCTURE_ERROR`  | 500  |
+| DomainServiceError type | HTTP                                                                                   |
+| ----------------------- | -------------------------------------------------------------------------------------- |
+| `NOT_FOUND`             | 404                                                                                    |
+| `ALREADY_EXISTS`        | 400                                                                                    |
+| `MODEL_ALREADY_EXISTS`  | 400                                                                                    |
+| `VALIDATION_ERROR`      | 400                                                                                    |
+| `INVALID_OPERATION`     | 400                                                                                    |
+| `INCOMPLETE_MODEL`      | 400                                                                                    |
+| `AUTHENTICATION_ERROR`  | 401                                                                                    |
+| `USER_PERMISSION_ERROR` | 403                                                                                    |
+| `UNKNOWN_ERROR`         | 500                                                                                    |
+| `INFRASTRUCTURE_ERROR`  | 503 if `data.type` is `NETWORK_ERROR` / `CONNECTION_ERROR`, else 500 — generic message |
+
+- An `InfrastructureError` that reaches the controller unwrapped gets the same 503/500 mapping; any
+  other unexpected error is a generic 500.
+- Infrastructure failures always answer with a generic message (`SERVER_ERROR` / `SERVICE_UNAVAILABLE`)
+  — never the error's own message. The full error is logged.
+- `DATABASE_ERROR`, `NETWORK_ERROR`, `CACHE_ERROR` etc. are `InfrastructureErrorType`s, not
+  `DomainServiceError` types.
+- `UserValidatorMiddleware`: an `INFRASTRUCTURE_ERROR` during authentication is the same generic
+  503/500, not a 401.
 
 ---
 
@@ -329,6 +340,13 @@ export { router as ModelRoutes }; // named export ending in "Routes"
 ☐ Factory (implements IServiceFactory<YourInterface>, reads process.env.X_DRIVER switch)
 ☐ Export from infrastructure/{name}/index.ts
 ☐ Add factory to infrastructure/infrastructure.loader.ts
+☐ Error handling:
+   - try wraps the driver call only; serialize/validate caller input before the try
+   - never wrap caller callbacks — classify by the library's error class (isMongooseDriverError) and rethrow the rest
+   - throw your InfrastructureError subclass ((message, data?, options?)) with the original in data.cause;
+     drivers throw DriverError(message, cause)
+   - never attach objects carrying secrets (e.g. AxiosError config/headers)
+   - constructor guards the client with `if (!client)` only
 ```
 
 ---
@@ -352,17 +370,17 @@ export { router as ModelRoutes }; // named export ending in "Routes"
 
 ## Available Infrastructure Services (DI tokens)
 
-| Token             | Interface         | Description                                                                                                                                                                 |
-| ----------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `database_mapper` | `IDatabaseMapper` | MongoDB via Mongoose; provides transactions                                                                                                                                 |
-| `cache`           | `ICache`          | Redis                                                                                                                                                                       |
-| `logger`          | `ILogger`         | Winston                                                                                                                                                                     |
-| `queue`           | `IQueue`          | BullMQ                                                                                                                                                                      |
-| `email`           | `IEmail`          | SMTP                                                                                                                                                                        |
-| `storage`         | `IStorage`        | Local / cloud file storage                                                                                                                                                  |
-| `notification`    | `INotification`   | Notification service                                                                                                                                                        |
-| `socket`          | `ISocket`         | Socket.IO                                                                                                                                                                   |
-| `httpClient`      | `IHTTPClient`     | Axios HTTP client — `RequestConfig.data` accepts a single object or an array of objects (batch bodies): `Record<string, unknown> \| Record<string, unknown>[] \| undefined` |
+| Token             | Interface         | Description                                                                                                                                                                                                                                                                                                              |
+| ----------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `database_mapper` | `IDatabaseMapper` | MongoDB via Mongoose; provides transactions — callback errors propagate unchanged, only driver failures become `PersistanceError`                                                                                                                                                                                        |
+| `cache`           | `ICache`          | Redis                                                                                                                                                                                                                                                                                                                    |
+| `logger`          | `ILogger`         | Winston                                                                                                                                                                                                                                                                                                                  |
+| `queue`           | `IQueue`          | BullMQ                                                                                                                                                                                                                                                                                                                   |
+| `email`           | `IEmail`          | SMTP                                                                                                                                                                                                                                                                                                                     |
+| `storage`         | `IStorage`        | Local / cloud file storage — `readFile()` returns `null` and `listFiles()` returns `[]` for a missing path                                                                                                                                                                                                               |
+| `notification`    | `INotification`   | Notification service                                                                                                                                                                                                                                                                                                     |
+| `socket`          | `ISocket`         | Socket.IO                                                                                                                                                                                                                                                                                                                |
+| `httpClient`      | `IHTTPClient`     | Axios HTTP client — `RequestConfig.data` accepts a single object or an array of objects (batch bodies): `Record<string, unknown> \| Record<string, unknown>[] \| undefined`. Non-2xx responses don't throw; a sent-but-failed request throws `NETWORK_ERROR`; a request that can't be set up rethrows the original error |
 
 ---
 
@@ -454,7 +472,7 @@ never claims anything false about a value's runtime type, so it never needs cons
 
 1. **Generic base-class boundaries** — e.g. `BaseMapper.toFilter`'s narrowing between
    `NewDomainModel` and `DBSchema`, or a generic sub-document helper narrowing `S` → `S & { _id:
-   string }`. The relationship between the generic type parameters is only guaranteed by the
+string }`. The relationship between the generic type parameters is only guaranteed by the
    concrete subclass, not provable structurally by TS.
 2. **`TransactionOptions.session` crossing into a concrete driver type** — it's deliberately typed
    `session?: unknown` to stay database-agnostic; a concrete Mongoose repository asserting it to

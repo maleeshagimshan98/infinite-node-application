@@ -148,8 +148,9 @@ Before implementing any endpoint, understand these critical requirements:
 ### Error Handling Requirements
 
 - ✅ **Always check model existence** when retrieving from repository
-- ✅ **Throw `DomainServiceError`** with appropriate type in domain services
+- ✅ **Throw `DomainServiceError`** with appropriate type in domain services (`ALREADY_EXISTS` for duplicates)
 - ✅ **Wrap all controller logic** in `catchExceptionsWrapper()`
+- ✅ **Never send an infrastructure error's message to the client** — `catchExceptionsWrapper()` answers infrastructure failures with a generic 500/503
 
 ### Authentication Requirements
 
@@ -809,11 +810,12 @@ export default ModelService;
 - `'AUTHENTICATION_ERROR'` → 401 response
 - `'USER_PERMISSION_ERROR'` → 403 response
 - `'NOT_FOUND'` → 404 response
-- `'ALREADY_EXISTS'` → 400 response
-- `'VALIDATION_ERROR'` → 400 response (can include data)
+- `'ALREADY_EXISTS'` → 400 response — use it for a duplicate unique value (name, email); callers such as the seeders check this type, never the message text
+- `'VALIDATION_ERROR'` → 400 response (can include data) — other business-rule violations
+- `'INVALID_OPERATION'` → 400 response (can include data)
 - `'INCOMPLETE_MODEL'` → 400 response
 - `'UNKNOWN_ERROR'` → 500 response
-- `'INFRASTRUCTURE_ERROR'` → 500 response (503 if sub-type is `NETWORK_ERROR` or `CONNECTION_ERROR`)
+- `'INFRASTRUCTURE_ERROR'` → 500 response (503 if sub-type is `NETWORK_ERROR` or `CONNECTION_ERROR`) with a **generic** message — the infrastructure error's own message is logged, never sent to the client
 
 **Conventions**:
 
@@ -1174,7 +1176,7 @@ export default ModelController;
 - Extend `BaseController`
 - Inject services and repositories via constructor
 - Use `matchedData()` to get validated data from request
-- **Wrap all logic in `catchExceptionsWrapper()`** - it catches DomainServiceError and PaginationException
+- **Wrap all logic in `catchExceptionsWrapper()`** - it maps every thrown error to a response (see [Error Handling](#error-handling))
 - Use `this.getPaginator(req, totalCount)` for pagination - it validates parameters automatically
 - Use repository's `count()` method directly in controller for total count
 - Use `ApiResponseUtils` for consistent responses
@@ -1435,10 +1437,15 @@ export class MyService extends BaseDomainService {
 - `logger` (ILogger) - Winston logging
 - `queue` (IQueue) - BullMQ queue
 - `email` (IEmail) - SMTP email
-- `storage` (IStorage) - Local/cloud storage
+- `storage` (IStorage) - Local/cloud storage; `readFile()` returns `null` and `listFiles()` returns `[]` for a missing path
 - `notification` (INotification) - Notification service
 - `socket` (ISocket) - Socket.IO
-- `databaseMapper` (IDatabaseMapper) - Database transactions
+- `httpClient` (IHTTPClient) - External HTTP calls (see `CLAUDE.md` §18 for its error behaviour)
+- `database_mapper` (IDatabaseMapper) - Database transactions; errors thrown inside the callback propagate unchanged
+
+> **Cache failures are recoverable.** `ICache` methods throw `InfrastructureError` `CACHE_ERROR`
+> when Redis fails. When the cache is only an optimisation, catch exactly that, log it, and fall
+> back to the database (see `LoginApplicationService`); rethrow anything else.
 
 ---
 
@@ -1465,7 +1472,7 @@ export interface IMyService extends IBaseInfrastructureService {
   /**
    * Service-specific methods
    */
-  doSomething(param: string): Promise<void>;
+  doSomething(payload: Record<string, unknown>): Promise<void>;
   getSomething(): Promise<string>;
 }
 ```
@@ -1514,7 +1521,7 @@ export const myDriverConfig = (): IMyDriverConfig => {
  */
 
 import type { ICoreDriver, IDriverHealthStatus } from '@/infrastructure/core/driver/core.driver';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { DriverError } from '@/infrastructure/core/errors/driver.error';
 
 import type { IMyDriverConfig } from './{driver-name}.config';
 import type { MyClient } from 'my-client-library'; // Third-party client
@@ -1533,8 +1540,9 @@ export class MyDriver implements ICoreDriver<MyClient, IMyDriverConfig> {
       this._client = new MyClient(this._config.params);
       await this._client.connect();
     } catch (error) {
-      throw new InfrastructureError(
+      throw new DriverError(
         `Failed to initialize MyDriver: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error : undefined,
       );
     }
   }
@@ -1548,8 +1556,15 @@ export class MyDriver implements ICoreDriver<MyClient, IMyDriverConfig> {
   }
 
   async shutdown(): Promise<void> {
-    if (this._client) {
+    if (!this._client) return;
+    try {
       await this._client.disconnect();
+    } catch (error) {
+      // Never swallow shutdown failures — InfrastructureManager logs them per service.
+      throw new DriverError(
+        `Failed to shutdown MyDriver: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error : undefined,
+      );
     }
   }
 
@@ -1604,6 +1619,7 @@ export const myDriverLoader = async (): Promise<MyDriver> => {
  */
 
 import type { IMyService } from '@/application/interfaces/{service-name}.interface';
+import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 import type { MyDriver } from './driver/{driver-name}.driver';
 import type { MyClient } from 'my-client-library';
@@ -1615,8 +1631,9 @@ export class MyService implements IMyService {
   constructor(driver: MyDriver) {
     this.driver = driver;
     const client = this.driver.client();
+    // `!client` only — an `instanceof Object` check fails for objects from another realm (e.g. under Jest)
     if (!client) {
-      throw new Error('Invalid client provided to MyService');
+      throw new InfrastructureError('Invalid client provided to MyService', 'DRIVER_ERROR');
     }
     this.client = client;
   }
@@ -1637,12 +1654,44 @@ export class MyService implements IMyService {
     return this.driver;
   }
 
-  async doSomething(param: string): Promise<void> {
-    await this.client.doOperation(param);
+  /**
+   * Send a payload to the external service.
+   *
+   * @param {Record<string, unknown>} payload - The payload to send.
+   * @returns {Promise<void>}
+   * @throws {TypeError} If `payload` cannot be serialized (caller error, propagates unchanged).
+   * @throws {InfrastructureError} NETWORK_ERROR if the external service call fails.
+   */
+  async doSomething(payload: Record<string, unknown>): Promise<void> {
+    // Caller-dependent work goes BEFORE the try: a bad payload is the caller's error, not a service failure.
+    const body = JSON.stringify(payload);
+    try {
+      await this.client.doOperation(body);
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to do something: ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'NETWORK_ERROR',
+        { cause: e }, // keep the original for the logs; never attach objects carrying secrets
+      );
+    }
   }
 
+  /**
+   * Read a value from the external service.
+   *
+   * @returns {Promise<string>} The value.
+   * @throws {InfrastructureError} NETWORK_ERROR if the external service call fails.
+   */
   async getSomething(): Promise<string> {
-    return await this.client.getOperation();
+    try {
+      return await this.client.getOperation();
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to get something: ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'NETWORK_ERROR',
+        { cause: e },
+      );
+    }
   }
 
   async shutdown(): Promise<void> {
@@ -1683,7 +1732,7 @@ export class MyServiceFactory implements IServiceFactory<IMyService> {
     const envDriver = process.env.MY_SERVICE_DRIVER || 'myDriver';
 
     if (!this.isMyServiceDriverType(envDriver)) {
-      throw new InfrastructureError(`Invalid driver: ${envDriver}`);
+      throw new InfrastructureError(`Invalid driver: ${envDriver}`, 'DRIVER_ERROR', { envDriver });
     }
 
     const driverType: MyServiceDriverType = envDriver;
@@ -1692,10 +1741,10 @@ export class MyServiceFactory implements IServiceFactory<IMyService> {
         return this.createMyService();
 
       case 'alternativeDriver':
-        throw new InfrastructureError('Alternative driver not yet implemented');
+        throw new InfrastructureError('Alternative driver not yet implemented', 'DRIVER_ERROR', { driverType });
 
       default:
-        throw new InfrastructureError(`Unsupported driver: ${driverType}`);
+        throw new InfrastructureError(`Unsupported driver: ${driverType}`, 'DRIVER_ERROR', { driverType });
     }
   }
 }
@@ -2784,7 +2833,8 @@ async uploadFile(req: Request, res: Response): Promise<Response> {
     }
 
     const storage = container.resolve<IStorage>('storage');
-    const filePath = await storage.upload(file.buffer, file.originalname);
+    const filePath = `uploads/${file.originalname}`;
+    await storage.createFile(filePath, file.buffer);
 
     return ApiResponseUtils.apiOkResponse(201, false, null, 'File uploaded', {
       path: filePath,
@@ -2792,6 +2842,16 @@ async uploadFile(req: Request, res: Response): Promise<Response> {
   });
 
   return ApiResponseUtils.createResponse(response, res);
+}
+```
+
+Reading a file: `readFile()` returns `null` when the file does not exist — turn that into a
+`NOT_FOUND` in the domain service; a `STORAGE_ERROR` means the read itself failed.
+
+```typescript
+const content = await this.storage.readFile(filePath);
+if (!content) {
+  throw new DomainServiceError(`File ${filePath} not found`, 'NOT_FOUND');
 }
 ```
 
@@ -2829,19 +2889,38 @@ ApiResponseUtils creates appropriate response
 Client receives proper HTTP status code and message
 ```
 
+Infrastructure failures take a parallel path and never expose their message:
+
+```
+Infrastructure service throws InfrastructureError (e.g. CACHE_ERROR, original error in data.cause)
+    ↓
+Domain service's wrapInfrastructureErrors() converts it to DomainServiceError 'INFRASTRUCTURE_ERROR'
+(data.type = the infrastructure type)
+    ↓
+catchExceptionsWrapper logs the full error
+    ↓
+ApiResponseUtils.infrastructureErrorResponse() → 503 for NETWORK_ERROR / CONNECTION_ERROR, otherwise 500,
+with a generic message (ErrorResponseMessages.SERVICE_UNAVAILABLE() / SERVER_ERROR())
+```
+
+Inside `dbTransaction()`, errors thrown by the callback propagate **unchanged**; only Mongoose /
+MongoDB driver failures become `PersistanceError` (`DATABASE_ERROR`).
+
 ### Error Types and HTTP Status Mapping
 
 **DomainServiceError Types** (thrown in domain services):
 
-| Error Type                | HTTP Status | Use Case                                |
-| ------------------------- | ----------- | --------------------------------------- |
-| `'AUTHENTICATION_ERROR'`  | 401         | Invalid credentials, token expired      |
-| `'USER_PERMISSION_ERROR'` | 403         | User not authorized for action          |
-| `'NOT_FOUND'`             | 404         | Resource doesn't exist                  |
-| `'ALREADY_EXISTS'`        | 400         | Duplicate resource (e.g., email exists) |
-| `'VALIDATION_ERROR'`      | 400         | Business rule validation failed         |
-| `'INCOMPLETE_MODEL'`      | 400         | Required fields missing                 |
-| `'UNKNOWN_ERROR'`         | 500         | Unexpected server error                 |
+| Error Type                | HTTP Status | Use Case                                                                                        |
+| ------------------------- | ----------- | ----------------------------------------------------------------------------------------------- |
+| `'AUTHENTICATION_ERROR'`  | 401         | Invalid credentials, token expired                                                              |
+| `'USER_PERMISSION_ERROR'` | 403         | User not authorized for action                                                                  |
+| `'NOT_FOUND'`             | 404         | Resource doesn't exist                                                                          |
+| `'ALREADY_EXISTS'`        | 400         | Duplicate resource (e.g., email exists)                                                         |
+| `'VALIDATION_ERROR'`      | 400         | Business rule validation failed                                                                 |
+| `'INVALID_OPERATION'`     | 400         | Operation not allowed in current state                                                          |
+| `'INCOMPLETE_MODEL'`      | 400         | Required fields missing                                                                         |
+| `'UNKNOWN_ERROR'`         | 500         | Unexpected server error                                                                         |
+| `'INFRASTRUCTURE_ERROR'`  | 503 / 500   | Set by `wrapInfrastructureErrors()` only — 503 for network/connection failures; generic message |
 
 ### Error Handling in Domain Services
 
@@ -2902,10 +2981,10 @@ async update(id: string, data: Partial<INewModel>, userId: string): Promise<Mode
 ```typescript
 async create(req: Request, res: Response): Promise<Response> {
   // catchExceptionsWrapper automatically:
-  // 1. Catches DomainServiceError
-  // 2. Catches PaginationException
+  // 1. Logs every error it catches
+  // 2. Maps PaginationException / RouteParamException / DomainEntityError to 400
   // 3. Calls getServiceErrorResponse() for DomainServiceError
-  // 4. Returns appropriate HTTP response
+  // 4. Answers InfrastructureError and anything unexpected with a generic 503/500
   const response = await this.catchExceptionsWrapper(async () => {
     const data = matchedData<INewModel>(req);
     const result = await this.modelService.create(data);
@@ -2964,19 +3043,33 @@ protected async catchExceptionsWrapper(
   try {
     return await callback();
   } catch (e: unknown) {
-    // Handles pagination errors
+    // Request/model errors - 400 with the error's message
     if (e instanceof PaginationException) {
       this.logErrors(e);
       return ApiResponseUtils.apiErrorResponse(400, e.message);
     }
+    if (e instanceof RouteParamException) {
+      this.logErrors(e);
+      return ApiResponseUtils.apiErrorResponse(400, e.message);
+    }
+    if (e instanceof DomainEntityError) {
+      this.logErrors(e);
+      return ApiResponseUtils.apiErrorResponse(400, e.message);
+    }
 
-    // Handles domain service errors - maps to appropriate HTTP status
+    // Domain service errors - mapped by type; INFRASTRUCTURE_ERROR gets a generic message
     if (e instanceof DomainServiceError) {
       this.logErrors(e);
       return this.getServiceErrorResponse(e);
     }
 
-    // Handles unexpected errors
+    // Unwrapped infrastructure errors - generic 503 (network/connection) or 500
+    if (e instanceof InfrastructureError) {
+      this.logErrors(e);
+      return this.getInfrastructureErrorResponse(e);
+    }
+
+    // Anything else - generic 500
     this.logErrors(e);
     return ApiResponseUtils.getServerErrorAPIResponse();
   }
@@ -2996,11 +3089,30 @@ Thrown by `BaseController.getPaginator()` when:
 
 ### Infrastructure Errors
 
-For infrastructure layer failures (database connection, cache errors, etc.):
+For infrastructure layer failures (database connection, cache errors, etc.), throw the service's
+`InfrastructureError` subclass — or `InfrastructureError` with the matching `InfrastructureErrorType`
+— and keep the original error in `data.cause`:
 
 ```typescript
-throw new InfrastructureError('Redis connection failed');
+try {
+  await this.redisClient.del(key);
+} catch (e: unknown) {
+  throw new InfrastructureError(
+    `Failed to delete cache key "${key}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+    'CACHE_ERROR',
+    { key, cause: e },
+  );
+}
 ```
+
+Rules (full list in `CLAUDE.md` §14):
+
+- The `try` wraps the driver call only — serialize or validate caller input **before** it, so a
+  caller's mistake surfaces as its own error instead of a `CACHE_ERROR`.
+- Never wrap caller callbacks; when one has to run inside, rethrow anything that is not the
+  library's own error class (e.g. `isMongooseDriverError()`).
+- Never attach objects that carry secrets (an `AxiosError` holds the request headers).
+- The message is for the logs — clients only ever see a generic 500/503.
 
 ### Error Handling Layers
 
@@ -3013,8 +3125,8 @@ throw new InfrastructureError('Redis connection failed');
 
 1. **Always check model existence** in domain service getById methods
 2. **Use specific error types** - don't use generic 'UNKNOWN_ERROR' unless truly unexpected
-3. **Provide clear error messages** - help client understand what went wrong
-4. **Don't expose internal details** - don't include stack traces or database errors in responses
+3. **Provide clear error messages** in `DomainServiceError`s - help the client understand what went wrong (these are sent to the client)
+4. **Don't expose internal details** - don't include stack traces or database errors in responses. `catchExceptionsWrapper` already replaces every infrastructure error's message with a generic one; never pass an infrastructure message into a `DomainServiceError` or response yourself
 5. **Log all errors** - catchExceptionsWrapper logs automatically
 6. **Let catchExceptionsWrapper handle it** - don't try-catch inside controller methods, it handles parameter validation and errors
 

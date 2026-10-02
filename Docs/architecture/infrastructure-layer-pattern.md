@@ -15,6 +15,7 @@ Infrastructure services are initialized at boot time by `InfrastructureManager`,
 5. **Each infrastructure service has a factory implementing `IServiceFactory<T>`** — factories are registered in `infrastructure.loader.ts`
 6. **`InfrastructureManager` orchestrates all service initialization** — it iterates factory classes, calls `factory.create()`, and registers results in the Awilix container
 7. **Drivers implement `ICoreDriver<ClientType, ConfigType>`** — only used internally by services; never registered in the DI container directly
+8. **Infrastructure errors are for infrastructure failures only** — a service wraps only its driver's own failures (the `try` covers the driver call alone; caller input is serialized/validated before it; caller callbacks are never wrapped), keeps the original error in `data.cause`, and never attaches objects carrying secrets. The error message is for the logs; clients get a generic 500/503 (`CLAUDE.md` §14–§15)
 
 ## Directory Structure
 
@@ -253,9 +254,9 @@ export interface IStorage extends IBaseInfrastructureService {
   deferred(): false;
 
   getRoot(): Promise<string>;
-  listFiles(folderPath: string): Promise<string[]>;
+  listFiles(folderPath: string): Promise<string[]>; // [] when the folder does not exist
   createFile(path: string, content: Buffer): Promise<void>;
-  readFile(path: string): Promise<Buffer>;
+  readFile(path: string): Promise<Buffer | null>; // null when the file does not exist
   updateFile(path: string, content: Buffer): Promise<void>;
   deleteFile(path: string): Promise<void>;
   moveFile(srcPath: string, destPath: string): Promise<void>;
@@ -356,10 +357,18 @@ export const storageConfig = (): IFileSystemStorageConfig => ({
 
 ```typescript
 // infrastructure/storage/local/local-storage.service.ts
-import type { IStorage } from '@/application/interfaces/storage.interface';
-import { storageConfig } from './local-file-storage.config';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+
+import type { IStorage } from '@/application/interfaces/storage.interface';
+import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+
+import { storageConfig } from './local-file-storage.config';
+
+// Shape check rather than `instanceof Error`: fs errors can come from another realm (e.g. under Jest).
+function isNotFoundError(e: unknown): boolean {
+  return typeof e === 'object' && e !== null && 'code' in e && e.code === 'ENOENT';
+}
 
 export class LocalStorageService implements IStorage {
   private readonly rootPath: string;
@@ -384,16 +393,35 @@ export class LocalStorageService implements IStorage {
 
   async createFile(filePath: string, content: Buffer): Promise<void> {
     const fullPath = path.join(this.rootPath, filePath);
-    await fs.mkdir(path.dirname(fullPath), { recursive: true });
-    await fs.writeFile(fullPath, content);
+    try {
+      await fs.mkdir(path.dirname(fullPath), { recursive: true });
+      await fs.writeFile(fullPath, content);
+    } catch (e: unknown) {
+      throw new InfrastructureError(
+        `Failed to create file "${filePath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'STORAGE_ERROR',
+        { filePath, cause: e }, // keep the original error for the logs
+      );
+    }
   }
 
-  async readFile(filePath: string): Promise<Buffer> {
+  async readFile(filePath: string): Promise<Buffer | null> {
     const fullPath = path.join(this.rootPath, filePath);
-    return await fs.readFile(fullPath);
+    try {
+      return await fs.readFile(fullPath);
+    } catch (e: unknown) {
+      if (isNotFoundError(e)) {
+        return null; // "missing" is an answer, not a failure — the caller decides (e.g. NOT_FOUND)
+      }
+      throw new InfrastructureError(
+        `Failed to read file "${filePath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        'STORAGE_ERROR',
+        { filePath, cause: e },
+      );
+    }
   }
 
-  // ... other IStorage methods
+  // ... other IStorage methods follow the same pattern
 }
 ```
 
@@ -402,6 +430,11 @@ For services with a driver (e.g. database), the service is created by first cons
 ```typescript
 // infrastructure/persistance/database/service/database-mapper/mongoose.service.ts
 import type { IDatabaseMapper, TransactionOptions } from '@/application/interfaces/database-mapper.interface';
+
+import { isMongooseDriverError } from '../../errors/mongoose-error.guards';
+import { PersistanceError } from '../../errors/persistance.error';
+
+import type mongoose from 'mongoose';
 import type { MongooseDriver } from './driver/mongoose.driver';
 
 export class MongooseService implements IDatabaseMapper {
@@ -410,7 +443,11 @@ export class MongooseService implements IDatabaseMapper {
 
   constructor(driver: MongooseDriver) {
     this.driver = driver;
-    this.client = driver.client()!;
+    const client = driver.client();
+    if (!client) {
+      throw new PersistanceError('Invalid Mongoose client provided to MongooseService');
+    }
+    this.client = client;
   }
 
   serviceName(): 'database_mapper' {
@@ -430,22 +467,24 @@ export class MongooseService implements IDatabaseMapper {
   }
 
   async transaction<T>(callback: (options: TransactionOptions) => Promise<T>): Promise<T> {
-    const session = await this.client.startSession();
     try {
-      session.startTransaction();
-      const result = await callback({ session });
-      await session.commitTransaction();
-      return result;
-    } catch (error) {
-      await session.abortTransaction();
-      throw error;
-    } finally {
-      session.endSession();
+      // `await` is required — without it a rejection bypasses this catch.
+      // connection.transaction() wraps session.withTransaction(): commit on success, abort on error,
+      // and automatic retry of the callback on TransientTransactionError (e.g. write conflicts).
+      return await this.client.connection.transaction((session) => callback({ session }));
+    } catch (err: unknown) {
+      // Translate only here, after withTransaction has finished — it retries only while the raw
+      // MongoError is still unwrapped. Errors thrown by the callback itself (DomainServiceError, …)
+      // are rethrown unchanged so they keep their type and HTTP status.
+      if (!isMongooseDriverError(err)) {
+        throw err;
+      }
+      throw new PersistanceError(`Failed to execute transaction: ${err.message}`, { cause: err });
     }
   }
 
   async shutdown(): Promise<void> {
-    await this.driver.shutdown();
+    await this.client.connection.close();
   }
 }
 ```
@@ -548,13 +587,13 @@ export class StorageServiceFactory implements IServiceFactory<IStorage> {
       case 'filesystem':
         return new LocalStorageService();
       case 'aws':
-        throw new InfrastructureError('AWS S3 storage service not yet implemented');
+        throw new InfrastructureError('AWS S3 storage service not yet implemented', 'DRIVER_ERROR', { driver });
       case 'gcp':
-        throw new InfrastructureError('Google Cloud Storage service not yet implemented');
+        throw new InfrastructureError('Google Cloud Storage service not yet implemented', 'DRIVER_ERROR', { driver });
       case 'azure':
-        throw new InfrastructureError('Azure Blob Storage service not yet implemented');
+        throw new InfrastructureError('Azure Blob Storage service not yet implemented', 'DRIVER_ERROR', { driver });
       default:
-        throw new InfrastructureError(`Unsupported storage driver: ${driver}`);
+        throw new InfrastructureError(`Unsupported storage driver: ${driver}`, 'DRIVER_ERROR', { driver });
     }
   }
 }
@@ -580,13 +619,13 @@ export class DatabaseMapperServiceFactory implements IServiceFactory<IDatabaseMa
       case 'mongoose':
         return this.createMongooseService();
       case 'sequelize':
-        throw new InfrastructureError('Sequelize ORM service not yet implemented');
+        throw new InfrastructureError('Sequelize ORM service not yet implemented', 'DRIVER_ERROR', { driver });
       case 'typeorm':
-        throw new InfrastructureError('TypeORM service not yet implemented');
+        throw new InfrastructureError('TypeORM service not yet implemented', 'DRIVER_ERROR', { driver });
       case 'prisma':
-        throw new InfrastructureError('Prisma ORM service not yet implemented');
+        throw new InfrastructureError('Prisma ORM service not yet implemented', 'DRIVER_ERROR', { driver });
       default:
-        throw new InfrastructureError(`Unsupported ORM driver: ${driver}`);
+        throw new InfrastructureError(`Unsupported ORM driver: ${driver}`, 'DRIVER_ERROR', { driver });
     }
   }
 }
@@ -940,9 +979,17 @@ export default CustomerService;
 | `'USER_PERMISSION_ERROR'` | 403         |
 | `'NOT_FOUND'`             | 404         |
 | `'ALREADY_EXISTS'`        | 400         |
+| `'MODEL_ALREADY_EXISTS'`  | 400         |
 | `'VALIDATION_ERROR'`      | 400         |
+| `'INVALID_OPERATION'`     | 400         |
 | `'INCOMPLETE_MODEL'`      | 400         |
 | `'UNKNOWN_ERROR'`         | 500         |
+| `'INFRASTRUCTURE_ERROR'`  | 503 / 500   |
+
+- Use `'ALREADY_EXISTS'` for a duplicate unique value; `'VALIDATION_ERROR'` for other rule violations.
+- `'INFRASTRUCTURE_ERROR'` is produced only by `wrapInfrastructureErrors()`: 503 when the original
+  infrastructure type (`data.type`) is `NETWORK_ERROR` / `CONNECTION_ERROR`, otherwise 500 — always
+  with a generic message, never the infrastructure error's own.
 
 ---
 
@@ -996,6 +1043,12 @@ export class BaseApplicationService {
   }
 }
 ```
+
+**Errors inside a transaction**: anything the callback throws propagates **unchanged** — a
+`DomainServiceError` keeps its type and HTTP status. Only Mongoose / MongoDB driver failures (commit
+failure, no replica set, lost connection) are translated into `PersistanceError` by
+`MongooseService.transaction()`. Don't catch and re-wrap Mongo errors inside the callback: the
+automatic retry of transient write conflicts only happens while the raw `MongoError` escapes it.
 
 ---
 
@@ -1051,7 +1104,7 @@ export default CustomerController;
 
 **Key rules**:
 
-- **Always** wrap logic in `this.catchExceptionsWrapper()` — catches `DomainServiceError` and `PaginationException`
+- **Always** wrap logic in `this.catchExceptionsWrapper()` — it logs and maps every thrown error: `PaginationException` / `RouteParamException` / `DomainEntityError` → 400, `DomainServiceError` → per type, `InfrastructureError` and anything unexpected → generic 503/500 (never the error's message)
 - **Always** use `matchedData()` to extract validated request data
 - **Always** inject the repository directly to call `count()` for pagination total
 - **Always** use `this.getPaginator(req, totalCount)` — it validates `?page=` and `?limit=` params

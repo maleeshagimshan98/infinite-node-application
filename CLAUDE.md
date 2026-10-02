@@ -333,6 +333,7 @@ protected async wrapInfrastructureErrors<T>(
 - All write/read methods inside transactions MUST accept `transactionOptions?: TransactionOptions`
 - Pass `transactionOptions` down to every repository call
 - Only throw `DomainServiceError` — never raw `Error`
+- A duplicate unique value (name, email, number) is `'ALREADY_EXISTS'`; use `'VALIDATION_ERROR'` only for other rule violations. Callers such as the seeders rely on the type, never on the message text
 - Always check existence after `findById` / `findOne` and throw `'NOT_FOUND'`
 - `delete()` always returns the deleted domain object — **never `void`**. Check existence before deleting (throw `'NOT_FOUND'`), then null-check the repository's delete result too (throw `'NOT_FOUND'` again) — `BaseRepository.delete()` returns `null` if nothing matched
 
@@ -367,6 +368,12 @@ export default OrderApplicationService;
 - `IDatabaseMapper` as `databaseMapperService` must be the **first** constructor parameter
 - Use `this.dbTransaction()` for all transactional work
 - Pass `{ session }` (as `TransactionOptions`) to every domain service call inside the callback
+- Errors thrown inside the callback propagate **unchanged** — a `DomainServiceError` keeps its type
+  and HTTP status. Only Mongoose / MongoDB driver failures (commit failure, no replica set,
+  connection loss) are translated into `PersistanceError`, by `MongooseService.transaction()`
+- Never catch and re-wrap Mongo errors inside the callback (or in the repositories and domain
+  services it calls): `withTransaction` retries the callback only while a raw `MongoError` labelled
+  `TransientTransactionError` (e.g. a write conflict) escapes it
 
 ---
 
@@ -414,6 +421,10 @@ export default CustomerController;
 - Inject the repository directly for `count()` (pagination total)
 - Use `this.getPaginator(req, totalCount)` for pagination
 - Always use `ApiResponseUtils` — never construct response objects manually
+- Never put an infrastructure error's message in a response — it can carry driver internals (hosts,
+  collection/index names, duplicate key values). `catchExceptionsWrapper()` already answers every
+  infrastructure failure with a generic message via `ApiResponseUtils.infrastructureErrorResponse()`
+  and logs the full error (see §15)
 
 ### Response Headers on Error Responses
 
@@ -502,23 +513,67 @@ Adding a new infrastructure service (e.g. new database, third-party API):
 
 **No other files need changing.** `InfrastructureManager` auto-picks it up.
 
+### Error handling in infrastructure services
+
+An infrastructure error type means "this infrastructure failed" — nothing else:
+
+- **Keep the `try` around the driver call only.** Do caller-dependent work (serializing a value,
+  validating input) **before** the `try`, so a caller's mistake surfaces as its own error instead
+  of being relabelled `CACHE_ERROR` / `QUEUE_ERROR` (see `RedisCacheService.set()`).
+- **Never wrap caller code.** When a callback must run inside the `try` (e.g. a transaction),
+  classify instead of wrapping everything: rethrow anything that is not the library's own error
+  class unchanged (`isMongooseDriverError()` in
+  `src/infrastructure/persistance/database/errors/mongoose-error.guards.ts`). If the library has no
+  common error base class (node-redis, BullMQ), keep the `try` narrow instead.
+- **Keep the original error in `data.cause`.** `InfrastructureError` subclasses take
+  `(message, data?, options?)` — e.g. `new QueueError(msg, { cause: e })`. Drivers throw
+  `DriverError(message, cause?)`.
+- **Never attach objects that carry secrets** — an `AxiosError` holds the request config including
+  `Authorization` / API-key headers; copy only its `code` and `message`.
+- **"Not found" is not a failure** when the contract can say so: `IStorage.readFile()` returns
+  `null` and `listFiles()` returns `[]` for a missing path, like repositories returning `null`.
+- **The message is for the logs only** — clients get a generic response (§15).
+- **Guard the driver's client with `if (!client)` only** in the service constructor. An
+  `instanceof Object` check adds nothing and fails for objects created in another realm (e.g. Node
+  core `EventEmitter` subclasses under Jest).
+
 ---
 
 ## 15. Error Types → HTTP Status Mapping
 
-| DomainServiceError type | HTTP                                                              |
-| ----------------------- | ----------------------------------------------------------------- |
-| `AUTHENTICATION_ERROR`  | 401                                                               |
-| `USER_PERMISSION_ERROR` | 403                                                               |
-| `NOT_FOUND`             | 404                                                               |
-| `ALREADY_EXISTS`        | 400                                                               |
-| `VALIDATION_ERROR`      | 400                                                               |
-| `INVALID_OPERATION`     | 400                                                               |
-| `INCOMPLETE_MODEL`      | 400                                                               |
-| `UNKNOWN_ERROR`         | 500                                                               |
-| `DATABASE_ERROR`        | 500                                                               |
-| `NETWORK_ERROR`         | 500                                                               |
-| `INFRASTRUCTURE_ERROR`  | 500 (503 for NETWORK/CONNECTION sub-type, 502 for EMAIL sub-type) |
+`BaseController.catchExceptionsWrapper()` turns every error thrown in a controller into a response:
+
+| Thrown error                                                      | HTTP                                                        | Response message                  |
+| ----------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------- |
+| `PaginationException`, `RouteParamException`, `DomainEntityError` | 400                                                         | The error's message               |
+| `DomainServiceError`                                              | Per type, below                                             | The error's message, except below |
+| `InfrastructureError` (reached the controller unwrapped)          | 503 for `NETWORK_ERROR` / `CONNECTION_ERROR`, otherwise 500 | Generic                           |
+| Anything else                                                     | 500                                                         | Generic                           |
+
+| DomainServiceError type | HTTP                                                                                          |
+| ----------------------- | --------------------------------------------------------------------------------------------- |
+| `AUTHENTICATION_ERROR`  | 401                                                                                           |
+| `USER_PERMISSION_ERROR` | 403                                                                                           |
+| `NOT_FOUND`             | 404                                                                                           |
+| `ALREADY_EXISTS`        | 400                                                                                           |
+| `MODEL_ALREADY_EXISTS`  | 400                                                                                           |
+| `VALIDATION_ERROR`      | 400 (response includes `data`)                                                                |
+| `INVALID_OPERATION`     | 400 (response includes `data`)                                                                |
+| `INCOMPLETE_MODEL`      | 400                                                                                           |
+| `UNKNOWN_ERROR`         | 500 (response includes `data`)                                                                |
+| `INFRASTRUCTURE_ERROR`  | 503 when `data.type` is `NETWORK_ERROR` / `CONNECTION_ERROR`, otherwise 500 — generic message |
+
+- `INFRASTRUCTURE_ERROR` is what `wrapInfrastructureErrors()` turns an `InfrastructureError` into;
+  the original infrastructure type travels in `data.type`. The infrastructure types
+  (`InfrastructureErrorType`: `DATABASE_ERROR`, `NETWORK_ERROR`, `CONNECTION_ERROR`, `CACHE_ERROR`,
+  `QUEUE_ERROR`, `SOCKET_ERROR`, `EMAIL_ERROR`, `STORAGE_ERROR`, `NOTIFICATION_ERROR`,
+  `DRIVER_ERROR`) are **not** `DomainServiceError` types.
+- "Generic" means `ErrorResponseMessages.SERVER_ERROR()` (500) or `SERVICE_UNAVAILABLE()` (503),
+  built by `ApiResponseUtils.infrastructureErrorResponse()`. The infrastructure message never
+  reaches the client; `catchExceptionsWrapper()` logs the full error.
+- `UserValidatorMiddleware` answers an `INFRASTRUCTURE_ERROR` during authentication with the same
+  generic 503/500 — a dependency outage is not an authentication failure. Any other
+  `DomainServiceError` there is a 401 with its message.
 
 ---
 
@@ -542,7 +597,7 @@ Adding a new infrastructure service (e.g. new database, third-party API):
 | Inline comments       | Write inline comments only when the WHY is non-obvious — never narrate obvious code                                                                                                                                                                                 |
 | JSDoc                 | Every non-trivial method/function needs a full-tag JSDoc block (see §22). Exempt: trivial getters/setters and constructors                                                                                                                                          |
 | Repository interfaces | Domain services and controllers must use `IXxxRepository` from `application/interfaces/repositories/` — never import concrete repository classes                                                                                                                    |
-| Type assertions       | Never use `as Type`, `<Type>value`, or non-null `!` without the user's explicit consent first — prefer type guards/generics/explicit annotations. `as const` is exempt. See §24 for the pre-approved structural exceptions.                                          |
+| Type assertions       | Never use `as Type`, `<Type>value`, or non-null `!` without the user's explicit consent first — prefer type guards/generics/explicit annotations. `as const` is exempt. See §24 for the pre-approved structural exceptions.                                         |
 
 ---
 
@@ -568,6 +623,16 @@ is typed `Record<string, unknown> | Record<string, unknown>[] | undefined` — a
 a single object **or an array of objects** (batch bodies). The explicit `| undefined` is required
 because the project compiles with `exactOptionalPropertyTypes: true`; keep it when modifying the
 type. `GET`/`DELETE` ignore `data`.
+
+Errors:
+
+- A non-2xx response does **not** throw — every response comes back as an `HTTPResponse`; check
+  its status.
+- A request that was sent but failed (DNS, refused connection, timeout, too many redirects,
+  unreadable response) throws `InfrastructureError` `NETWORK_ERROR` with
+  `data: { method, url, code, error }` — no request headers.
+- A request that could not be set up (invalid URL, unsupported protocol, unserializable body)
+  rethrows the original error unchanged — it is a caller or configuration error.
 
 ---
 
@@ -724,12 +789,16 @@ never claims anything false about a value's runtime type, so it never needs cons
 ```typescript
 // ❌ Bad — asserts, hides that error could be any thrown value
 } catch (error) {
-  throw new InfrastructureError(`Failed: ${(error as Error).message}`);
+  throw new InfrastructureError(`Failed: ${(error as Error).message}`, 'CACHE_ERROR');
 }
 
-// ✅ Good — narrows with a type guard, no assertion
+// ✅ Good — narrows with a type guard, no assertion (and keeps the original, see §14)
 } catch (error) {
-  throw new InfrastructureError(`Failed: ${error instanceof Error ? error.message : String(error)}`);
+  throw new InfrastructureError(
+    `Failed: ${error instanceof Error ? error.message : String(error)}`,
+    'CACHE_ERROR',
+    { cause: error },
+  );
 }
 ```
 
@@ -741,7 +810,7 @@ works.
 
 1. **Generic base-class boundaries** — e.g. `BaseMapper.toFilter` (§7) narrowing between
    `NewDomainModel` and `DBSchema`, or a generic sub-document helper narrowing `S` → `S & { _id:
-   string }`. The relationship between the generic type parameters is only guaranteed by the
+string }`. The relationship between the generic type parameters is only guaranteed by the
    concrete subclass wiring them together, not provable structurally by TS.
 2. **`TransactionOptions.session` crossing into a concrete driver type** — it's deliberately typed
    `session?: unknown` in `IDatabaseMapper` to stay database-agnostic (Mongoose today, potentially

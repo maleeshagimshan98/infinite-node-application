@@ -143,6 +143,10 @@ mounted under the API prefix:
 - GET http://localhost:3000/api/v1/health/live → liveness probe
 - GET http://localhost:3000/api/v1/health/ready → readiness probe
 
+`/health` and `/health/ready` return 200 only when every service is connected, otherwise 503
+(`degraded`, or `unhealthy` when the database is down). The response shows each service's
+`status` and `latency` only — driver error details are written to the server log, not returned.
+
 5. Build and run in production mode
 
 ```powershell
@@ -229,7 +233,9 @@ Located in src/app/core/config:
 - src/presentation/http/routes/health.routes.ts under /health — see [Quickstart](#quickstart)
 - Validation: RequestValidatorMiddleware wraps express-validator schemas; UserValidatorMiddleware
   authenticates the request on every route (per §13 of `CLAUDE.md`)
-- API responses: ApiResponseUtils in app/core/utils/api-response
+- API responses: ApiResponseUtils in app/core/utils/api-response. Infrastructure failures
+  (database, cache, queue, …) always answer with a generic 500, or 503 for network/connection
+  failures — the underlying error is logged, never returned (see §15 of `CLAUDE.md`)
 - Mongoose models: User, LoginRecord, UserGroup, PasswordResetCodes, Resource, Role
 
 ### Logging
@@ -300,12 +306,16 @@ npm run start:all
 npm test
 ```
 
-Jest matches tests under src/\*_/_.spec.(ts|js). There are example specs in app/utils/filteration and pagination.
+Jest matches tests under `src/**/*.spec.(ts|js)`, next to the code they cover (e.g. the
+infrastructure services' error handling, `BaseController` error responses, pagination). They run
+without external services, except `base-repository.spec.ts`, which needs a real MongoDB at
+`MONGODB_TEST_URI` (default `mongodb://localhost:27017/infinite-node-application-test`).
 
 ## Troubleshooting
 
 - 429 Too many requests: Ensure Redis is reachable; the rate limiter uses a Redis store via the DI cache service
-- Transaction/session errors on signup or seeding: `MONGODB_URI` is missing `?replicaSet=rs0`, or the replica set was never initiated — connect with `mongosh` and run `rs.status()` to confirm. For a from-scratch native setup, see [`Docs/guides/REPLICA_SET_SETUP_GUIDE.md`](Docs/guides/REPLICA_SET_SETUP_GUIDE.md)
+- Transaction/session errors on signup or seeding: `MONGODB_URI` is missing `?replicaSet=rs0`, or the replica set was never initiated — connect with `mongosh` and run `rs.status()` to confirm. For a from-scratch native setup, see [`Docs/guides/REPLICA_SET_SETUP_GUIDE.md`](Docs/guides/REPLICA_SET_SETUP_GUIDE.md). Over HTTP this shows only as a generic 500 — look in the server log for `PersistanceError` `Failed to execute transaction: Transaction numbers are only allowed on a replica set member or mongos`
+- A generic 500/503 from any endpoint: infrastructure error details are never returned to the client — check the server log for the full error
 - Health check failing in Docker: Ensure NODE_PORT matches the healthcheck port (3001 by default in Dockerfile) or adjust Dockerfile
 - Logs not created: Confirm write permissions to ./logs in container/host
 - More seeding-specific issues: see [`Docs/Getting_Started.md`](Docs/Getting_Started.md#7-troubleshooting)
