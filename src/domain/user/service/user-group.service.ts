@@ -33,6 +33,7 @@ export class UserGroupService extends BaseDomainService {
    *
    * @param {string} id - The ID of the user group to retrieve.
    * @returns {Promise<UserGroup | null>} The user group, or null if none matched.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
    */
   async getById(id: string): Promise<UserGroup | null> {
     return this.wrapInfrastructureErrors(async () => {
@@ -128,6 +129,7 @@ export class UserGroupService extends BaseDomainService {
    * @returns {Promise<{ id: string; name: string }>} The updated user group's id and name.
    * @throws {DomainServiceError} NOT_FOUND when no user group exists with the given id, or the current default group could not be unset.
    * @throws {DomainServiceError} ALREADY_EXISTS when another user group already has the requested name.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
    */
   async update(
     id: string,
@@ -190,7 +192,7 @@ export class UserGroupService extends BaseDomainService {
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<UserGroup>} The deleted user group.
    * @throws {DomainServiceError} NOT_FOUND when no user group exists with the given id.
-   * @throws {DomainServiceError} VALIDATION_ERROR when the group is the default group or has associated users.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed, or the group is the default group or has associated users.
    */
   async delete(id: string, transactionOptions?: TransactionOptions): Promise<UserGroup> {
     return this.wrapInfrastructureErrors(async () => {
@@ -233,6 +235,7 @@ export class UserGroupService extends BaseDomainService {
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<{ id: string; name: string }>} The (now default) user group's id and name.
    * @throws {DomainServiceError} NOT_FOUND when no user group exists with the given id, or the current default group could not be unset.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
    */
   async setAsDefault(id: string, transactionOptions?: TransactionOptions): Promise<{ id: string; name: string }> {
     return this.wrapInfrastructureErrors(async () => {

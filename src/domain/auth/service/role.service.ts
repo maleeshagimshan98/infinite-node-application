@@ -42,6 +42,7 @@ export class RoleService extends BaseDomainService {
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<Role>} The matching role.
    * @throws {DomainServiceError} NOT_FOUND when no role exists with the given id.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
    */
   async getById(id: string, transactionOptions?: TransactionOptions): Promise<Role> {
     return this.wrapInfrastructureErrors(async () => {
@@ -136,6 +137,7 @@ export class RoleService extends BaseDomainService {
    * @throws {DomainServiceError} NOT_FOUND when no role exists with the given id, or a
    * resource_permissions entry references a resource id that does not exist.
    * @throws {DomainServiceError} ALREADY_EXISTS when renaming to a name already used by another role.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
    */
   async update(id: string, data: Partial<INewRole>, transactionOptions?: TransactionOptions): Promise<Role> {
     return this.wrapInfrastructureErrors(async () => {
@@ -186,7 +188,7 @@ export class RoleService extends BaseDomainService {
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<Role>} The deleted role.
    * @throws {DomainServiceError} NOT_FOUND when no role exists with the given id.
-   * @throws {DomainServiceError} VALIDATION_ERROR when the role is the default role, or still has
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed, the role is the default role, or it still has
    * associated users.
    */
   async delete(id: string, transactionOptions?: TransactionOptions): Promise<Role> {

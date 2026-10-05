@@ -35,6 +35,7 @@ export class ResourceService extends BaseDomainService {
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<Resource>} The matching resource.
    * @throws {DomainServiceError} NOT_FOUND when no resource exists with the given id.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
    */
   async getById(id: string, transactionOptions?: TransactionOptions): Promise<Resource> {
     return this.wrapInfrastructureErrors(async () => {
@@ -104,6 +105,7 @@ export class ResourceService extends BaseDomainService {
    * @returns {Promise<Resource>} The updated resource.
    * @throws {DomainServiceError} NOT_FOUND when no resource exists with the given id.
    * @throws {DomainServiceError} ALREADY_EXISTS when renaming to a name already used by another resource.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
    */
   async update(id: string, data: Partial<INewResource>, transactionOptions?: TransactionOptions): Promise<Resource> {
     return this.wrapInfrastructureErrors(async () => {
@@ -136,7 +138,7 @@ export class ResourceService extends BaseDomainService {
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<Resource>} The deleted resource.
    * @throws {DomainServiceError} NOT_FOUND when no resource exists with the given id.
-   * @throws {DomainServiceError} VALIDATION_ERROR when the resource is still granted by a role.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed, or the resource is still granted by a role.
    */
   async delete(id: string, transactionOptions?: TransactionOptions): Promise<Resource> {
     return this.wrapInfrastructureErrors(async () => {

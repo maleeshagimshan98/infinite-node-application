@@ -46,6 +46,7 @@ export class UserService extends BaseDomainService {
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<User>} The matching user.
    * @throws {DomainServiceError} NOT_FOUND when no user exists with the given id.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
    */
   async getById(id: string, transactionOptions?: TransactionOptions): Promise<User> {
     return this.wrapInfrastructureErrors(async () => {
@@ -92,6 +93,7 @@ export class UserService extends BaseDomainService {
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<void>}
    * @throws {DomainServiceError} VALIDATION_ERROR when the role or the user group does not exist.
+   * @throws {RepositoryError} INVALID_ID when roleId or ugId is malformed (the caller's wrapInfrastructureErrors maps it to VALIDATION_ERROR).
    */
   private async assertRoleAndGroupExist(
     roleId: string,
@@ -121,7 +123,7 @@ export class UserService extends BaseDomainService {
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<User>} The created user.
    * @throws {DomainServiceError} ALREADY_EXISTS when the email is already associated with another account.
-   * @throws {DomainServiceError} VALIDATION_ERROR when the given role_id/ug_id does not exist.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the given role_id/ug_id is malformed or does not exist.
    */
   async create(data: INewUser, transactionOptions?: TransactionOptions): Promise<User> {
     return this.wrapInfrastructureErrors(async () => {
@@ -152,7 +154,7 @@ export class UserService extends BaseDomainService {
    * @returns {Promise<User>} The updated user.
    * @throws {DomainServiceError} NOT_FOUND when no user exists with the given id.
    * @throws {DomainServiceError} ALREADY_EXISTS when renaming to an email already used by another account.
-   * @throws {DomainServiceError} VALIDATION_ERROR when the given role_id/ug_id does not exist.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed, or the given role_id/ug_id is malformed or does not exist.
    */
   async update(id: string, data: Partial<INewUser>, transactionOptions?: TransactionOptions): Promise<User> {
     return this.wrapInfrastructureErrors(async () => {
@@ -196,6 +198,7 @@ export class UserService extends BaseDomainService {
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<User>} The deleted user.
    * @throws {DomainServiceError} NOT_FOUND when no user exists with the given id.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
    */
   async delete(id: string, transactionOptions?: TransactionOptions): Promise<User> {
     return this.wrapInfrastructureErrors(async () => {
