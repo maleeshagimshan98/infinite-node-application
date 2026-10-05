@@ -11,7 +11,6 @@ export type ServiceErrorType =
   | 'NOT_FOUND'
   | 'ALREADY_EXISTS'
   | 'UNKNOWN_ERROR'
-  | 'MODEL_ALREADY_EXISTS'
   | 'INFRASTRUCTURE_ERROR';
 
 export class DomainServiceError extends Error {

@@ -256,6 +256,30 @@ export default CustomerRepository;
 `BaseRepository` provides: `create`, `findById`, `findOne`, `find`, `count`, `update`, `delete`.  
 All accept an optional `TransactionOptions` as the last parameter.
 
+### Repository Error Handling
+
+Every `BaseRepository` CRUD method runs inside `protected wrapDatabaseErrors(operation, fn)`, which
+classifies whatever `fn` throws, in this order (guards in
+`src/infrastructure/persistance/database/errors/mongoose-error.guards.ts`):
+
+| What `fn` threw                                                                                                                     | What the repository throws                                       |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| A `MongoError` labelled `TransientTransactionError` / `UnknownTransactionCommitResult`                                              | The same error, unchanged — `withTransaction` only retries on it |
+| A malformed ObjectId: a Mongoose `CastError` (`kind: 'ObjectId'`), or a mapper's `BSONError` from `new Types.ObjectId()`            | `RepositoryError` `INVALID_ID`                                   |
+| Anything that is not a Mongoose / MongoDB / BSON error (e.g. a mapper's `DomainEntityError`)                                        | The same error, unchanged                                        |
+| A unique index violation (E11000)                                                                                                   | `RepositoryError` `DUPLICATE_KEY`                                |
+| A network / server-selection / closed-client error, or any driver error while the connection is not open (e.g. a buffering timeout) | `InfrastructureError` `CONNECTION_ERROR` (503)                   |
+| Any other Mongoose / MongoDB error (schema `ValidationError`, non-ObjectId `CastError`, …)                                          | `PersistanceError` (`DATABASE_ERROR`, 500)                       |
+
+- `RepositoryError` (`@/infrastructure/core/errors/repository.error`) means the caller's data was
+  rejected, not that the database failed, so it does **not** extend `InfrastructureError`.
+  `BaseDomainService.wrapInfrastructureErrors()` maps it to a `DomainServiceError` (§15). Its message
+  is for the logs only.
+- A custom query method in a concrete repository **must** run inside
+  `this.wrapDatabaseErrors('methodName', async () => { ... })`, mapper calls included — the mapper's
+  `new Types.ObjectId()` is where a malformed id in a filter or payload fails.
+- Every translated error keeps the original in `data.cause`.
+
 ### Population Strategy (Mongoose `ref` / `.populate()`)
 
 `BaseRepository` exposes an optional, overridable hook:
@@ -369,11 +393,14 @@ export default OrderApplicationService;
 - Use `this.dbTransaction()` for all transactional work
 - Pass `{ session }` (as `TransactionOptions`) to every domain service call inside the callback
 - Errors thrown inside the callback propagate **unchanged** — a `DomainServiceError` keeps its type
-  and HTTP status. Only Mongoose / MongoDB driver failures (commit failure, no replica set,
-  connection loss) are translated into `PersistanceError`, by `MongooseService.transaction()`
-- Never catch and re-wrap Mongo errors inside the callback (or in the repositories and domain
-  services it calls): `withTransaction` retries the callback only while a raw `MongoError` labelled
-  `TransientTransactionError` (e.g. a write conflict) escapes it
+  and HTTP status. Only Mongoose / MongoDB driver failures that escape the callback (commit failure,
+  no replica set, connection loss) are translated, by `MongooseService.transaction()`: into
+  `InfrastructureError` `CONNECTION_ERROR` when the database cannot be reached, otherwise
+  `PersistanceError`
+- Never catch and re-wrap Mongo errors inside the callback yourself: `withTransaction` retries the
+  callback only while a raw `MongoError` labelled `TransientTransactionError` (e.g. a write conflict)
+  escapes it. `BaseRepository.wrapDatabaseErrors()` already translates every other database error
+  and rethrows labelled ones unchanged (§8)
 
 ---
 
@@ -556,7 +583,6 @@ An infrastructure error type means "this infrastructure failed" — nothing else
 | `USER_PERMISSION_ERROR` | 403                                                                                           |
 | `NOT_FOUND`             | 404                                                                                           |
 | `ALREADY_EXISTS`        | 400                                                                                           |
-| `MODEL_ALREADY_EXISTS`  | 400                                                                                           |
 | `VALIDATION_ERROR`      | 400 (response includes `data`)                                                                |
 | `INVALID_OPERATION`     | 400 (response includes `data`)                                                                |
 | `INCOMPLETE_MODEL`      | 400                                                                                           |
@@ -568,6 +594,11 @@ An infrastructure error type means "this infrastructure failed" — nothing else
   (`InfrastructureErrorType`: `DATABASE_ERROR`, `NETWORK_ERROR`, `CONNECTION_ERROR`, `CACHE_ERROR`,
   `QUEUE_ERROR`, `SOCKET_ERROR`, `EMAIL_ERROR`, `STORAGE_ERROR`, `NOTIFICATION_ERROR`,
   `DRIVER_ERROR`) are **not** `DomainServiceError` types.
+- A `RepositoryError` (§8) is mapped by `wrapInfrastructureErrors()` before the `InfrastructureError`
+  check: `DUPLICATE_KEY` → `ALREADY_EXISTS`, `INVALID_ID` → `VALIDATION_ERROR` (both 400), each with
+  a fixed client-safe message — the repository's own message holds index names and key values — and
+  without calling `onError`. Repositories reach a controller only through a domain service; a
+  `RepositoryError` that arrived unwrapped would be a generic 500 ("Anything else").
 - "Generic" means `ErrorResponseMessages.SERVER_ERROR()` (500) or `SERVICE_UNAVAILABLE()` (503),
   built by `ApiResponseUtils.infrastructureErrorResponse()`. The infrastructure message never
   reaches the client; `catchExceptionsWrapper()` logs the full error.

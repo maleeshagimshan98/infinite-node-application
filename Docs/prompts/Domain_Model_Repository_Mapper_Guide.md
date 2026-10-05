@@ -448,6 +448,33 @@ export default UserGroupRepository;
 > **NOTE**: Domain services and controllers depend on `IUserGroupRepository` (the interface in
 > `application/interfaces/repositories/`), never on the concrete repository class.
 
+### Repository Errors
+
+Every inherited method runs inside `BaseRepository`'s `protected wrapDatabaseErrors(operation, fn)`,
+so no raw Mongoose / MongoDB error leaves a repository:
+
+| Failure                                                                                | Thrown as                                    |
+| -------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Labelled `TransientTransactionError` / `UnknownTransactionCommitResult`                | The raw error, unchanged (transaction retry) |
+| Malformed ObjectId — `CastError`, or the mapper's `new Types.ObjectId()` (`BSONError`) | `RepositoryError` `INVALID_ID`               |
+| Not a database error (e.g. a mapper's `DomainEntityError`)                             | The same error, unchanged                    |
+| E11000 duplicate key                                                                   | `RepositoryError` `DUPLICATE_KEY`            |
+| Database unreachable (network, server selection, connection not open)                  | `InfrastructureError` `CONNECTION_ERROR`     |
+| Any other database failure                                                             | `PersistanceError` (`DATABASE_ERROR`)        |
+
+> **RULE**: A feature-specific query method must run inside the wrapper too, mapper calls included:
+>
+> ```typescript
+> async findByName(name: string, transactionOptions?: TransactionOptions): Promise<UserGroup | null> {
+>   return this.wrapDatabaseErrors('findByName', async () => {
+>     // ... query + this mapper's toDomain()
+>   });
+> }
+> ```
+>
+> Domain services never handle these directly: `wrapInfrastructureErrors()` maps `DUPLICATE_KEY` →
+> `ALREADY_EXISTS` and `INVALID_ID` → `VALIDATION_ERROR` with client-safe messages.
+
 ---
 
 ## Sub-Documents
@@ -667,7 +694,7 @@ toPersistence(data: NewOrder): INewOrderSchema {
       toDomain uses the & { _id } intersection and ._id.toString(); toPersistence omits _id when id is falsy
       and converts via new Types.ObjectId(data.id) when present
 ☐ 9.  Repository interface in application/interfaces/repositories/; class extends BaseRepository;
-      no CRUD duplication; export default
+      no CRUD duplication; custom query methods run inside this.wrapDatabaseErrors(); export default
 ☐ 10. JSDoc on every non-trivial method; npm run lint clean; npx tsc --noEmit passes
 ☐ 11. Route, controller, domain/application service, and validator are the remaining pieces of
       this resource's file set — see Docs/prompts/API_Resource_Guide.md for those steps, and

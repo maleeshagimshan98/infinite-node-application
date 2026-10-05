@@ -430,8 +430,9 @@ For services with a driver (e.g. database), the service is created by first cons
 ```typescript
 // infrastructure/persistance/database/service/database-mapper/mongoose.service.ts
 import type { IDatabaseMapper, TransactionOptions } from '@/application/interfaces/database-mapper.interface';
+import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
-import { isMongooseDriverError } from '../../errors/mongoose-error.guards';
+import { isConnectionFailure, isMongooseDriverError } from '../../errors/mongoose-error.guards';
 import { PersistanceError } from '../../errors/persistance.error';
 
 import type mongoose from 'mongoose';
@@ -467,11 +468,12 @@ export class MongooseService implements IDatabaseMapper {
   }
 
   async transaction<T>(callback: (options: TransactionOptions) => Promise<T>): Promise<T> {
+    const connection = this.client.connection;
     try {
       // `await` is required — without it a rejection bypasses this catch.
       // connection.transaction() wraps session.withTransaction(): commit on success, abort on error,
       // and automatic retry of the callback on TransientTransactionError (e.g. write conflicts).
-      return await this.client.connection.transaction((session) => callback({ session }));
+      return await connection.transaction((session) => callback({ session }));
     } catch (err: unknown) {
       // Translate only here, after withTransaction has finished — it retries only while the raw
       // MongoError is still unwrapped. Errors thrown by the callback itself (DomainServiceError, …)
@@ -479,7 +481,11 @@ export class MongooseService implements IDatabaseMapper {
       if (!isMongooseDriverError(err)) {
         throw err;
       }
-      throw new PersistanceError(`Failed to execute transaction: ${err.message}`, { cause: err });
+      const message = `Failed to execute transaction: ${err.message}`;
+      if (isConnectionFailure(err, connection.readyState)) {
+        throw new InfrastructureError(message, 'CONNECTION_ERROR', { cause: err });
+      }
+      throw new PersistanceError(message, { cause: err });
     }
   }
 
@@ -860,6 +866,26 @@ export default CustomerRepository;
 | `update`   | `(id: string, item: NewDomainModel, opts?): Promise<DomainModel>`                   |
 | `delete`   | `(id: string, opts?): Promise<void>`                                                |
 
+**Error handling**: every inherited method runs inside `protected wrapDatabaseErrors(operation, fn)`,
+and a custom query method in a concrete repository must too
+(`return this.wrapDatabaseErrors('findByEmail', async () => { ... })`, mapper calls included). It
+classifies what `fn` throws, in this order:
+
+1. A `MongoError` labelled `TransientTransactionError` / `UnknownTransactionCommitResult` → rethrown
+   unchanged, so `withTransaction` can retry
+2. A malformed ObjectId — a Mongoose `CastError` (`kind: 'ObjectId'`), or the `BSONError` a mapper's
+   `new Types.ObjectId()` throws → `RepositoryError` `INVALID_ID`
+3. Anything that is not a Mongoose / MongoDB / BSON error (a mapper's `DomainEntityError`, a
+   `TypeError`) → rethrown unchanged
+4. E11000 duplicate key → `RepositoryError` `DUPLICATE_KEY`
+5. A network / server-selection / closed-client error, or any driver error while the connection is
+   not open (Mongoose's buffering timeout) → `InfrastructureError` `CONNECTION_ERROR`
+6. Anything else → `PersistanceError` (`DATABASE_ERROR`)
+
+`RepositoryError` (`@/infrastructure/core/errors/repository.error`) is rejected caller data, not an
+infrastructure failure, so it does not extend `InfrastructureError`; `wrapInfrastructureErrors()`
+maps it to a `DomainServiceError` (§11b). Every translated error keeps the original in `data.cause`.
+
 ---
 
 ### 11. Domain Layer — Model and Service
@@ -979,7 +1005,6 @@ export default CustomerService;
 | `'USER_PERMISSION_ERROR'` | 403         |
 | `'NOT_FOUND'`             | 404         |
 | `'ALREADY_EXISTS'`        | 400         |
-| `'MODEL_ALREADY_EXISTS'`  | 400         |
 | `'VALIDATION_ERROR'`      | 400         |
 | `'INVALID_OPERATION'`     | 400         |
 | `'INCOMPLETE_MODEL'`      | 400         |
@@ -990,6 +1015,9 @@ export default CustomerService;
 - `'INFRASTRUCTURE_ERROR'` is produced only by `wrapInfrastructureErrors()`: 503 when the original
   infrastructure type (`data.type`) is `NETWORK_ERROR` / `CONNECTION_ERROR`, otherwise 500 — always
   with a generic message, never the infrastructure error's own.
+- `wrapInfrastructureErrors()` maps a repository's `RepositoryError` (§10c) first: `DUPLICATE_KEY` →
+  `'ALREADY_EXISTS'`, `INVALID_ID` → `'VALIDATION_ERROR'`, each with a fixed client-safe message (the
+  repository's message holds index names and key values) and without calling `onError`.
 
 ---
 
@@ -1045,10 +1073,13 @@ export class BaseApplicationService {
 ```
 
 **Errors inside a transaction**: anything the callback throws propagates **unchanged** — a
-`DomainServiceError` keeps its type and HTTP status. Only Mongoose / MongoDB driver failures (commit
-failure, no replica set, lost connection) are translated into `PersistanceError` by
-`MongooseService.transaction()`. Don't catch and re-wrap Mongo errors inside the callback: the
-automatic retry of transient write conflicts only happens while the raw `MongoError` escapes it.
+`DomainServiceError` keeps its type and HTTP status. Only Mongoose / MongoDB driver failures that
+escape the callback (commit failure, no replica set, lost connection) are translated by
+`MongooseService.transaction()`: into `InfrastructureError` `CONNECTION_ERROR` when the database
+cannot be reached, otherwise `PersistanceError`. Don't catch and re-wrap Mongo errors inside the
+callback yourself: the automatic retry of transient write conflicts only happens while the raw
+labelled `MongoError` escapes it — `BaseRepository.wrapDatabaseErrors()` rethrows those unchanged and
+translates everything else (§10c).
 
 ---
 

@@ -59,7 +59,7 @@ Clean architecture: **Presentation → Application → Domain → Infrastructure
 ### Application (`src/application/`)
 
 - **Interfaces** — every cross-layer contract lives here (`IDatabaseMapper`, `ICache`, `IStorage`, etc.)
-- **ApplicationServices** — only for multi-domain transactions; extend `BaseApplicationService`; `databaseMapperService` MUST be first constructor param; use `this.dbTransaction()`. Errors thrown inside the callback propagate unchanged (only driver failures become `PersistanceError`); never re-wrap Mongo errors inside it — that disables the automatic retry of transient write conflicts
+- **ApplicationServices** — only for multi-domain transactions; extend `BaseApplicationService`; `databaseMapperService` MUST be first constructor param; use `this.dbTransaction()`. Errors thrown inside the callback propagate unchanged (only driver failures that escape it become `InfrastructureError` `CONNECTION_ERROR` or `PersistanceError`); never re-wrap Mongo errors inside it yourself — that disables the automatic retry of transient write conflicts (`BaseRepository.wrapDatabaseErrors()` already rethrows labelled ones unchanged)
 
 ### Domain (`src/domain/`)
 
@@ -70,7 +70,7 @@ Clean architecture: **Presentation → Application → Domain → Infrastructure
 
 - **Schema** — `INew{Model}Schema` only (no extending interfaces); `timestamps: true`
 - **Mapper** — implements `IBaseMapper<Schema, Model, NewModel>`; `toDomain(data: INewSchema & { _id: Types.ObjectId })` — always call `.toString()` on `_id`
-- **Repository** — extends `BaseRepository<Schema, Model, NewModel>`; no duplicate CRUD methods
+- **Repository** — extends `BaseRepository<Schema, Model, NewModel>`; no duplicate CRUD methods; custom query methods run inside `this.wrapDatabaseErrors()` (see Repository Error Handling)
 - **External services** — Driver → Service → Factory → registered in `infrastructure.loader.ts`; wrap only the driver's own failures, keeping the original in `data.cause` (see Infrastructure Service Checklist)
 
 ---
@@ -183,6 +183,23 @@ When a domain object genuinely needs a 3rd level of nested data, do **not** exte
 
 ---
 
+## Repository Error Handling
+
+Every `BaseRepository` CRUD method runs inside `protected wrapDatabaseErrors(operation, fn)`, which classifies what `fn` throws, in order:
+
+1. A `MongoError` labelled `TransientTransactionError` / `UnknownTransactionCommitResult` → rethrown **unchanged** (`withTransaction` only retries on it)
+2. A malformed ObjectId (Mongoose `CastError` with `kind: 'ObjectId'`, or a mapper's `BSONError` from `new Types.ObjectId()`) → `RepositoryError` `INVALID_ID`
+3. Not a Mongoose / MongoDB / BSON error (e.g. a mapper's `DomainEntityError`) → rethrown **unchanged**
+4. E11000 duplicate key → `RepositoryError` `DUPLICATE_KEY`
+5. Network / server-selection / closed-client error, or any driver error while the connection is not open → `InfrastructureError` `CONNECTION_ERROR` (503)
+6. Anything else → `PersistanceError` (`DATABASE_ERROR`, 500)
+
+- `RepositoryError` (`@/infrastructure/core/errors/repository.error`) is rejected caller data, not an infrastructure failure — it does not extend `InfrastructureError`; `wrapInfrastructureErrors()` maps it (see Error Types → HTTP Status)
+- Custom query methods in a concrete repository **must** run inside `this.wrapDatabaseErrors('methodName', async () => { ... })`, mapper calls included
+- Translated errors keep the original in `data.cause`; their message is for the logs only
+
+---
+
 ## Domain Service Pattern
 
 ```typescript
@@ -277,7 +294,6 @@ export { router as ModelRoutes }; // named export ending in "Routes"
 | ----------------------- | -------------------------------------------------------------------------------------- |
 | `NOT_FOUND`             | 404                                                                                    |
 | `ALREADY_EXISTS`        | 400                                                                                    |
-| `MODEL_ALREADY_EXISTS`  | 400                                                                                    |
 | `VALIDATION_ERROR`      | 400                                                                                    |
 | `INVALID_OPERATION`     | 400                                                                                    |
 | `INCOMPLETE_MODEL`      | 400                                                                                    |
@@ -292,6 +308,9 @@ export { router as ModelRoutes }; // named export ending in "Routes"
   — never the error's own message. The full error is logged.
 - `DATABASE_ERROR`, `NETWORK_ERROR`, `CACHE_ERROR` etc. are `InfrastructureErrorType`s, not
   `DomainServiceError` types.
+- `wrapInfrastructureErrors()` maps a `RepositoryError` first: `DUPLICATE_KEY` → `ALREADY_EXISTS`,
+  `INVALID_ID` → `VALIDATION_ERROR`, each with a fixed client-safe message and without calling
+  `onError`. One that reached a controller unwrapped would be a generic 500.
 - `UserValidatorMiddleware`: an `INFRASTRUCTURE_ERROR` during authentication is the same generic
   503/500, not a 401.
 
@@ -372,7 +391,7 @@ export { router as ModelRoutes }; // named export ending in "Routes"
 
 | Token             | Interface         | Description                                                                                                                                                                                                                                                                                                              |
 | ----------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `database_mapper` | `IDatabaseMapper` | MongoDB via Mongoose; provides transactions — callback errors propagate unchanged, only driver failures become `PersistanceError`                                                                                                                                                                                        |
+| `database_mapper` | `IDatabaseMapper` | MongoDB via Mongoose; provides transactions — callback errors propagate unchanged, only driver failures become `InfrastructureError` / `PersistanceError`                                                                                                                                                                |
 | `cache`           | `ICache`          | Redis                                                                                                                                                                                                                                                                                                                    |
 | `logger`          | `ILogger`         | Winston                                                                                                                                                                                                                                                                                                                  |
 | `queue`           | `IQueue`          | BullMQ                                                                                                                                                                                                                                                                                                                   |

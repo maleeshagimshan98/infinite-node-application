@@ -65,9 +65,6 @@ class BaseController {
     if (serviceException.type === 'INCOMPLETE_MODEL') {
       return ApiResponseUtils.apiErrorResponse(400, serviceException.message);
     }
-    if (serviceException.type === 'MODEL_ALREADY_EXISTS') {
-      return ApiResponseUtils.apiErrorResponse(400, serviceException.message);
-    }
     if (serviceException.type === 'UNKNOWN_ERROR') {
       return ApiResponseUtils.apiErrorResponse(500, serviceException.message, serviceException.data);
     }
