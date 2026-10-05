@@ -9,6 +9,10 @@ import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 import { PersistanceError } from '../../errors/persistance.error';
+import {
+  restoreReadyState,
+  stubReadyState,
+} from '../../repositories/mongoose/base/test-helpers/connection-state.helper';
 import { MongooseDriver } from './driver/mongoose.driver';
 import { MongooseService } from './mongoose.service';
 
@@ -25,10 +29,13 @@ describe('MongooseService.transaction', () => {
     service = new MongooseService(
       new StubDriver({ driverName: 'mongoose', singleton: true, deferred: true, uri: 'mongodb://stub' }),
     );
+    // Without a stub the test connection is never open, which classifies every driver error as CONNECTION_ERROR.
+    stubReadyState(mongoose.connection, mongoose.ConnectionStates.connected);
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
+    restoreReadyState(mongoose.connection);
   });
 
   it('resolves with the value returned by the transaction', async () => {
@@ -58,5 +65,26 @@ describe('MongooseService.transaction', () => {
 
     expect(thrown).toBeInstanceOf(PersistanceError);
     expect(thrown).toMatchObject({ type: 'DATABASE_ERROR', data: { cause: error } });
+  });
+
+  it('wraps a network error in a CONNECTION_ERROR InfrastructureError carrying the original as data.cause', async () => {
+    const error = new mongoose.mongo.MongoNetworkError('connection reset');
+    jest.spyOn(mongoose.connection, 'transaction').mockRejectedValue(error);
+
+    const thrown = await service.transaction(async () => undefined).catch((e: unknown) => e);
+
+    expect(thrown).toBeInstanceOf(InfrastructureError);
+    expect(thrown).not.toBeInstanceOf(PersistanceError);
+    expect(thrown).toMatchObject({ type: 'CONNECTION_ERROR', data: { cause: error } });
+  });
+
+  it('wraps a driver error in a CONNECTION_ERROR InfrastructureError while the connection is not open', async () => {
+    stubReadyState(mongoose.connection, mongoose.ConnectionStates.disconnected);
+    const error = new mongoose.MongooseError('Connection operation buffering timed out after 10000ms');
+    jest.spyOn(mongoose.connection, 'transaction').mockRejectedValue(error);
+
+    const thrown = await service.transaction(async () => undefined).catch((e: unknown) => e);
+
+    expect(thrown).toMatchObject({ type: 'CONNECTION_ERROR', data: { cause: error } });
   });
 });

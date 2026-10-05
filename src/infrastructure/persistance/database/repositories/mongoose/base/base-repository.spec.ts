@@ -8,7 +8,9 @@
  */
 
 import { NewUser, User } from '@/domain/user/models/user';
+import { RepositoryError } from '@/infrastructure/core/errors/repository.error';
 
+import { PersistanceError } from '../../../errors/persistance.error';
 import { UserRepository } from '../user/user.repository';
 import { connectToTestDB, clearTestDB, disconnectFromTestDB } from './test-helpers/mongodb-test-helper';
 
@@ -98,8 +100,28 @@ describe('BaseRepository', () => {
         role_id: '507f1f77bcf86cd799439099',
       });
 
-      // Act & Assert
-      await expect(userRepository.create(invalidUser)).rejects.toThrow();
+      // Act & Assert - the schema ValidationError is translated, not leaked raw
+      await expect(userRepository.create(invalidUser)).rejects.toBeInstanceOf(PersistanceError);
+    });
+
+    it('should throw a DUPLICATE_KEY RepositoryError when the id already exists', async () => {
+      // Arrange
+      const data = {
+        id: '507f1f77bcf86cd799439022',
+        email: 'duplicate@example.com',
+        password: 'hashedPassword123',
+        status: 'active' as const,
+        ug_id: 'user-group-1',
+        role_id: '507f1f77bcf86cd799439099',
+      };
+      await userRepository.create(new NewUser(data));
+
+      // Act
+      const thrown = await userRepository.create(new NewUser(data)).catch((e: unknown) => e);
+
+      // Assert
+      expect(thrown).toBeInstanceOf(RepositoryError);
+      expect(thrown).toMatchObject({ type: 'DUPLICATE_KEY' });
     });
 
     it('should create multiple users successfully', async () => {
@@ -336,13 +358,16 @@ describe('BaseRepository', () => {
       expect(foundUser).toBeNull();
     });
 
-    it('should return null when given an invalid ID format', async () => {
+    it('should throw an INVALID_ID RepositoryError when given an invalid ID format', async () => {
       // Arrange
       const invalidId = 'invalid-id-format';
 
-      // Act & Assert
-      // Mongoose will throw an error for invalid ObjectId format
-      await expect(userRepository.findById(invalidId)).rejects.toThrow();
+      // Act
+      const thrown = await userRepository.findById(invalidId).catch((e: unknown) => e);
+
+      // Assert
+      expect(thrown).toBeInstanceOf(RepositoryError);
+      expect(thrown).toMatchObject({ type: 'INVALID_ID' });
     });
 
     it('should convert mongoose document to domain model', async () => {

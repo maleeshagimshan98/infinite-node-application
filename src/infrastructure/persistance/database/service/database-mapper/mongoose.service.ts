@@ -3,8 +3,9 @@
  */
 
 import type { IDatabaseMapper, TransactionOptions } from '@/application/interfaces/database-mapper.interface';
+import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
-import { isMongooseDriverError } from '../../errors/mongoose-error.guards';
+import { isConnectionFailure, isMongooseDriverError } from '../../errors/mongoose-error.guards';
 import { PersistanceError } from '../../errors/persistance.error';
 
 import type { Connection } from 'mongoose';
@@ -98,12 +99,13 @@ export class MongooseService implements IDatabaseMapper {
 
   /**
    * Executes a series of database operations within a transaction, if supported by the underlying mapper.
-   * Errors thrown by the callback (domain, entity or other infrastructure errors) are rethrown unchanged;
-   * only Mongoose / MongoDB driver errors are translated into a PersistanceError.
+   * Errors thrown by the callback (domain, entity, repository or other infrastructure errors) are rethrown
+   * unchanged; only Mongoose / MongoDB driver errors are translated.
    *
    * @param {(options: TransactionOptions) => Promise<T>} callback - An asynchronous function containing the database operations to execute within the transaction
    * @returns {Promise<T>} The result of the transaction callback
-   * @throws {PersistanceError} If Mongoose or the MongoDB driver fails while running, committing or aborting the transaction
+   * @throws {InfrastructureError} CONNECTION_ERROR if the database cannot be reached
+   * @throws {PersistanceError} If Mongoose or the MongoDB driver otherwise fails while running, committing or aborting the transaction
    */
   async transaction<T>(callback: (options: TransactionOptions) => Promise<T>): Promise<T> {
     const connection: Connection = this.client.connection;
@@ -117,7 +119,11 @@ export class MongooseService implements IDatabaseMapper {
       if (!isMongooseDriverError(err)) {
         throw err;
       }
-      throw new PersistanceError(`Failed to execute transaction: ${err.message}`, { cause: err });
+      const message = `Failed to execute transaction: ${err.message}`;
+      if (isConnectionFailure(err, connection.readyState)) {
+        throw new InfrastructureError(message, 'CONNECTION_ERROR', { cause: err });
+      }
+      throw new PersistanceError(message, { cause: err });
     }
   }
 
