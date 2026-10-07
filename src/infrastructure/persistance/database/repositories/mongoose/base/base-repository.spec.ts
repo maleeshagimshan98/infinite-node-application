@@ -7,15 +7,23 @@
  * NOTE: Ensure MongoDB is running and use a dedicated test database!
  */
 
+import { NewResource, Resource } from '@/domain/auth/models/resource';
+import { NewRole, Role } from '@/domain/auth/models/role';
 import { NewUser, User } from '@/domain/user/models/user';
 import { RepositoryError } from '@/infrastructure/core/errors/repository.error';
 
 import { PersistanceError } from '../../../errors/persistance.error';
+import { ResourceRepository } from '../resources/resource.repository';
+import { RoleRepository } from '../roles/role.repository';
+import { UserModel } from '../user/user.model';
 import { UserRepository } from '../user/user.repository';
 import { connectToTestDB, clearTestDB, disconnectFromTestDB } from './test-helpers/mongodb-test-helper';
 
 describe('BaseRepository', () => {
   let userRepository: UserRepository;
+  // UserRepository populates role_id → Role → each granted Resource, so every user needs a real role.
+  // Importing the role / resource repositories also registers the models that populate resolves.
+  let roleId: string;
 
   // Connect to the test database before all tests
   beforeAll(async () => {
@@ -26,6 +34,18 @@ describe('BaseRepository', () => {
   beforeEach(async () => {
     await clearTestDB();
     userRepository = new UserRepository();
+
+    const resource = await new ResourceRepository().create(new NewResource({ name: 'users' }));
+    const role = await new RoleRepository().create(
+      new NewRole({
+        name: 'member',
+        default: true,
+        resource_permissions: [
+          { resource_id: resource.id, permission: { read: true, write: false, update: false, delete: false } },
+        ],
+      }),
+    );
+    roleId = role.id;
   });
 
   // Disconnect from the test database after all tests
@@ -41,7 +61,7 @@ describe('BaseRepository', () => {
         password: 'hashedPassword123',
         status: 'pending_verification',
         ug_id: 'user-group-1',
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
 
       // Act
@@ -62,7 +82,7 @@ describe('BaseRepository', () => {
         password: 'hashedPassword456',
         status: 'active',
         ug_id: 'user-group-2',
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
 
       // Act
@@ -79,7 +99,7 @@ describe('BaseRepository', () => {
         password: 'hashedPassword789',
         status: 'pending_verification',
         ug_id: 'user-group-3',
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
 
       // Act
@@ -97,7 +117,7 @@ describe('BaseRepository', () => {
         password: '',
         status: 'pending_verification',
         ug_id: '',
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
 
       // Act & Assert - the schema ValidationError is translated, not leaked raw
@@ -112,7 +132,7 @@ describe('BaseRepository', () => {
         password: 'hashedPassword123',
         status: 'active' as const,
         ug_id: 'user-group-1',
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       };
       await userRepository.create(new NewUser(data));
 
@@ -132,14 +152,14 @@ describe('BaseRepository', () => {
           password: 'pass1',
           status: 'active',
           ug_id: 'ug-1',
-          role_id: '507f1f77bcf86cd799439099',
+          role_id: roleId,
         }),
         new NewUser({
           email: 'user2@example.com',
           password: 'pass2',
           status: 'suspended',
           ug_id: 'ug-2',
-          role_id: '507f1f77bcf86cd799439099',
+          role_id: roleId,
         }),
       ];
 
@@ -162,21 +182,21 @@ describe('BaseRepository', () => {
           password: 'pass1',
           status: 'active',
           ug_id: 'ug-1',
-          role_id: '507f1f77bcf86cd799439099',
+          role_id: roleId,
         }),
         new NewUser({
           email: 'bulk2@example.com',
           password: 'pass2',
           status: 'pending_verification',
           ug_id: 'ug-2',
-          role_id: '507f1f77bcf86cd799439099',
+          role_id: roleId,
         }),
         new NewUser({
           email: 'bulk3@example.com',
           password: 'pass3',
           status: 'suspended',
           ug_id: 'ug-3',
-          role_id: '507f1f77bcf86cd799439099',
+          role_id: roleId,
         }),
       ];
 
@@ -198,14 +218,14 @@ describe('BaseRepository', () => {
           password: 'pass1',
           status: 'active',
           ug_id: 'ug-1',
-          role_id: '507f1f77bcf86cd799439099',
+          role_id: roleId,
         }),
         new NewUser({
           email: 'id2@example.com',
           password: 'pass2',
           status: 'active',
           ug_id: 'ug-2',
-          role_id: '507f1f77bcf86cd799439099',
+          role_id: roleId,
         }),
       ];
 
@@ -227,14 +247,14 @@ describe('BaseRepository', () => {
           password: 'pass1',
           status: 'active',
           ug_id: 'ug-1',
-          role_id: '507f1f77bcf86cd799439099',
+          role_id: roleId,
         }),
         new NewUser({
           email: 'domain2@example.com',
           password: 'pass2',
           status: 'active',
           ug_id: 'ug-2',
-          role_id: '507f1f77bcf86cd799439099',
+          role_id: roleId,
         }),
       ];
 
@@ -244,7 +264,6 @@ describe('BaseRepository', () => {
       // Assert - Verify each result is a domain model, not a Mongoose document
       for (const user of createdUsers) {
         expect(user).toBeInstanceOf(User);
-        expect((user as unknown as Record<string, unknown>)?.toObject).toBeUndefined();
         expect((user as unknown as Record<string, unknown>)?.$__).toBeUndefined();
       }
     });
@@ -257,14 +276,14 @@ describe('BaseRepository', () => {
           password: 'pass1',
           status: 'active',
           ug_id: 'ug-1',
-          role_id: '507f1f77bcf86cd799439099',
+          role_id: roleId,
         }),
         new NewUser({
           email: 'persist2@example.com',
           password: 'pass2',
           status: 'active',
           ug_id: 'ug-2',
-          role_id: '507f1f77bcf86cd799439099',
+          role_id: roleId,
         }),
       ];
 
@@ -297,14 +316,14 @@ describe('BaseRepository', () => {
           password: 'password1',
           status: 'active',
           ug_id: 'ug-a',
-          role_id: '507f1f77bcf86cd799439099',
+          role_id: roleId,
         }),
         new NewUser({
           email: 'fields2@example.com',
           password: 'password2',
           status: 'suspended',
           ug_id: 'ug-b',
-          role_id: '507f1f77bcf86cd799439099',
+          role_id: roleId,
         }),
       ];
 
@@ -332,7 +351,7 @@ describe('BaseRepository', () => {
         password: 'password123',
         status: 'active',
         ug_id: 'ug-find',
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -377,7 +396,7 @@ describe('BaseRepository', () => {
         password: 'password123',
         status: 'active',
         ug_id: 'ug-object',
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -389,8 +408,66 @@ describe('BaseRepository', () => {
       expect(foundUser).toBeDefined();
       expect(foundUser).toBeInstanceOf(User);
       // Verify it's a domain model, not a Mongoose document
-      expect((foundUser as unknown as Record<string, unknown>)?.toObject).toBeUndefined();
       expect((foundUser as unknown as Record<string, unknown>)?.$__).toBeUndefined();
+    });
+
+    it("should populate the user's role and the role's granted resources", async () => {
+      // Arrange
+      const createdUser = await userRepository.create(
+        new NewUser({
+          email: 'populate@example.com',
+          password: 'password123',
+          status: 'active',
+          ug_id: 'ug-populate',
+          role_id: roleId,
+        }),
+      );
+
+      // Act
+      const foundUser = await userRepository.findById(createdUser.id);
+
+      // Assert
+      expect(foundUser?.role_id).toBe(roleId);
+      expect(foundUser?.role).toBeInstanceOf(Role);
+      expect(foundUser?.role?.id).toBe(roleId);
+      expect(foundUser?.role?.resources).toHaveLength(1);
+      expect(foundUser?.role?.resources[0]?.resource).toBeInstanceOf(Resource);
+      expect(foundUser?.role?.resources[0]?.resource.name).toBe('users');
+    });
+
+    it('should map a user whose role no longer exists, keeping its role_id but no role', async () => {
+      // Arrange
+      const createdUser = await userRepository.create(
+        new NewUser({
+          email: 'orphan@example.com',
+          password: 'password123',
+          status: 'active',
+          ug_id: 'ug-orphan',
+          role_id: roleId,
+        }),
+      );
+      await new RoleRepository().delete(roleId);
+
+      // Act
+      const foundUser = await userRepository.findById(createdUser.id);
+
+      // Assert
+      expect(foundUser).toBeInstanceOf(User);
+      expect(foundUser?.role_id).toBe(roleId);
+      expect(foundUser?.role).toBeUndefined();
+    });
+
+    it('should throw a PersistanceError when a stored user has no role_id', async () => {
+      // Arrange - bypass the schema, as a document written before role_id existed would
+      const { insertedId } = await UserModel.collection.insertOne({
+        email: 'legacy@example.com',
+        password: 'password123',
+        status: 'active',
+        ug_id: 'ug-legacy',
+      });
+
+      // Act & Assert
+      await expect(userRepository.findById(insertedId.toString())).rejects.toBeInstanceOf(PersistanceError);
     });
   });
 
@@ -402,7 +479,7 @@ describe('BaseRepository', () => {
         password: 'oldPassword',
         status: 'pending_verification',
         ug_id: 'ug-update',
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -412,7 +489,7 @@ describe('BaseRepository', () => {
         status: 'active',
         password: 'newPassword',
         ug_id: createdUser.ug_id,
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
 
       // Act
@@ -432,7 +509,7 @@ describe('BaseRepository', () => {
         password: 'password123',
         status: 'active',
         ug_id: 'ug-partial',
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -442,7 +519,7 @@ describe('BaseRepository', () => {
         password: newUser.password,
         status: newUser.status,
         ug_id: newUser.ug_id,
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
 
       // Act
@@ -464,7 +541,7 @@ describe('BaseRepository', () => {
         password: 'password',
         status: 'active',
         ug_id: 'ug-1',
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
 
       // Act
@@ -481,7 +558,7 @@ describe('BaseRepository', () => {
         password: 'password123',
         status: 'pending_verification',
         ug_id: 'ug-return',
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -491,7 +568,7 @@ describe('BaseRepository', () => {
         password: createdUser.password,
         status: 'active',
         ug_id: createdUser.ug_id,
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
 
       // Act
@@ -509,7 +586,7 @@ describe('BaseRepository', () => {
         password: 'password123',
         status: 'pending_verification',
         ug_id: 'ug-convert',
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -519,7 +596,7 @@ describe('BaseRepository', () => {
         password: createdUser.password,
         status: 'active',
         ug_id: createdUser.ug_id,
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
 
       // Act
@@ -527,7 +604,6 @@ describe('BaseRepository', () => {
 
       // Assert - Verify it's a domain model
       expect(updatedUser).toBeInstanceOf(User);
-      expect((updatedUser as unknown as Record<string, unknown>)?.toObject).toBeUndefined();
       expect((updatedUser as unknown as Record<string, unknown>)?.$__).toBeUndefined();
     });
   });
@@ -540,7 +616,7 @@ describe('BaseRepository', () => {
         password: 'password123',
         status: 'active',
         ug_id: 'ug-delete',
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -575,14 +651,14 @@ describe('BaseRepository', () => {
         password: 'pass1',
         status: 'active',
         ug_id: 'ug-1',
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
       const user2 = new NewUser({
         email: 'user2@example.com',
         password: 'pass2',
         status: 'active',
         ug_id: 'ug-2',
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
 
       const createdUser1 = await userRepository.create(user1);
@@ -611,7 +687,7 @@ describe('BaseRepository', () => {
         password: 'initialPassword',
         status: 'pending_verification',
         ug_id: 'ug-workflow',
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
       const createdUser = await userRepository.create(newUser);
       const userId = createdUser.id;
@@ -629,7 +705,7 @@ describe('BaseRepository', () => {
         password: createdUser.password,
         status: 'active',
         ug_id: createdUser.ug_id,
-        role_id: '507f1f77bcf86cd799439099',
+        role_id: roleId,
       });
       const updatedUser = await userRepository.update(userId, updates);
       expect(updatedUser).not.toBeNull();
@@ -657,7 +733,7 @@ describe('BaseRepository', () => {
             password: `password${i}`,
             status: 'active',
             ug_id: `ug-${i}`,
-            role_id: '507f1f77bcf86cd799439099',
+            role_id: roleId,
           }),
       );
 

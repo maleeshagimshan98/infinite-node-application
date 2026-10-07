@@ -77,12 +77,12 @@ export class SignupApplicationService extends BaseApplicationService {
    */
   async register(userData: INewUser, sendEmail: boolean = true): Promise<{ id: string; status: string }> {
     const { id, status, email, rawCode } = await this.dbTransaction(async ({ session }) => {
-      const defaultUserGroup = await this.userGroupService.getDefaultGroup();
+      const defaultUserGroup = await this.userGroupService.getDefaultGroup({ session });
       if (!defaultUserGroup) {
-        throw new DomainServiceError('No default customer group is available', 'UNKNOWN_ERROR');
+        throw new DomainServiceError('No default user group is available', 'UNKNOWN_ERROR');
       }
 
-      const defaultRole = await this.roleService.getDefaultRole();
+      const defaultRole = await this.roleService.getDefaultRole({ session });
       if (!defaultRole) {
         throw new DomainServiceError('No default role is available', 'UNKNOWN_ERROR');
       }

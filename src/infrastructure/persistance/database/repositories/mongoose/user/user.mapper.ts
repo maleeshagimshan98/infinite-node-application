@@ -7,6 +7,7 @@ import { Types } from 'mongoose';
 import type { NewUser } from '@/domain/user/models/user';
 import { User } from '@/domain/user/models/user';
 
+import { PersistanceError } from '../../../errors/persistance.error';
 import { BaseMapper } from '../base/base.mapper';
 import { RoleMapper } from '../roles/role.mapper';
 
@@ -19,15 +20,27 @@ export class UserMapper extends BaseMapper<INewUserSchema, User, NewUser> {
   private readonly roleMapper = new RoleMapper();
 
   /**
-   * Determine whether a user's role_id ref has been populated by Mongoose.
-   * UserRepository.populateOptions() always populates this path, so at runtime a not-yet-populated
-   * ref is a real Types.ObjectId, and a populated one never is.
+   * Determine whether a user's role_id ref really holds a role document populated by Mongoose.
+   * A ref that was not populated, or whose role no longer exists, is a bare Types.ObjectId; a
+   * legacy document may hold no role_id at all.
    *
-   * @param {Types.ObjectId | PopulatedRoleRef} ref - The role_id ref as returned by Mongoose.
-   * @returns {ref is PopulatedRoleRef} True when the ref has been populated.
+   * @param {unknown} ref - The role_id ref as returned by Mongoose.
+   * @returns {ref is PopulatedRoleRef} True when the ref is a populated role document.
    */
-  private isPopulatedRole(ref: Types.ObjectId | PopulatedRoleRef): ref is PopulatedRoleRef {
-    return !(ref instanceof Types.ObjectId);
+  private isPopulatedRole(ref: unknown): ref is PopulatedRoleRef {
+    return (
+      typeof ref === 'object' &&
+      ref !== null &&
+      !(ref instanceof Types.ObjectId) &&
+      '_id' in ref &&
+      ref._id instanceof Types.ObjectId &&
+      'name' in ref &&
+      typeof ref.name === 'string' &&
+      'default' in ref &&
+      typeof ref.default === 'boolean' &&
+      'resource_permissions' in ref &&
+      Array.isArray(ref.resource_permissions)
+    );
   }
 
   /**
@@ -35,24 +48,28 @@ export class UserMapper extends BaseMapper<INewUserSchema, User, NewUser> {
    * into a full Role domain model when UserRepository has populated it.
    *
    * @param {INewUserSchema & { _id: Types.ObjectId }} data - The raw persisted document.
-   * @returns {User} The mapped domain model.
+   * @returns {User} The mapped domain model; without a `role` when the role was not populated or no longer exists.
+   * @throws {PersistanceError} When the stored role_id is neither a role document nor an ObjectId (e.g. missing).
    */
   toDomain(data: INewUserSchema & { _id: Types.ObjectId }): User {
-    // UserRepository.populateOptions() always populates role_id (with a nested populate on
-    // resource_permissions.resource_id), so at runtime it is actually a PopulatedRoleRef even
-    // though IBaseMapper's contract types this parameter as the raw (unpopulated) schema shape.
-    const roleRef = data.role_id as unknown as Types.ObjectId | PopulatedRoleRef;
-    const populated = this.isPopulatedRole(roleRef);
-
-    return new User({
+    const user = {
       id: data._id.toString(),
       email: data.email,
       password: data.password,
       status: data.status,
       ug_id: data.ug_id,
-      role_id: populated ? roleRef._id.toString() : roleRef.toString(),
-      ...(populated && { role: this.roleMapper.toDomain(roleRef) }),
-    });
+    };
+    // The schema types role_id as an ObjectId, but UserRepository.populateOptions() replaces it with
+    // the role document at runtime - so check what is really there instead of trusting either.
+    const roleRef: unknown = data.role_id;
+
+    if (this.isPopulatedRole(roleRef)) {
+      return new User({ ...user, role_id: roleRef._id.toString(), role: this.roleMapper.toDomain(roleRef) });
+    }
+    if (roleRef instanceof Types.ObjectId) {
+      return new User({ ...user, role_id: roleRef.toString() });
+    }
+    throw new PersistanceError(`User ${user.id} has no valid role_id`);
   }
 
   /**

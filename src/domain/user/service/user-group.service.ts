@@ -32,12 +32,13 @@ export class UserGroupService extends BaseDomainService {
    * Fetch a user group by its ID.
    *
    * @param {string} id - The ID of the user group to retrieve.
+   * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<UserGroup | null>} The user group, or null if none matched.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
    */
-  async getById(id: string): Promise<UserGroup | null> {
+  async getById(id: string, transactionOptions?: TransactionOptions): Promise<UserGroup | null> {
     return this.wrapInfrastructureErrors(async () => {
-      return await this.userGroupRepository.findById(id);
+      return await this.userGroupRepository.findById(id, transactionOptions);
     });
   }
 
@@ -45,22 +46,24 @@ export class UserGroupService extends BaseDomainService {
    * Fetch a user group by its name.
    *
    * @param {string} name - The name of the user group to retrieve.
+   * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<UserGroup | null>} The user group, or null if none matched.
    */
-  async getByName(name: string): Promise<UserGroup | null> {
+  async getByName(name: string, transactionOptions?: TransactionOptions): Promise<UserGroup | null> {
     return this.wrapInfrastructureErrors(async () => {
-      return await this.userGroupRepository.findOne({ name });
+      return await this.userGroupRepository.findOne({ name }, undefined, transactionOptions);
     });
   }
 
   /**
    * Fetch the user group currently marked as default.
    *
+   * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<UserGroup | null>} The default user group, or null if none is set.
    */
-  async getDefaultGroup(): Promise<UserGroup | null> {
+  async getDefaultGroup(transactionOptions?: TransactionOptions): Promise<UserGroup | null> {
     return this.wrapInfrastructureErrors(async () => {
-      return await this.userGroupRepository.findOne({ default: true });
+      return await this.userGroupRepository.findOne({ default: true }, undefined, transactionOptions);
     });
   }
 
@@ -91,7 +94,7 @@ export class UserGroupService extends BaseDomainService {
     transactionOptions?: TransactionOptions,
   ): Promise<{ id: string; name: string }> {
     return this.wrapInfrastructureErrors(async () => {
-      const existingGroup = await this.getByName(groupData.name);
+      const existingGroup = await this.getByName(groupData.name, transactionOptions);
 
       if (existingGroup) {
         throw new DomainServiceError(
@@ -101,7 +104,7 @@ export class UserGroupService extends BaseDomainService {
       }
 
       if (groupData.default) {
-        const currentDefault = await this.getDefaultGroup();
+        const currentDefault = await this.getDefaultGroup(transactionOptions);
         if (currentDefault) {
           throw new DomainServiceError(
             'A default user group already exists. Please unset the current default before creating a new one.',
@@ -137,14 +140,14 @@ export class UserGroupService extends BaseDomainService {
     transactionOptions?: TransactionOptions,
   ): Promise<{ id: string; name: string }> {
     return this.wrapInfrastructureErrors(async () => {
-      const existingGroup = await this.getById(id);
+      const existingGroup = await this.getById(id, transactionOptions);
 
       if (!existingGroup) {
         throw new DomainServiceError(`The User Group with the id equal to ${id} could not be found.`, 'NOT_FOUND');
       }
 
       if (updateData.name && updateData.name !== existingGroup.name) {
-        const duplicateGroup = await this.getByName(updateData.name);
+        const duplicateGroup = await this.getByName(updateData.name, transactionOptions);
         if (duplicateGroup) {
           throw new DomainServiceError(
             `The User Group with the name equal to ${updateData.name} already exists.`,
@@ -154,7 +157,7 @@ export class UserGroupService extends BaseDomainService {
       }
 
       if (updateData.default === true) {
-        const currentDefault = await this.getDefaultGroup();
+        const currentDefault = await this.getDefaultGroup(transactionOptions);
         if (currentDefault && currentDefault.id !== id) {
           currentDefault.default = false;
           const unsetDefault = await this.userGroupRepository.update(
@@ -196,7 +199,7 @@ export class UserGroupService extends BaseDomainService {
    */
   async delete(id: string, transactionOptions?: TransactionOptions): Promise<UserGroup> {
     return this.wrapInfrastructureErrors(async () => {
-      const group = await this.getById(id);
+      const group = await this.getById(id, transactionOptions);
 
       if (!group) {
         throw new DomainServiceError(`The User Group with the id equal to ${id} could not be found.`, 'NOT_FOUND');
@@ -209,7 +212,7 @@ export class UserGroupService extends BaseDomainService {
         );
       }
 
-      const usersInGroup = await this.userRepository.find({ ug_id: id }, 1);
+      const usersInGroup = await this.userRepository.find({ ug_id: id }, 1, undefined, undefined, transactionOptions);
 
       if (usersInGroup.length > 0) {
         throw new DomainServiceError(
@@ -239,7 +242,7 @@ export class UserGroupService extends BaseDomainService {
    */
   async setAsDefault(id: string, transactionOptions?: TransactionOptions): Promise<{ id: string; name: string }> {
     return this.wrapInfrastructureErrors(async () => {
-      const group = await this.getById(id);
+      const group = await this.getById(id, transactionOptions);
 
       if (!group) {
         throw new DomainServiceError(`The User Group with the id equal to ${id} could not be found.`, 'NOT_FOUND');
@@ -252,7 +255,7 @@ export class UserGroupService extends BaseDomainService {
         };
       }
 
-      const currentDefault = await this.getDefaultGroup();
+      const currentDefault = await this.getDefaultGroup(transactionOptions);
       if (currentDefault) {
         currentDefault.default = false;
         const unsetDefault = await this.userGroupRepository.update(

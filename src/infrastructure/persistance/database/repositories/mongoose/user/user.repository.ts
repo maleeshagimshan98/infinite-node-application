@@ -26,7 +26,15 @@ export class UserRepository extends BaseRepository<INewUserSchema, User, NewUser
    * @returns {(string | PopulateOptions)[]} Mongoose population paths/options.
    */
   protected populateOptions(): (string | PopulateOptions)[] {
-    return [{ path: 'role_id', populate: { path: 'resource_permissions.resource_id' } }];
+    return [
+      {
+        path: 'role_id',
+        // A role that no longer exists populates to null; keep the user's role_id instead, so the
+        // user still maps (without a role) rather than losing the id.
+        transform: (doc: unknown, id: unknown): unknown => doc ?? id,
+        populate: { path: 'resource_permissions.resource_id' },
+      },
+    ];
   }
 }
 
