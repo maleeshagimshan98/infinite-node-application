@@ -67,7 +67,8 @@ describe('redisDriverLoader', () => {
       params: {
         url: 'redis://localhost:6379',
         ttl: '3600',
-        connectionTimeout: '5000',
+        socket: { connectTimeout: 5000 },
+        disableOfflineQueue: true,
       },
     });
   });

@@ -8,7 +8,6 @@ export interface IRedisConfig extends IDriverConfig {
   params: {
     url: string;
     ttl: string;
-    connectionTimeout: string;
     socket?: {
       port?: number;
       host?: string;
@@ -82,23 +81,27 @@ export const redisConfig = (): IRedisConfig => {
     params: {
       url: process.env.REDIS_SERVER_URL || 'redis://127.0.0.1:6379',
       ttl: process.env.REDIS_TTL || '3600',
-      // socket: {
-      //   port: Number(process.env.REDIS_SOCKET_PORT) || 6379,
-      //   host: process.env.REDIS_SOCKET_HOST || 'localhost',
-      //   family: (Number(process.env.REDIS_SOCKET_FAMILY) || 0) as 4 | 6 | 0,
-      //   path: process.env.REDIS_SOCKET_PATH || undefined,
-      //   connectTimeout: Number(process.env.REDIS_SOCKET_CONNECT_TIMEOUT) || 5000,
-      //   socketTimeout: Number(process.env.REDIS_SOCKET_TIMEOUT) || undefined,
-      //   noDelay: process.env.REDIS_SOCKET_NO_DELAY === 'true',
-      //   keepAlive: process.env.REDIS_SOCKET_KEEP_ALIVE === 'true',
-      //   keepAliveInitialDelay: Number(process.env.REDIS_SOCKET_KEEP_ALIVE_INITIAL_DELAY) || 5000,
-      //   tls: process.env.REDIS_SOCKET_TLS === 'true' ? {} : undefined,
-      //   reconnectStrategy: (retries): number | Error => {
-      //     const delay = Math.min(1000 * 2 ** retries, 30000);
-      //     return delay;
-      //   },
-      // },
-      connectionTimeout: process.env.REDIS_CONNECTION_TIMEOUT || '5000',
+      socket: {
+        connectTimeout: Number(process.env.REDIS_CONNECTION_TIMEOUT) || 5000,
+        // port: Number(process.env.REDIS_SOCKET_PORT) || 6379,
+        // host: process.env.REDIS_SOCKET_HOST || 'localhost',
+        // family: (Number(process.env.REDIS_SOCKET_FAMILY) || 0) as 4 | 6 | 0,
+        // path: process.env.REDIS_SOCKET_PATH || undefined,
+        // socketTimeout closes an idle socket, and the default reconnectStrategy does not reconnect after it —
+        // enabling it requires a custom reconnectStrategy.
+        // socketTimeout: Number(process.env.REDIS_SOCKET_TIMEOUT) || undefined,
+        // noDelay: process.env.REDIS_SOCKET_NO_DELAY === 'true',
+        // keepAlive: process.env.REDIS_SOCKET_KEEP_ALIVE === 'true',
+        // keepAliveInitialDelay: Number(process.env.REDIS_SOCKET_KEEP_ALIVE_INITIAL_DELAY) || 5000,
+        // tls: process.env.REDIS_SOCKET_TLS === 'true' ? {} : undefined,
+        // reconnectStrategy: (retries): number | Error => {
+        //   const delay = Math.min(1000 * 2 ** retries, 30000);
+        //   return delay;
+        // },
+      },
+      // Reject commands while disconnected instead of holding them until Redis comes back, so a cache outage
+      // fails fast with CACHE_ERROR rather than stalling every request that touches the cache.
+      disableOfflineQueue: true,
     },
   };
   return config;

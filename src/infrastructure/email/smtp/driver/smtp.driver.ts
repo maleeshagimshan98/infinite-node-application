@@ -48,6 +48,9 @@ export class SMTPDriver implements ICoreDriver<Transporter, ISMTPConfig> {
       port: this._config.port,
       secure: this._config.secure,
       auth: this._config.auth?.user ? { user: this._config.auth.user, pass: this._config.auth.pass } : undefined,
+      connectionTimeout: this._config.connectionTimeout,
+      greetingTimeout: this._config.greetingTimeout,
+      socketTimeout: this._config.socketTimeout,
     });
   }
 

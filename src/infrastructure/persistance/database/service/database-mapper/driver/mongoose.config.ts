@@ -16,11 +16,12 @@ export const mongooseConfig = (): IMongooseConfig => ({
   singleton: true,
   deferred: true,
   uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/infinite-node-application',
-  //   options: {
-  //     // useNewUrlParser: true,
-  //     // useUnifiedTopology: true,
-  //     user: process.env.MONGODB_USERNAME,
-  //     pass: process.env.MONGODB_PASSWORD,
-  //     dbName: process.env.MONGODB_NAME,
-  //   },
+  options: {
+    serverSelectionTimeoutMS: Number(process.env.MONGODB_SERVER_SELECTION_TIMEOUT_MS) || 15000,
+    connectTimeoutMS: Number(process.env.MONGODB_CONNECT_TIMEOUT_MS) || 10000,
+    socketTimeoutMS: Number(process.env.MONGODB_SOCKET_TIMEOUT_MS) || 45000,
+    // user: process.env.MONGODB_USERNAME,
+    // pass: process.env.MONGODB_PASSWORD,
+    // dbName: process.env.MONGODB_NAME,
+  },
 });

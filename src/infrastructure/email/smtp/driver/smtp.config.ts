@@ -13,6 +13,9 @@ export interface ISMTPConfig extends IDriverConfig {
     pass: string;
   };
   from?: string;
+  connectionTimeout: number;
+  greetingTimeout: number;
+  socketTimeout: number;
 }
 
 export const smtpConfig = (): ISMTPConfig => {
@@ -29,5 +32,9 @@ export const smtpConfig = (): ISMTPConfig => {
       pass: process.env.EMAIL_SMTP_PASSWORD || '',
     },
     from: process.env.EMAIL_FROM || '',
+    // nodemailer defaults are 2 min / 30 s / 10 min, and it never retries — an unreachable host would stall each send.
+    connectionTimeout: Number(process.env.EMAIL_SMTP_CONNECTION_TIMEOUT) || 10000,
+    greetingTimeout: Number(process.env.EMAIL_SMTP_GREETING_TIMEOUT) || 10000,
+    socketTimeout: Number(process.env.EMAIL_SMTP_SOCKET_TIMEOUT) || 30000,
   };
 };
