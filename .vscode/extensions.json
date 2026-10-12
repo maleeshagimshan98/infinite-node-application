@@ -1,0 +1,19 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "EditorConfig.EditorConfig",
+    "yoavbls.pretty-ts-errors",
+    "christian-kohler.path-intellisense",
+    "christian-kohler.npm-intellisense",
+    "xabikos.JavaScriptSnippets",
+    "Orta.vscode-jest",
+    "eamodio.gitlens",
+    "mhutchie.git-graph",
+    "GitHub.vscode-pull-request-github",
+    "ms-azuretools.vscode-docker",
+    "mongodb.mongodb-vscode",
+    "mikestead.dotenv",
+    "redhat.vscode-yaml"
+  ]
+}
