@@ -717,12 +717,13 @@ Rules enforced by `eslint.config.mjs` (ESLint + Prettier + eslint-plugin-import)
 
 ### TypeScript ESLint
 
-| Rule                            | Level | What it means                                                                          |
-| ------------------------------- | ----- | -------------------------------------------------------------------------------------- |
-| `explicit-function-return-type` | error | Every function and method must carry an explicit return type annotation                |
-| `no-unused-vars`                | warn  | Unused variables/params generate a warning; prefix with `_` to suppress (e.g. `_opts`) |
-| `no-explicit-any`               | warn  | Avoid `any`; use precise types or `unknown` when the shape is genuinely unknown        |
-| `consistent-type-imports`       | error | Type-only imports must use `import type` — already required by Section 16              |
+| Rule                            | Level | What it means                                                                                                  |
+| ------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------- |
+| `explicit-function-return-type` | error | Every function and method must carry an explicit return type annotation                                        |
+| `no-unused-vars`                | warn  | Unused variables/params generate a warning; prefix with `_` to suppress (e.g. `_opts`)                         |
+| `no-explicit-any`               | warn  | Avoid `any`; use precise types or `unknown` when the shape is genuinely unknown                                |
+| `consistent-type-imports`       | error | Type-only imports must use `import type` — already required by Section 16                                      |
+| `return-await`                  | error | `'error-handling-correctness-only'`: `return await` a promise inside `try`, or its rejection skips the `catch` |
 
 ### Import Order
 

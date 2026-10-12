@@ -30,6 +30,7 @@ export default [
       '@typescript-eslint/explicit-function-return-type': 'error',
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/consistent-type-imports': 'error',
+      '@typescript-eslint/return-await': ['error', 'error-handling-correctness-only'],
 
       /** ✅ Prettier Rules */
       'prettier/prettier': [
