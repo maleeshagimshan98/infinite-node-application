@@ -2,6 +2,10 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+// Must stay the first two imports: the OpenTelemetry SDK only instruments libraries loaded after it starts.
+import './app/core/config/load-env';
+import './app/core/telemetry/instrumentation';
+
 import InfiniteNodeWorker from './app/worker';
 import { ShutdownManager } from './app/core/shutdown/shutdown.manager';
 import { setupSignalHandlers } from './app/core/shutdown/signal-handlers';

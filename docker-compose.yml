@@ -6,6 +6,9 @@
 #      (see .env.example for generation instructions)
 #   3. docker compose up -d --build
 #
+# Observability (traces, metrics, logs in Grafana): add the overlay file —
+#   docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d --build
+#
 # MONGODB_URI / REDIS_* below are hardcoded to the in-network service hostnames
 # and intentionally override whatever is set in .env — everything else in .env
 # (secrets, app config, driver toggles) is passed through as-is.
@@ -26,6 +29,8 @@ services:
       REDIS_SERVER_HOST: redis
       REDIS_SERVER_URL: redis://redis:6379
       REDIS_SOCKET_HOST: redis
+      # No telemetry backend in this stack — docker-compose.observability.yml turns it on
+      OTEL_SDK_DISABLED: 'true'
     ports:
       - '3000:3000'
     volumes:
@@ -110,6 +115,8 @@ services:
       REDIS_SOCKET_HOST: redis
       WINSTON_LOG_FILE_NAME: ./logs/worker-%DATE%.log
       WINSTON_ERROR_LOG_FILE_NAME: ./logs/worker-error-%DATE%.log
+      # No telemetry backend in this stack — docker-compose.observability.yml turns it on
+      OTEL_SDK_DISABLED: 'true'
     command: ['dumb-init', 'npm', 'run', 'worker:start']
     healthcheck:
       disable: true

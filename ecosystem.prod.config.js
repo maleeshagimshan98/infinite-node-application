@@ -35,6 +35,7 @@ module.exports = {
         NODE_ENV: 'production',
         WINSTON_LOG_FILE_NAME: './logs/worker-%DATE%.log',
         WINSTON_ERROR_LOG_FILE_NAME: './logs/worker-error-%DATE%.log',
+        OTEL_SERVICE_NAME: 'infinite-node-application-worker',
       },
     },
   ],

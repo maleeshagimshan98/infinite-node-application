@@ -5,11 +5,9 @@
  */
 
 import http from 'http';
-import path from 'path';
 
 import chalk from 'chalk';
 import debug from 'debug';
-import dotenv from 'dotenv';
 import express from 'express';
 import { asValue } from 'awilix';
 import { scopePerRequest } from 'awilix-express';
@@ -22,6 +20,7 @@ import { coreMiddleware } from './core/middleware/core.middleware';
 import { InfiniteNodeError } from './core/errors/InfiniteNodeError';
 import { autoRegisterApplicationComponents, container } from './core/service.container';
 import { ShutdownPriority } from './core/shutdown/shutdown-priority.enum';
+import { otelSdk } from './core/telemetry/instrumentation';
 
 import type { StartupBannerConfig } from './core/utils/startup-banner';
 import type { Application, Router } from 'express';
@@ -32,15 +31,8 @@ import type { INodeApplicationConfig } from './core/config/config';
 import type { ShutdownManager } from './core/shutdown/shutdown.manager';
 
 const debugLog = debug('server:server');
-process.env.NODE_ENV = process.env.NODE_ENV || 'development';
-if (process.env.NODE_ENV !== 'production') {
-  const envPath = path.resolve(__dirname, `../../.env.${process.env.NODE_ENV}`);
-  dotenv.config({
-    path: envPath,
-    override: false,
-  });
-}
 
+// .env.<NODE_ENV> is loaded by src/app/core/config/load-env.ts, imported first by src/index.ts
 const config: INodeApplicationConfig = configLoader();
 
 /**
@@ -397,6 +389,7 @@ class InfiniteNodeApplication {
    * hooks in priority order:
    * 1. HTTP server (CRITICAL) - Stop accepting new connections first
    * 2. Infrastructure services (MEDIUM) - Close database, cache, queue connections
+   * 3. Telemetry (LOW) - Flush the last spans, metrics and log records
    *
    * @private
    */
@@ -423,6 +416,14 @@ class InfiniteNodeApplication {
       handler: async () => {
         await this.shutdownInfrastructure();
       },
+    });
+
+    // Priority 4 (LOW): Flush telemetry last, so it includes the records from the shutdown itself
+    this.shutdownManager.registerHook({
+      name: 'telemetry',
+      priority: ShutdownPriority.LOW,
+      timeout: 2000,
+      handler: () => otelSdk.shutdown(),
     });
   }
 }

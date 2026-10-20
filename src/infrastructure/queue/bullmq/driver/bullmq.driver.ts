@@ -7,6 +7,8 @@ import { Queue } from 'bullmq';
 import type { ICoreDriver } from '@/infrastructure/core/driver/core.driver';
 import { DriverError } from '@/infrastructure/core/errors/driver.error';
 
+import { bullmqTelemetry } from './bullmq.telemetry';
+
 import type { IQueueConfig } from './queue.config';
 
 export class QueueDriver implements ICoreDriver<Queue, IQueueConfig> {
@@ -43,6 +45,7 @@ export class QueueDriver implements ICoreDriver<Queue, IQueueConfig> {
           username: this._config.params.username,
           password: this._config.params.password,
         },
+        telemetry: bullmqTelemetry,
       });
 
       await queue.waitUntilReady();
@@ -71,6 +74,7 @@ export class QueueDriver implements ICoreDriver<Queue, IQueueConfig> {
         username: config.params.username,
         password: config.params.password,
       },
+      telemetry: bullmqTelemetry,
     });
     return queue;
   }

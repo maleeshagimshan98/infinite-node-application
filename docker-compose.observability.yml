@@ -1,0 +1,38 @@
+# Observability overlay — adds Grafana LGTM and turns the OpenTelemetry SDK on for `app` and `worker`.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d --build
+#
+# grafana/otel-lgtm is a single container with an OpenTelemetry Collector, Tempo (traces), Prometheus
+# (metrics), Loki (logs) and Grafana. For local development only — it keeps no data across recreation.
+#   Grafana UI:  http://localhost:3300   (Explore → Tempo / Prometheus / Loki)
+#
+# Running the app on the host instead (`npm run dev`)? Start only the backend:
+#   docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d otel-lgtm
+# and set OTEL_SDK_DISABLED=false and OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 in .env.development.
+
+services:
+  app:
+    environment:
+      OTEL_SDK_DISABLED: 'false'
+      OTEL_SERVICE_NAME: ${APP_NAME}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
+    depends_on:
+      otel-lgtm:
+        condition: service_started
+
+  worker:
+    environment:
+      OTEL_SDK_DISABLED: 'false'
+      OTEL_SERVICE_NAME: ${APP_NAME}-worker
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
+    depends_on:
+      otel-lgtm:
+        condition: service_started
+
+  otel-lgtm:
+    image: grafana/otel-lgtm:0.37.0
+    container_name: ${APP_NAME}-otel-lgtm
+    ports:
+      - '3300:3000' # Grafana UI (host port 3000 is the app)
+      - '4318:4318' # OTLP over HTTP, for an app running on the host
+    restart: unless-stopped

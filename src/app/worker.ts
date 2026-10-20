@@ -4,29 +4,20 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import path from 'path';
-
 import chalk from 'chalk';
-import dotenv from 'dotenv';
 
 import { InfrastructureManager } from '@/infrastructure/infrastructure.manager';
 import type { IWorker } from '@/application/interfaces/worker.interface';
 
 import { autoRegisterWorkerComponents, container } from './core/service.container';
 import { ShutdownPriority } from './core/shutdown/shutdown-priority.enum';
+import { otelSdk } from './core/telemetry/instrumentation';
 
 import type { AwilixContainer } from 'awilix';
 import type { Logger } from 'winston';
 import type { ShutdownManager } from './core/shutdown/shutdown.manager';
 
-process.env.NODE_ENV = process.env.NODE_ENV || 'development';
-if (process.env.NODE_ENV !== 'production') {
-  const envPath = path.resolve(__dirname, `../../.env.${process.env.NODE_ENV}`);
-  dotenv.config({
-    path: envPath,
-    override: false,
-  });
-}
+// .env.<NODE_ENV> is loaded by src/app/core/config/load-env.ts, imported first by src/worker.ts
 
 /**
  * InfiniteNodeWorker
@@ -47,6 +38,7 @@ if (process.env.NODE_ENV !== 'production') {
  * Shutdown sequence (via ShutdownManager hooks):
  *   ShutdownPriority.HIGH   — worker.shutdown() on each worker (drains in-flight jobs)
  *   ShutdownPriority.MEDIUM — infrastructureManager.shutdown() (closes DB, queue, etc.)
+ *   ShutdownPriority.LOW    — otelSdk.shutdown() (flushes spans, metrics and log records)
  *
  * @example
  * ```typescript
@@ -225,6 +217,7 @@ class InfiniteNodeWorker {
    * Priority order:
    *   HIGH   (2) — stop workers first; drains in-flight BullMQ jobs
    *   MEDIUM (3) — then disconnect infrastructure (DB, queue, cache)
+   *   LOW    (4) — finally flush telemetry
    *
    * @private
    */
@@ -249,6 +242,13 @@ class InfiniteNodeWorker {
       handler: async () => {
         await this.shutdownInfrastructure();
       },
+    });
+
+    this.shutdownManager.registerHook({
+      name: 'telemetry',
+      priority: ShutdownPriority.LOW,
+      timeout: 2000,
+      handler: () => otelSdk.shutdown(),
     });
   }
 }

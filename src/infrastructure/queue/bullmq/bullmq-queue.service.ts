@@ -7,6 +7,7 @@ import { Worker } from 'bullmq';
 import type { IQueue, Job, JobOptions, JobStatus } from '@/application/interfaces/queue.interface';
 
 import { QueueDriver } from './driver/bullmq.driver';
+import { bullmqTelemetry } from './driver/bullmq.telemetry';
 import { QueueError } from '../errors/queue.error';
 
 import type { Queue, Job as BullMQJob } from 'bullmq';
@@ -236,6 +237,7 @@ export class BullMQQueueService implements IQueue {
             username: driverConfig.params.username,
             password: driverConfig.params.password,
           },
+          telemetry: bullmqTelemetry,
         },
       );
 
