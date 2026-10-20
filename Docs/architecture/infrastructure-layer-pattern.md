@@ -1095,6 +1095,7 @@ import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import type { CustomerService } from '@/domain/erp/customer-service/service/customer.service';
 import type { CustomerRepository } from '@/infrastructure/persistance/database/repositories/mongoose/erp/customer/customer.repository';
 import type { INewCustomer } from '@/domain/erp/customer-service/models/customer';
+import type { ILogger } from '@/application/interfaces/logger.interface';
 import { BaseController } from '../base.controller';
 import type { Request, Response } from 'express';
 
@@ -1102,8 +1103,9 @@ export class CustomerController extends BaseController {
   private readonly customerService: CustomerService;
   private readonly customerRepository: CustomerRepository;
 
-  constructor(customerService: CustomerService, customerRepository: CustomerRepository) {
-    super();
+  // `logger` goes to BaseController: catchExceptionsWrapper() logs every caught exception through it
+  constructor(customerService: CustomerService, customerRepository: CustomerRepository, logger: ILogger) {
+    super(logger);
     this.customerService = customerService;
     this.customerRepository = customerRepository;
   }

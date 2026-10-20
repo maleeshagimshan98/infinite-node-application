@@ -13,12 +13,10 @@ import type { Request, Response } from 'express';
 
 export class HealthController extends BaseController {
   private healthService: HealthService;
-  private logger: ILogger;
 
   constructor(healthService: HealthService, logger: ILogger) {
-    super();
+    super(logger);
     this.healthService = healthService;
-    this.logger = logger;
   }
 
   /**

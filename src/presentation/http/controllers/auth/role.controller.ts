@@ -8,6 +8,7 @@ import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import type { RoleService } from '@/domain/auth/service/role.service';
 import type { IRoleRepository } from '@/application/interfaces/repositories/auth/role.repository.interface';
 import type { INewRole } from '@/domain/auth/models/role';
+import type { ILogger } from '@/application/interfaces/logger.interface';
 
 import { BaseController } from '../base.controller';
 
@@ -17,8 +18,9 @@ export class RoleController extends BaseController {
   constructor(
     private roleService: RoleService,
     private roleRepository: IRoleRepository,
+    logger: ILogger,
   ) {
-    super();
+    super(logger);
   }
 
   /**

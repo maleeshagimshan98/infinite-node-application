@@ -8,6 +8,7 @@ import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import type { UserService } from '@/domain/user/service/user.service';
 import type { IUserRepository } from '@/application/interfaces/repositories/user/user.repository.interface';
 import type { User, INewUser } from '@/domain/user/models/user';
+import type { ILogger } from '@/application/interfaces/logger.interface';
 
 import { BaseController } from '../base.controller';
 
@@ -17,8 +18,9 @@ export class UserController extends BaseController {
   constructor(
     private userService: UserService,
     private userRepository: IUserRepository,
+    logger: ILogger,
   ) {
-    super();
+    super(logger);
   }
 
   /**

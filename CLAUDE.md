@@ -410,13 +410,15 @@ File: `src/presentation/http/controllers/{feature}/{name}.controller.ts`
 
 ```typescript
 import type { ICustomerRepository } from '@/application/interfaces/repositories/erp/customer.repository.interface';
+import type { ILogger } from '@/application/interfaces/logger.interface';
 
 export class CustomerController extends BaseController {
   constructor(
     private customerService: CustomerService,
     private customerRepository: ICustomerRepository, // injected for count()
+    logger: ILogger, // for BaseController — catchExceptionsWrapper() logs through it
   ) {
-    super();
+    super(logger);
   }
 
   async create(req: Request, res: Response): Promise<Response> {
@@ -444,6 +446,9 @@ export default CustomerController;
 **Rules:**
 
 - ALL logic must be inside `this.catchExceptionsWrapper()`
+- Take `logger: ILogger` as a constructor parameter and pass it to `super(logger)`. `catchExceptionsWrapper()` logs
+  every exception it catches through it — a 5xx as an error with its stack, anything else as a warning — so the
+  record reaches the log files and Loki with the request's `trace_id`
 - Use `matchedData<T>(req)` for validated request data (never `req.body` directly)
 - Inject the repository directly for `count()` (pagination total)
 - Use `this.getPaginator(req, totalCount)` for pagination

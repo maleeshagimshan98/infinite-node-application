@@ -1028,6 +1028,7 @@ import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import type { ModelService } from '@/domain/{feature}/service/{feature}.service';
 import type { ModelRepository } from '@/infrastructure/persistance/database/repositories/mongoose/{feature}/{model-name}.repository';
 import type { INewModel } from '@/domain/{feature}/models/{model-name}';
+import type { ILogger } from '@/application/interfaces/logger.interface';
 
 import { BaseController } from '../base.controller';
 
@@ -1037,8 +1038,9 @@ export class ModelController extends BaseController {
   private modelService: ModelService;
   private modelRepository: ModelRepository;
 
-  constructor(modelService: ModelService, modelRepository: ModelRepository) {
-    super();
+  // `logger` goes to BaseController: catchExceptionsWrapper() logs every caught exception through it
+  constructor(modelService: ModelService, modelRepository: ModelRepository, logger: ILogger) {
+    super(logger);
     this.modelService = modelService;
     this.modelRepository = modelRepository;
   }
@@ -2407,6 +2409,7 @@ import type { PostService } from '@/domain/blog/service/post.service';
 import type { PostRepository } from '@/infrastructure/persistance/database/repositories/mongoose/blog/post.repository';
 import type { INewPost } from '@/domain/blog/models/post';
 import type { AuthenticatedRequest } from '@/app/core/utils/request/authenticated-request';
+import type { ILogger } from '@/application/interfaces/logger.interface';
 
 import { BaseController } from '../base.controller';
 
@@ -2420,8 +2423,8 @@ export class PostController extends BaseController {
   private postService: PostService;
   private postRepository: PostRepository;
 
-  constructor(postService: PostService, postRepository: PostRepository) {
-    super();
+  constructor(postService: PostService, postRepository: PostRepository, logger: ILogger) {
+    super(logger);
     this.postService = postService;
     this.postRepository = postRepository;
   }

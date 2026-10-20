@@ -3,6 +3,7 @@
  */
 
 import type { APIResponse } from '@/app/core/utils/api-response/api-response';
+import type { ILogger } from '@/application/interfaces/logger.interface';
 import { Paginator } from '@/app/core/utils/pagination/paginator';
 import { PaginationException } from '@/app/core/utils/pagination/pagination-exception';
 import { RouteParamException } from '@/app/core/utils/request/route-param-exception';
@@ -14,8 +15,66 @@ import { DomainEntityError } from '@/domain/base';
 import type { Request } from 'express';
 
 class BaseController {
-  protected logErrors(exception: unknown): void {
+  constructor(protected readonly logger: ILogger) {}
+
+  /**
+   * Log an exception caught by `catchExceptionsWrapper()`: to stdout, and through the logger so it reaches the log
+   * files and the OpenTelemetry log pipeline with the request's `trace_id`. A server error (5xx) is logged as an
+   * error with its stack; anything else is a client error and is logged as a warning.
+   *
+   * @param {unknown} exception - The caught exception.
+   * @param {number} statusCode - The HTTP status code of the response sent for it.
+   * @returns {void}
+   */
+  protected logErrors(exception: unknown, statusCode: number): void {
     console.log(exception); //... temp
+
+    const message = `Request failed with ${statusCode}: ${exception instanceof Error ? exception.message : String(exception)}`;
+    const meta = this.exceptionLogMeta(exception, statusCode);
+    if (statusCode >= 500) {
+      this.logger.logError(message, meta);
+    } else {
+      this.logger.logWarn(message, meta);
+    }
+  }
+
+  /**
+   * Build the log metadata for a caught exception.
+   *
+   * `error` holds the exception's name, message, cause and — for a server error — stack, which the OpenTelemetry
+   * Winston transport maps to the standard `exception.*` log attributes. It keeps nothing else from `error`, so the
+   * error types get their own keys. The exception is copied field by field because Error properties are not
+   * enumerable (an Error passed as-is serializes as `{}`); `data` is left out because it can carry request values.
+   *
+   * @param {unknown} exception - The caught exception.
+   * @param {number} statusCode - The HTTP status code of the response sent for it.
+   * @returns {Record<string, unknown>} The status code, the domain / infrastructure error types and `error`.
+   */
+  private exceptionLogMeta(exception: unknown, statusCode: number): Record<string, unknown> {
+    if (!(exception instanceof Error)) {
+      return { statusCode, error: { message: String(exception) } };
+    }
+
+    const meta: Record<string, unknown> = { statusCode };
+    if (exception instanceof DomainServiceError) {
+      meta.domainErrorType = exception.type;
+      if (exception.type === 'INFRASTRUCTURE_ERROR') {
+        meta.infrastructureErrorType = exception.data.type;
+      }
+    }
+    if (exception instanceof InfrastructureError) {
+      meta.infrastructureErrorType = exception.type;
+    }
+
+    const error: Record<string, unknown> = { name: exception.name, message: exception.message };
+    if (exception.cause instanceof Error) {
+      error.cause = { name: exception.cause.name, message: exception.cause.message };
+    }
+    if (statusCode >= 500) {
+      error.stack = exception.stack;
+    }
+    meta.error = error;
+    return meta;
   }
 
   //... wrapValidationAndEntityRetrieval() {}
@@ -85,29 +144,33 @@ class BaseController {
     try {
       return await callback();
     } catch (e: unknown) {
-      if (e instanceof PaginationException) {
-        this.logErrors(e);
-        return ApiResponseUtils.apiErrorResponse(400, e.message);
-      }
-      if (e instanceof RouteParamException) {
-        this.logErrors(e);
-        return ApiResponseUtils.apiErrorResponse(400, e.message);
-      }
-      if (e instanceof DomainEntityError) {
-        this.logErrors(e);
-        return ApiResponseUtils.apiErrorResponse(400, e.message);
-      }
-      if (e instanceof DomainServiceError) {
-        this.logErrors(e);
-        return this.getServiceErrorResponse(e);
-      }
-      if (e instanceof InfrastructureError) {
-        this.logErrors(e);
-        return this.getInfrastructureErrorResponse(e);
-      }
-      this.logErrors(e);
-      return ApiResponseUtils.getServerErrorAPIResponse();
+      const response = this.getExceptionResponse(e);
+      this.logErrors(e, response.getCode());
+      return response;
     }
+  }
+
+  /**
+   * Map an exception caught by `catchExceptionsWrapper()` to the API response sent for it.
+   *
+   * @param {unknown} exception - The caught exception.
+   * @returns {APIResponse} The error response.
+   */
+  private getExceptionResponse(exception: unknown): APIResponse {
+    if (
+      exception instanceof PaginationException ||
+      exception instanceof RouteParamException ||
+      exception instanceof DomainEntityError
+    ) {
+      return ApiResponseUtils.apiErrorResponse(400, exception.message);
+    }
+    if (exception instanceof DomainServiceError) {
+      return this.getServiceErrorResponse(exception);
+    }
+    if (exception instanceof InfrastructureError) {
+      return this.getInfrastructureErrorResponse(exception);
+    }
+    return ApiResponseUtils.getServerErrorAPIResponse();
   }
 
   /**

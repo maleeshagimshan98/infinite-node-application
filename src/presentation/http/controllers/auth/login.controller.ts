@@ -6,6 +6,7 @@ import { matchedData } from 'express-validator';
 
 import APIResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import type { LoginApplicationService } from '@/application/services/auth/login.application.service';
+import type { ILogger } from '@/application/interfaces/logger.interface';
 
 import { BaseController } from '../base.controller';
 
@@ -16,8 +17,8 @@ const REFRESH_TOKEN_COOKIE = 'refresh_token';
 export class LoginController extends BaseController {
   private loginApplicationService: LoginApplicationService;
 
-  constructor(loginApplicationService: LoginApplicationService) {
-    super();
+  constructor(loginApplicationService: LoginApplicationService, logger: ILogger) {
+    super(logger);
     this.loginApplicationService = loginApplicationService;
   }
 
