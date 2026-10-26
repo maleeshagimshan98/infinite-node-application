@@ -70,11 +70,13 @@ export class CircuitBreaker implements ICircuitBreaker {
    *
    * @template T
    * @param {() => Promise<T>} fn - The call to the dependency.
+   * @param {(result: T) => boolean} [isFailureResult] - Counts a returned value as a failure (e.g. an HTTP 503
+   * response); the caller still receives it unchanged.
    * @returns {Promise<T>} The call's result.
    * @throws {CircuitOpenError} CONNECTION_ERROR when the circuit rejected the call without running it.
    * @throws {unknown} Whatever `fn` threw, unchanged — whether or not it counted as a failure.
    */
-  async execute<T>(fn: () => Promise<T>): Promise<T> {
+  async execute<T>(fn: () => Promise<T>, isFailureResult?: (result: T) => boolean): Promise<T> {
     if (this._state === 'open' || (this._state === 'half-open' && this.probeInFlight)) {
       throw new CircuitOpenError(`Circuit breaker "${this.name}" rejected the call (state: ${this._state})`, {
         breaker: this.name,
@@ -88,10 +90,17 @@ export class CircuitBreaker implements ICircuitBreaker {
     }
     try {
       const result = await fn();
-      this.recordSuccess(isProbe);
+      if (isFailureResult?.(result)) {
+        this.recordFailure(isProbe);
+      } else {
+        this.recordSuccess(isProbe);
+      }
       return result;
     } catch (error: unknown) {
-      this.recordFailure(error, isProbe);
+      // Errors isFailure rejects are the caller's problem, not the dependency's, and leave the circuit untouched.
+      if (this.isFailure(error)) {
+        this.recordFailure(isProbe);
+      }
       throw error;
     } finally {
       if (isProbe) {
@@ -127,17 +136,12 @@ export class CircuitBreaker implements ICircuitBreaker {
   }
 
   /**
-   * Apply a failed call to the circuit, judged by the state it settled in. Errors `isFailure` rejects are the
-   * caller's problem, not the dependency's, and leave the circuit untouched.
+   * Apply a counted failure to the circuit, judged by the state it settled in.
    *
-   * @param {unknown} error - What the call threw.
    * @param {boolean} isProbe - Whether the call was the half-open test request.
    * @returns {void}
    */
-  private recordFailure(error: unknown, isProbe: boolean): void {
-    if (!this.isFailure(error)) {
-      return;
-    }
+  private recordFailure(isProbe: boolean): void {
     if (isProbe && this._state === 'half-open') {
       this.open();
     } else if (this._state === 'closed') {

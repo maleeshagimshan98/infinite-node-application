@@ -28,10 +28,12 @@ export interface ICircuitBreaker {
    *
    * @template T
    * @param {() => Promise<T>} fn - The call to the dependency.
+   * @param {(result: T) => boolean} [isFailureResult] - Counts a returned value as a failure (e.g. an HTTP 503
+   * response); the caller still receives it unchanged.
    * @returns {Promise<T>} The call's result.
    * @throws {CircuitOpenError} When the circuit rejected the call without running it.
    */
-  execute<T>(fn: () => Promise<T>): Promise<T>;
+  execute<T>(fn: () => Promise<T>, isFailureResult?: (result: T) => boolean): Promise<T>;
 
   /**
    * Close the circuit and clear the failure count, cancelling any pending cool-down.

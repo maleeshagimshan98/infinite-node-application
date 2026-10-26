@@ -192,6 +192,46 @@ describe('CircuitBreaker', () => {
     });
   });
 
+  describe('isFailureResult', () => {
+    const flagged = (): boolean => true;
+
+    it('counts a flagged result as a failure and still returns it to the caller', async () => {
+      const breaker = createBreaker();
+
+      await expect(breaker.execute(okCall(), flagged)).resolves.toBe('ok');
+
+      expect(breaker.failureCount).toBe(1);
+    });
+
+    it('opens once flagged results exceed the threshold', async () => {
+      const breaker = createBreaker();
+
+      for (let i = 0; i <= THRESHOLD; i++) {
+        await breaker.execute(okCall(), flagged);
+      }
+
+      expect(breaker.state).toBe('open');
+    });
+
+    it('treats an unflagged result as a success', async () => {
+      const breaker = createBreaker();
+      await breaker.execute(failingCall()).catch(() => undefined);
+
+      await breaker.execute(okCall(), (): boolean => false);
+
+      expect(breaker.failureCount).toBe(0);
+    });
+
+    it('reopens when the test request returns a flagged result', async () => {
+      const breaker = createBreaker();
+      await toHalfOpen(breaker);
+
+      await expect(breaker.execute(okCall(), flagged)).resolves.toBe('ok');
+
+      expect(breaker.state).toBe('open');
+    });
+  });
+
   describe('open', () => {
     it('rejects with CircuitOpenError without running the call', async () => {
       const breaker = createBreaker();
