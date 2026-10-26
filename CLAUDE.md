@@ -574,7 +574,8 @@ An infrastructure error type means "this infrastructure failed" — nothing else
 `CircuitBreaker` (`src/infrastructure/core/core.circuit-breaker.ts`) stops calling a remote
 dependency that keeps failing: once failures outnumber successes by more than `failureThreshold`,
 calls are rejected with `CircuitOpenError` without running, until `resetTimeout` has passed and a
-single test request succeeds. `SMTPEmailService` is the reference use.
+single test request succeeds. `SMTPEmailService` is the reference use for a single dependency,
+`HTTPClientService` for one breaker per host (§18).
 
 - **Use one for remote dependencies the client library doesn't retry**, such as SMTP and
   third-party HTTP APIs. Not for MongoDB (a hard dependency whose timeouts already bound each
@@ -582,13 +583,16 @@ single test request succeeds. `SMTPEmailService` is the reference use.
   local storage (no remote dependency).
 - **Build it in the factory and inject it** into the service constructor as `ICircuitBreaker`; read
   `failureThreshold` / `resetTimeout` from the driver config. One breaker per dependency — for HTTP,
-  one per host, so one failing provider can't cut off the others.
+  one per host, so one failing provider can't cut off the others. When breakers are created per
+  call target, inject a function that creates one instead, and build one at startup in the factory
+  so invalid options fail there rather than on the first request.
 - **Wrap the driver call together with its error translation** in `execute()`, so the breaker sees
   your `InfrastructureError` subclass, not the library's raw error.
 - **Count only outage errors.** By default every `InfrastructureError` counts; pass `isFailure` when
   some of them mean the dependency rejected one request, not that it is down (e.g. `isSmtpOutage()`
-  ignores nodemailer's `EENVELOPE` / `EMESSAGE`). A non-2xx HTTP response doesn't throw, so it never
-  counts unless the service turns it into an error.
+  ignores nodemailer's `EENVELOPE` / `EMESSAGE`). To count a value the call _returns_, pass
+  `isFailureResult` as `execute()`'s second argument: the caller still receives the value unchanged
+  (e.g. `HTTPClientService` counts 5xx / 408 / 429 responses).
 - **The protected call must have a timeout.** A test request that never settles keeps the circuit
   half-open and rejects every other call.
 - **`CircuitOpenError` is an `InfrastructureError` `CONNECTION_ERROR`**, so it reaches the client as
@@ -696,6 +700,12 @@ Errors:
   `data: { method, url, code, error }` — no request headers.
 - A request that could not be set up (invalid URL, unsupported protocol, unserializable body)
   rethrows the original error unchanged — it is a caller or configuration error.
+- Each host (URL origin) has its own circuit breaker (§14 Circuit breakers). A `NETWORK_ERROR`, or a
+  5xx / 408 / 429 response, counts as a failure; the response is still returned to the caller. Once a
+  host's circuit is open, requests to it throw `CircuitOpenError` (`CONNECTION_ERROR`, 503) without
+  being sent; other hosts are unaffected. Configure with `HTTP_CLIENT_CIRCUIT_FAILURE_THRESHOLD`
+  (default `5`) and `HTTP_CLIENT_CIRCUIT_RESET_TIMEOUT` (default `30000`ms). Only the 100 most
+  recently used hosts (`MAX_CIRCUIT_BREAKERS`) keep a breaker.
 
 ---
 
