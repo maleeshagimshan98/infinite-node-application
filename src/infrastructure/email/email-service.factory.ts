@@ -6,6 +6,8 @@
  */
 
 import type { IEmail } from '@/application/interfaces/email.interface';
+import { CircuitBreaker } from '@/infrastructure/core/core.circuit-breaker';
+import { isSmtpOutage } from '@/infrastructure/email/smtp/error/smtp-error.guards';
 
 import { SMTPEmailService } from './smtp/smtp-email.service';
 import { smtpDriverLoader } from './smtp/driver/smtp.driver.loader';
@@ -26,12 +28,19 @@ import type { IServiceFactory } from '../core/interfaces/service.factory.interfa
  */
 export class EmailServiceFactory implements IServiceFactory<IEmail> {
   /**
-   * Creates an SMTP email service instance
+   * Creates an SMTP email service instance whose sends are guarded by a circuit breaker
    *
    * @returns {Promise<IEmail>} An SMTP email service instance
+   * @throws {RangeError} If the configured circuit breaker threshold or reset timeout is invalid
    */
   async createSMTPEmailService(): Promise<IEmail> {
-    return new SMTPEmailService(await smtpDriverLoader());
+    const driver = await smtpDriverLoader();
+    const circuitBreaker = new CircuitBreaker({
+      name: 'smtp',
+      ...driver.config().circuitBreaker,
+      isFailure: isSmtpOutage,
+    });
+    return new SMTPEmailService(driver, circuitBreaker);
   }
 
   /**
