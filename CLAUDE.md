@@ -569,6 +569,33 @@ An infrastructure error type means "this infrastructure failed" — nothing else
   `instanceof Object` check adds nothing and fails for objects created in another realm (e.g. Node
   core `EventEmitter` subclasses under Jest).
 
+### Circuit breakers
+
+`CircuitBreaker` (`src/infrastructure/core/core.circuit-breaker.ts`) stops calling a remote
+dependency that keeps failing: once failures outnumber successes by more than `failureThreshold`,
+calls are rejected with `CircuitOpenError` without running, until `resetTimeout` has passed and a
+single test request succeeds. `SMTPEmailService` is the reference use.
+
+- **Use one for remote dependencies the client library doesn't retry**, such as SMTP and
+  third-party HTTP APIs. Not for MongoDB (a hard dependency whose timeouts already bound each
+  request), Redis (`disableOfflineQueue` already fails fast while disconnected), or the logger and
+  local storage (no remote dependency).
+- **Build it in the factory and inject it** into the service constructor as `ICircuitBreaker`; read
+  `failureThreshold` / `resetTimeout` from the driver config. One breaker per dependency — for HTTP,
+  one per host, so one failing provider can't cut off the others.
+- **Wrap the driver call together with its error translation** in `execute()`, so the breaker sees
+  your `InfrastructureError` subclass, not the library's raw error.
+- **Count only outage errors.** By default every `InfrastructureError` counts; pass `isFailure` when
+  some of them mean the dependency rejected one request, not that it is down (e.g. `isSmtpOutage()`
+  ignores nodemailer's `EENVELOPE` / `EMESSAGE`). A non-2xx HTTP response doesn't throw, so it never
+  counts unless the service turns it into an error.
+- **The protected call must have a timeout.** A test request that never settles keeps the circuit
+  half-open and rejects every other call.
+- **`CircuitOpenError` is an `InfrastructureError` `CONNECTION_ERROR`**, so it reaches the client as
+  a generic 503 with no controller changes (§15).
+- **Health checks bypass the breaker** by calling `getDriver().health()`, so they report the
+  dependency's real state even while the circuit is open.
+
 ---
 
 ## 15. Error Types → HTTP Status Mapping

@@ -366,6 +366,9 @@ export { router as ModelRoutes }; // named export ending in "Routes"
      drivers throw DriverError(message, cause)
    - never attach objects carrying secrets (e.g. AxiosError config/headers)
    - constructor guards the client with `if (!client)` only
+☐ Remote dependency the library doesn't retry (SMTP, third-party HTTP)? Inject an ICircuitBreaker built in the
+  factory; wrap the driver call + its error translation in execute(); pass isFailure if some errors are
+  per-request rejections, not outages (see CLAUDE.md §14 Circuit breakers)
 ```
 
 ---
@@ -395,7 +398,7 @@ export { router as ModelRoutes }; // named export ending in "Routes"
 | `cache`           | `ICache`          | Redis                                                                                                                                                                                                                                                                                                                    |
 | `logger`          | `ILogger`         | Winston                                                                                                                                                                                                                                                                                                                  |
 | `queue`           | `IQueue`          | BullMQ                                                                                                                                                                                                                                                                                                                   |
-| `email`           | `IEmail`          | SMTP                                                                                                                                                                                                                                                                                                                     |
+| `email`           | `IEmail`          | SMTP, behind a circuit breaker — sends fail fast with `CircuitOpenError` (503) while it is open                                                                                                                                                                                                                          |
 | `storage`         | `IStorage`        | Local / cloud file storage — `readFile()` returns `null` and `listFiles()` returns `[]` for a missing path                                                                                                                                                                                                               |
 | `notification`    | `INotification`   | Notification service                                                                                                                                                                                                                                                                                                     |
 | `socket`          | `ISocket`         | Socket.IO                                                                                                                                                                                                                                                                                                                |
