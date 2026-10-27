@@ -581,7 +581,8 @@ single test request succeeds. `SMTPEmailService` is the reference use for a sing
   third-party HTTP APIs. Not for MongoDB (a hard dependency whose timeouts already bound each
   request), Redis (`disableOfflineQueue` already fails fast while disconnected), or the logger and
   local storage (no remote dependency).
-- **Build it in the factory and inject it** into the service constructor as `ICircuitBreaker`; read
+- **Build it in the factory and inject it** into the service constructor as `ICircuitBreaker`
+  (`@/application/interfaces/circuit-breaker/circuit-breaker.interface`); read
   `failureThreshold` / `resetTimeout` from the driver config. One breaker per dependency — for HTTP,
   one per host, so one failing provider can't cut off the others. When breakers are created per
   call target, inject a function that creates one instead, and build one at startup in the factory
@@ -599,6 +600,13 @@ single test request succeeds. `SMTPEmailService` is the reference use for a sing
   a generic 503 with no controller changes (§15).
 - **Health checks bypass the breaker** by calling `getDriver().health()`, so they report the
   dependency's real state even while the circuit is open.
+- **Report the breaker in `/health`** by implementing the optional
+  `IBaseInfrastructureService.circuitBreakerStatuses()`, returning each breaker's
+  `circuitBreakerStatus()` (`ICircuitBreakerStatus`, from
+  `@/application/interfaces/circuit-breaker/circuit-breaker-status.interface`). A service with one
+  breaker per call target returns only those that are not closed, as `HTTPClientService` does. The
+  health check adds them as `circuit_breakers`; the public response drops their names and the
+  controller logs them instead. Breaker state never changes the service's health status.
 
 ---
 
