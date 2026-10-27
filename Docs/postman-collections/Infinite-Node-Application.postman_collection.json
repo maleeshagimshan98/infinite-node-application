@@ -36,9 +36,34 @@
               "host": ["{{baseUrl}}"],
               "path": ["{{apiPrefix}}", "health"]
             },
-            "description": "Comprehensive health status including service latencies"
+            "description": "Comprehensive health status including service latencies. Services guarded by circuit breakers (email, httpClient) also report `circuit_breakers`: email always lists its one breaker, httpClient lists only hosts whose circuit is open or half-open. Breaker names (hosts) are left out of the response and written to the server log; breaker state never changes the status code."
           },
-          "response": []
+          "response": [
+            {
+              "name": "Healthy, with one HTTP host circuit open",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}{{apiPrefix}}/health",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["{{apiPrefix}}", "health"]
+                },
+                "description": "Comprehensive health status including service latencies. Services guarded by circuit breakers (email, httpClient) also report `circuit_breakers`: email always lists its one breaker, httpClient lists only hosts whose circuit is open or half-open. Breaker names (hosts) are left out of the response and written to the server log; breaker state never changes the status code."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"status\": \"ok\",\n  \"code\": 200,\n  \"paginated\": false,\n  \"page\": null,\n  \"message\": \"Service is healthy\",\n  \"data\": [\n    {\n      \"status\": \"healthy\",\n      \"timestamp\": \"2026-10-26T09:30:00.000Z\",\n      \"uptime\": 5231.42,\n      \"services\": {\n        \"database\": {\n          \"status\": \"connected\",\n          \"latency\": 3\n        },\n        \"cache\": {\n          \"status\": \"connected\",\n          \"latency\": 1\n        },\n        \"email\": {\n          \"status\": \"connected\",\n          \"latency\": 48,\n          \"circuit_breakers\": [\n            {\n              \"state\": \"closed\",\n              \"failureCount\": 0,\n              \"failureThreshold\": 5\n            }\n          ]\n        },\n        \"httpClient\": {\n          \"status\": \"connected\",\n          \"circuit_breakers\": [\n            {\n              \"state\": \"open\",\n              \"failureCount\": 6,\n              \"failureThreshold\": 5\n            }\n          ]\n        }\n      },\n      \"version\": \"1.0.0\"\n    }\n  ]\n}"
+            }
+          ]
         },
         {
           "name": "Liveness Probe",
@@ -64,7 +89,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["{{apiPrefix}}", "health", "ready"]
             },
-            "description": "Full check to see if the service is ready to accept traffic (Kubernetes readiness probe)"
+            "description": "Full check to see if the service is ready to accept traffic (Kubernetes readiness probe). Same body as Health Check, including `circuit_breakers`; an open circuit breaker does not make the service not ready."
           },
           "response": []
         }

@@ -146,6 +146,10 @@ mounted under the API prefix:
 `/health` and `/health/ready` return 200 only when every service is connected, otherwise 503
 (`degraded`, or `unhealthy` when the database is down). The response shows each service's
 `status` and `latency` only — driver error details are written to the server log, not returned.
+Services guarded by circuit breakers also report `circuit_breakers` (state, failure count and
+threshold): `email` always lists its one breaker, `httpClient` lists only hosts whose circuit is
+open or half-open. Breaker names (hosts) are logged rather than returned, and breaker state never
+changes the status code.
 
 5. Build and run in production mode
 
@@ -331,4 +335,4 @@ without external services, except `base-repository.spec.ts`, which needs a real 
 
 ## License
 
-MIT © 2025 Maleesha Gimshan
+MIT © 2025 Maleesha Gimshan — see [LICENSE](LICENSE).
