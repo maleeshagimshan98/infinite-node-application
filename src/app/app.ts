@@ -155,7 +155,7 @@ class InfiniteNodeApplication {
    * @param {object} config - The configuration object
    * @returns {Application} - The initialized express application
    */
-  initExpressServer(config: INodeApplicationConfig): Application {
+  private initExpressServer(config: INodeApplicationConfig): Application {
     const express_server = express();
     express_server.set('port', config.app.port);
     return express_server;
