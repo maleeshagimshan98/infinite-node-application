@@ -3,7 +3,8 @@
  */
 
 import type { IEmail } from '@/application/interfaces/email.interface';
-import type { ICircuitBreaker } from '@/infrastructure/core/interfaces/circuit-breaker.interface';
+import type { ICircuitBreaker } from '@/application/interfaces/circuit-breaker/circuit-breaker.interface';
+import type { ICircuitBreakerStatus } from '@/application/interfaces/circuit-breaker/circuit-breaker-status.interface';
 
 import { SmtpError } from './error/smtp.error';
 
@@ -95,6 +96,15 @@ export class SMTPEmailService implements IEmail {
    */
   getDriver(): SMTPDriver {
     return this.driver;
+  }
+
+  /**
+   * Report the SMTP circuit breaker's state for the health check
+   *
+   * @returns {ICircuitBreakerStatus[]} The single SMTP breaker's status
+   */
+  circuitBreakerStatuses(): ICircuitBreakerStatus[] {
+    return [this.circuitBreaker.circuitBreakerStatus()];
   }
 
   /**

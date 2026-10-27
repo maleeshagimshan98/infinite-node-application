@@ -3,7 +3,7 @@
  */
 
 import type { IDriverConfig } from '@/infrastructure/core/driver/core.driver.config';
-import type { ICircuitBreakerOptions } from '@/infrastructure/core/interfaces/circuit-breaker.interface';
+import type { ICircuitBreakerOptions } from '@/application/interfaces/circuit-breaker/circuit-breaker.interface';
 
 export interface ISMTPConfig extends IDriverConfig {
   host: string;

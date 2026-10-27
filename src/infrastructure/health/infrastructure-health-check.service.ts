@@ -34,12 +34,29 @@ export class InfrastructureHealthCheckService implements IHealthCheck {
   }
 
   /**
-   * Check health of a single service
+   * Check health of a single service, adding its circuit breaker states when it has any. The breakers are
+   * informational: they never change the service's status.
    *
    * @param {IBaseInfrastructureService} service - Service to check
    * @returns {Promise<IServiceHealth>}
    */
   private async checkServiceHealth(service: IBaseInfrastructureService): Promise<IServiceHealth> {
+    const health = await this.checkDriverHealth(service);
+    const circuitBreakers = service.circuitBreakerStatuses?.();
+    if (circuitBreakers !== undefined) {
+      health.circuit_breakers = circuitBreakers;
+    }
+    return health;
+  }
+
+  /**
+   * Check a service's connection through its driver's health() method, when the driver has one. Never throws:
+   * a failed check is reported as disconnected.
+   *
+   * @param {IBaseInfrastructureService} service - Service to check
+   * @returns {Promise<IServiceHealth>}
+   */
+  private async checkDriverHealth(service: IBaseInfrastructureService): Promise<IServiceHealth> {
     try {
       const driver = service.getDriver();
 

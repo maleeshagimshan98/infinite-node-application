@@ -2,7 +2,7 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-export type CircuitState = 'closed' | 'open' | 'half-open';
+import type { CircuitState, ICircuitBreakerStatus } from './circuit-breaker-status.interface';
 
 export interface ICircuitBreakerOptions {
   /** Identifies the protected dependency in errors and logs (e.g. 'smtp') */
@@ -41,4 +41,11 @@ export interface ICircuitBreaker {
    * @returns {void}
    */
   reset(): void;
+
+  /**
+   * Take a snapshot of the circuit for the health check.
+   *
+   * @returns {ICircuitBreakerStatus} The breaker's name, state, failure count and threshold.
+   */
+  circuitBreakerStatus(): ICircuitBreakerStatus;
 }

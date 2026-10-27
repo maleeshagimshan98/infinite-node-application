@@ -2,6 +2,8 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import type { ICircuitBreakerStatus } from '@/application/interfaces/circuit-breaker/circuit-breaker-status.interface';
+
 /**
  * Health status for individual service components
  */
@@ -19,6 +21,7 @@ export interface IServiceHealth {
   status: ServiceHealthStatus;
   latency?: number; // in milliseconds
   message?: string;
+  circuit_breakers?: ICircuitBreakerStatus[];
 }
 
 /**

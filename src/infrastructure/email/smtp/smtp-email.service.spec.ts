@@ -95,6 +95,14 @@ describe('SMTPEmailService', () => {
     expect(sendMail).toHaveBeenCalledTimes(2);
     expect(breaker.state).toBe('closed');
   });
+
+  it('reports its single circuit breaker for the health check, even while closed', () => {
+    const { service } = createService();
+
+    expect(service.circuitBreakerStatuses()).toEqual([
+      { name: 'smtp', state: 'closed', failureCount: 0, failureThreshold: 0 },
+    ]);
+  });
 });
 
 describe('isSmtpOutage', () => {

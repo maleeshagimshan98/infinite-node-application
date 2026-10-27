@@ -4,7 +4,7 @@
 
 import { CircuitOpenError } from '@/infrastructure/core/errors/circuit-open.error';
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
-import type { ICircuitBreakerOptions } from '@/infrastructure/core/interfaces/circuit-breaker.interface';
+import type { ICircuitBreakerOptions } from '@/application/interfaces/circuit-breaker/circuit-breaker.interface';
 
 import { CircuitBreaker } from './core.circuit-breaker';
 
@@ -409,6 +409,27 @@ describe('CircuitBreaker', () => {
 
       jest.advanceTimersByTime(RESET_TIMEOUT / 2);
       expect(breaker.state).toBe('half-open');
+    });
+  });
+
+  describe('circuitBreakerStatus', () => {
+    it('reports the name, state, failure count and threshold', async () => {
+      const breaker = createBreaker();
+      await breaker.execute(failingCall()).catch(() => undefined);
+
+      expect(breaker.circuitBreakerStatus()).toEqual({
+        name: 'test',
+        state: 'closed',
+        failureCount: 1,
+        failureThreshold: THRESHOLD,
+      });
+    });
+
+    it('reflects the open state once the circuit trips', async () => {
+      const breaker = createBreaker();
+      await trip(breaker);
+
+      expect(breaker.circuitBreakerStatus()).toMatchObject({ state: 'open', failureCount: THRESHOLD + 1 });
     });
   });
 });

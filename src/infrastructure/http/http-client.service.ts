@@ -6,7 +6,8 @@ import axios from 'axios';
 
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 import type { IHTTPClient, RequestConfig } from '@/application/interfaces/http-client.interface';
-import type { ICircuitBreaker } from '@/infrastructure/core/interfaces/circuit-breaker.interface';
+import type { ICircuitBreaker } from '@/application/interfaces/circuit-breaker/circuit-breaker.interface';
+import type { ICircuitBreakerStatus } from '@/application/interfaces/circuit-breaker/circuit-breaker-status.interface';
 
 import { HTTPResponse } from './http-response';
 
@@ -104,6 +105,18 @@ export class HTTPClientService implements IHTTPClient {
    */
   getDriver(): typeof axios {
     return axios;
+  }
+
+  /**
+   * Report the hosts whose circuit is not closed, for the health check. Closed ones are left out so a client
+   * talking to many healthy hosts doesn't fill the health response and the logs.
+   *
+   * @returns {ICircuitBreakerStatus[]} The open and half-open hosts' breaker statuses; empty when all are closed
+   */
+  circuitBreakerStatuses(): ICircuitBreakerStatus[] {
+    return [...this.circuitBreakers.values()]
+      .filter((circuitBreaker) => circuitBreaker.state !== 'closed')
+      .map((circuitBreaker) => circuitBreaker.circuitBreakerStatus());
   }
 
   /**

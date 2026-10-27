@@ -10,7 +10,7 @@
 
 import type { IHTTPClient } from '@/application/interfaces/http-client.interface';
 import { CircuitBreaker } from '@/infrastructure/core/core.circuit-breaker';
-import type { ICircuitBreaker } from '@/infrastructure/core/interfaces/circuit-breaker.interface';
+import type { ICircuitBreaker } from '@/application/interfaces/circuit-breaker/circuit-breaker.interface';
 
 import { HTTPClientService } from './http-client.service';
 

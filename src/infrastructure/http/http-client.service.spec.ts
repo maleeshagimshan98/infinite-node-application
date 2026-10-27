@@ -9,7 +9,7 @@ import axios from 'axios';
 import { CircuitBreaker } from '@/infrastructure/core/core.circuit-breaker';
 import { CircuitOpenError } from '@/infrastructure/core/errors/circuit-open.error';
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
-import type { ICircuitBreaker } from '@/infrastructure/core/interfaces/circuit-breaker.interface';
+import type { ICircuitBreaker } from '@/application/interfaces/circuit-breaker/circuit-breaker.interface';
 
 import { HTTPClientService, MAX_CIRCUIT_BREAKERS } from './http-client.service';
 
@@ -174,5 +174,23 @@ describe('HTTPClientService circuit breakers', () => {
 
     expect(thrown).not.toBeInstanceOf(InfrastructureError);
     expect(createCircuitBreaker).not.toHaveBeenCalled();
+  });
+
+  it('reports no circuit breakers for the health check while every host is closed', async () => {
+    const { client } = createClient();
+
+    await client.get({ url: `${serverA.origin}/status/200` });
+
+    expect(client.circuitBreakerStatuses()).toEqual([]);
+  });
+
+  it('reports only the hosts whose circuit is not closed, named by their origin', async () => {
+    const { client } = createClient();
+    await client.get({ url: `${serverA.origin}/reset` }).catch(() => undefined);
+    await client.get({ url: `${serverB.origin}/status/200` });
+
+    expect(client.circuitBreakerStatuses()).toEqual([
+      { name: serverA.origin, state: 'open', failureCount: 1, failureThreshold: 0 },
+    ]);
   });
 });

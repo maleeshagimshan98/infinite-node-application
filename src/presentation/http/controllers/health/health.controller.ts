@@ -6,10 +6,25 @@ import type { HealthService } from '@/domain/health/service/health.service';
 import APIResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import type { IHealthCheckResult, IServiceHealth } from '@/application/interfaces/health-check.interface';
 import type { ILogger } from '@/application/interfaces/logger.interface';
+import type { ICircuitBreakerStatus } from '@/application/interfaces/circuit-breaker/circuit-breaker-status.interface';
 
 import { BaseController } from '../base.controller';
 
 import type { Request, Response } from 'express';
+
+/**
+ * A service's health as shown on the unauthenticated endpoint: no driver message, and circuit breakers without
+ * their names (an HTTP breaker's name is a host origin).
+ */
+export interface IPublicServiceHealth {
+  status: IServiceHealth['status'];
+  latency?: number;
+  circuit_breakers?: Omit<ICircuitBreakerStatus, 'name'>[];
+}
+
+export interface IPublicHealthCheckResult extends Omit<IHealthCheckResult, 'services'> {
+  services: Record<string, IPublicServiceHealth>;
+}
 
 export class HealthController extends BaseController {
   private healthService: HealthService;
@@ -20,21 +35,28 @@ export class HealthController extends BaseController {
   }
 
   /**
-   * Build the public (unauthenticated) view of a health result: per-service driver messages are
-   * dropped because they can carry internal details such as hosts and ports.
+   * Build the public (unauthenticated) view of a health result: per-service driver messages and circuit
+   * breaker names are dropped because they can carry internal details such as hosts and ports.
    *
    * @param {IHealthCheckResult} result - The full health result from the health service.
-   * @returns {IHealthCheckResult} A copy keeping only each service's status and latency.
+   * @returns {IPublicHealthCheckResult} A copy keeping each service's status, latency and breaker states.
    */
-  protected toPublicHealthResult(result: IHealthCheckResult): IHealthCheckResult {
-    const services: IHealthCheckResult['services'] = {};
+  protected toPublicHealthResult(result: IHealthCheckResult): IPublicHealthCheckResult {
+    const services: IPublicHealthCheckResult['services'] = {};
     for (const [name, health] of Object.entries(result.services)) {
       if (!health) {
         continue;
       }
-      const publicHealth: IServiceHealth = { status: health.status };
+      const publicHealth: IPublicServiceHealth = { status: health.status };
       if (health.latency !== undefined) {
         publicHealth.latency = health.latency;
+      }
+      if (health.circuit_breakers !== undefined) {
+        publicHealth.circuit_breakers = health.circuit_breakers.map(({ state, failureCount, failureThreshold }) => ({
+          state,
+          failureCount,
+          failureThreshold,
+        }));
       }
       services[name] = publicHealth;
     }
@@ -42,8 +64,9 @@ export class HealthController extends BaseController {
   }
 
   /**
-   * Log the driver message of every service that reported one, so the details hidden from the
-   * public response stay available to operators.
+   * Log the driver message of every service that reported one, and the circuit breakers that are not closed,
+   * so the details hidden from the public response stay available to operators. Closed breakers are not
+   * logged, so a healthy system adds no log lines.
    *
    * @param {IHealthCheckResult} result - The full health result from the health service.
    * @returns {void}
@@ -52,6 +75,12 @@ export class HealthController extends BaseController {
     for (const [name, health] of Object.entries(result.services)) {
       if (health?.message !== undefined) {
         this.logger.logWarn(`Health check: ${name} is ${health.status}`, { message: health.message });
+      }
+      const notClosed = health?.circuit_breakers?.filter((circuitBreaker) => circuitBreaker.state !== 'closed') ?? [];
+      if (notClosed.length > 0) {
+        this.logger.logWarn(`Health check: ${name} has ${notClosed.length} circuit breaker(s) not closed`, {
+          circuit_breakers: notClosed,
+        });
       }
     }
   }

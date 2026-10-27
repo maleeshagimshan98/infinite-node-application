@@ -5,10 +5,13 @@
 import { CircuitOpenError } from '@/infrastructure/core/errors/circuit-open.error';
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 import type {
-  CircuitState,
   ICircuitBreaker,
   ICircuitBreakerOptions,
-} from '@/infrastructure/core/interfaces/circuit-breaker.interface';
+} from '@/application/interfaces/circuit-breaker/circuit-breaker.interface';
+import type {
+  CircuitState,
+  ICircuitBreakerStatus,
+} from '@/application/interfaces/circuit-breaker/circuit-breaker-status.interface';
 
 /**
  * Circuit breaker for a remote dependency.
@@ -63,6 +66,20 @@ export class CircuitBreaker implements ICircuitBreaker {
 
   get failureCount(): number {
     return this._failureCount;
+  }
+
+  /**
+   * Take a snapshot of the circuit for the health check.
+   *
+   * @returns {ICircuitBreakerStatus} The breaker's name, state, failure count and threshold.
+   */
+  circuitBreakerStatus(): ICircuitBreakerStatus {
+    return {
+      name: this.name,
+      state: this._state,
+      failureCount: this._failureCount,
+      failureThreshold: this.failureThreshold,
+    };
   }
 
   /**
