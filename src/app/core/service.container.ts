@@ -4,11 +4,38 @@
 
 import path from 'path';
 
-import { asClass, asFunction, createContainer } from 'awilix';
+import { asClass, asFunction, asValue, createContainer } from 'awilix';
+
+import type { IAppMetadata } from '@/application/interfaces/app-metadata.interface';
+
+import type { IAppConfig } from './config/app.config';
 
 export const container = createContainer({
   injectionMode: 'CLASSIC',
 });
+
+/**
+ * Register the application's metadata in the container as `appMetadata`
+ *
+ * Called by both InfiniteNodeApplication and InfiniteNodeWorker, so a service that takes
+ * `appMetadata` resolves in either process.
+ *
+ * @param {IAppConfig} appConfig - The application configuration to read the metadata from
+ * @returns {void}
+ */
+export const registerAppMetadata = (appConfig: IAppConfig): void => {
+  const appMetadata: IAppMetadata = Object.freeze({
+    name: appConfig.name,
+    version: appConfig.version,
+    url: appConfig.baseUrl,
+    port: String(appConfig.port),
+    environment: appConfig.environment,
+  });
+
+  container.register({
+    appMetadata: asValue(appMetadata),
+  });
+};
 
 export const registerService = (name: string, type: string, service: unknown): void => {
   if (type === 'singleton') {

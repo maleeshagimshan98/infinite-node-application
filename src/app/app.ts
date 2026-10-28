@@ -19,7 +19,7 @@ import { StartupBanner } from './core/utils/startup-banner';
 import { configLoader } from './core/config/config';
 import { coreMiddleware } from './core/middleware/core.middleware';
 import { InfiniteNodeError } from './core/errors/InfiniteNodeError';
-import { autoRegisterApplicationComponents, container } from './core/service.container';
+import { autoRegisterApplicationComponents, container, registerAppMetadata } from './core/service.container';
 import { ShutdownPriority } from './core/shutdown/shutdown-priority.enum';
 import { otelSdk } from './core/telemetry/instrumentation';
 
@@ -80,8 +80,8 @@ class InfiniteNodeApplication {
   /**
    * Constructor for InfiniteNodeApplication
    *
-   * Initializes the express server, HTTP server, and core services.
-   * Also sets up the application routes and starts listening on the configured port.
+   * Initializes the express server, HTTP server, and core services, and registers the servers and
+   * the app metadata in the DI container. Also sets up the application routes.
    *
    * @param {Router} routes - The main application router containing all route definitions
    * @param {ShutdownManager} shutdownManager - Optional shutdown manager for graceful shutdown
@@ -93,24 +93,15 @@ class InfiniteNodeApplication {
       this.container = container;
       this.express_server = this.initExpressServer(config);
       this.httpServer = this.initHttpServer();
-
-      // Track active connections for graceful shutdown
-      this.httpServer.on('connection', (socket) => {
-        this.activeConnections.add(socket);
-        socket.on('close', () => {
-          this.activeConnections.delete(socket);
-        });
-      });
+      this.trackActiveConnections();
 
       // Register shutdown hooks if shutdown manager is provided
       if (this.shutdownManager) {
         this.registerShutdownHooks();
       }
 
-      this.container.register({
-        httpServer: asValue(this.httpServer),
-        expressServer: asValue(this.express_server),
-      });
+      this.registerServers();
+      registerAppMetadata(config.app);
 
       this.startupBanner = new StartupBanner(this.createBannerConfig());
       this.startupBanner.printBanner();
@@ -170,6 +161,34 @@ class InfiniteNodeApplication {
   private initHttpServer(): http.Server {
     const httpServer = http.createServer(this.express_server);
     return httpServer;
+  }
+
+  /**
+   * Track the HTTP server's open sockets, so a graceful shutdown can drain or destroy them
+   *
+   * @returns {void}
+   */
+  private trackActiveConnections(): void {
+    this.httpServer.on('connection', (socket) => {
+      this.activeConnections.add(socket);
+      socket.on('close', () => {
+        this.activeConnections.delete(socket);
+      });
+    });
+  }
+
+  /**
+   * Register the HTTP server and the Express application in the DI container
+   *
+   * Must run before InfrastructureManager.init(): the socket driver resolves `httpServer` from the container.
+   *
+   * @returns {void}
+   */
+  private registerServers(): void {
+    this.container.register({
+      httpServer: asValue(this.httpServer),
+      expressServer: asValue(this.express_server),
+    });
   }
 
   /**

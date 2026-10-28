@@ -10,7 +10,8 @@ import { InfrastructureManager } from '@/infrastructure/infrastructure.manager';
 import type { IInfrastructureManager } from '@/application/interfaces/infrastructure/infrastructure-manager.interface';
 import type { IWorker } from '@/application/interfaces/worker.interface';
 
-import { autoRegisterWorkerComponents, container } from './core/service.container';
+import { appConfig } from './core/config/app.config';
+import { autoRegisterWorkerComponents, container, registerAppMetadata } from './core/service.container';
 import { ShutdownPriority } from './core/shutdown/shutdown-priority.enum';
 import { otelSdk } from './core/telemetry/instrumentation';
 
@@ -75,6 +76,7 @@ class InfiniteNodeWorker {
     this.shutdownManager = shutdownManager;
     this.container = container;
     this.infrastructureManager = new InfrastructureManager();
+    registerAppMetadata(appConfig());
   }
 
   /**
