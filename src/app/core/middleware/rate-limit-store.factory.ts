@@ -5,7 +5,7 @@
 import { MemoryStore } from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
 
-import type { ILogger } from '@/application/interfaces/logger.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 import type { RedisCacheService } from '@/infrastructure/cache/redis/redis-cache.service';
 
 import { RateLimitFailoverStore } from './rate-limit-failover.store';

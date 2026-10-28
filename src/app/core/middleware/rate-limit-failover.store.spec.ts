@@ -2,7 +2,7 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { ILogger } from '@/application/interfaces/logger.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 
 import { RateLimitFailoverStore } from './rate-limit-failover.store';
 

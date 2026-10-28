@@ -3,7 +3,7 @@
  */
 
 import type { APIResponse } from '@/app/core/utils/api-response/api-response';
-import type { ILogger } from '@/application/interfaces/logger.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 import { Paginator } from '@/app/core/utils/pagination/paginator';
 import { PaginationException } from '@/app/core/utils/pagination/pagination-exception';
 import { RouteParamException } from '@/app/core/utils/request/route-param-exception';

@@ -2,8 +2,8 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IHTTPResponse } from './http-response.interface';
-import type { IBaseInfrastructureService } from './base-infrastructure-service.interface';
+import type { IHTTPResponse } from '@/application/interfaces/infrastructure/http-response.interface';
+import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
 
 export type RequestConfig = {
   url: string;

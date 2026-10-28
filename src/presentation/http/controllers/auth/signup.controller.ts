@@ -3,7 +3,7 @@ import { matchedData } from 'express-validator';
 import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import type { SignupApplicationService } from '@/application/services/auth/signup.application.service';
 import type { INewUser } from '@/domain/user/models/user';
-import type { ILogger } from '@/application/interfaces/logger.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 
 import { BaseController } from '../base.controller';
 

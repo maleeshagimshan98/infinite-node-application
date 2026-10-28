@@ -3,7 +3,7 @@
  */
 
 import type { APIResponse } from '@/app/core/utils/api-response/api-response';
-import type { ILogger } from '@/application/interfaces/logger.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 import { ErrorResponseMessages } from '@/app/core/utils/error-response-messages';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';

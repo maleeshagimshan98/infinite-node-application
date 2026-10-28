@@ -351,7 +351,7 @@ export { router as ModelRoutes }; // named export ending in "Routes"
 ## Infrastructure Service Checklist (new external dependency)
 
 ```
-☐ Interface in application/interfaces/ — extends IBaseInfrastructureService, literal serviceName()
+☐ Interface in application/interfaces/infrastructure/ — extends IBaseInfrastructureService, literal serviceName()
 ☐ Driver config (extends IDriverConfig, reads env vars)
 ☐ Driver (implements ICoreDriver<Client, Config>)
 ☐ Driver loader function
@@ -367,7 +367,7 @@ export { router as ModelRoutes }; // named export ending in "Routes"
    - never attach objects carrying secrets (e.g. AxiosError config/headers)
    - constructor guards the client with `if (!client)` only
 ☐ Remote dependency the library doesn't retry (SMTP, third-party HTTP)? Inject an ICircuitBreaker
-  (application/interfaces/circuit-breaker/) built in the factory; wrap the driver call + its error translation
+  (application/interfaces/infrastructure/core/) built in the factory; wrap the driver call + its error translation
   in execute(); pass isFailure if some errors are per-request rejections, not outages; implement
   circuitBreakerStatuses() so /health reports it — only non-closed breakers when there is one per call target
   (see CLAUDE.md §14 Circuit breakers)

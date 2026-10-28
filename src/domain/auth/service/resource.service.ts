@@ -8,7 +8,7 @@ import type { IResourceRepository } from '@/application/interfaces/repositories/
 import type { IRoleRepository } from '@/application/interfaces/repositories/auth/role.repository.interface';
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
-import type { TransactionOptions } from '@/application/interfaces/database-mapper.interface';
+import type { TransactionOptions } from '@/application/interfaces/infrastructure/database-mapper.interface';
 
 /**
  * Resource Service

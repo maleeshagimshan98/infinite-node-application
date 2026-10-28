@@ -2,7 +2,7 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IQueue } from '@/application/interfaces/queue.interface';
+import type { IQueue } from '@/application/interfaces/infrastructure/queue.interface';
 
 import { BullMQQueueService } from './bullmq/bullmq-queue.service';
 import { bullmqDriverLoader } from './bullmq/driver/bullmq.driver.loader';

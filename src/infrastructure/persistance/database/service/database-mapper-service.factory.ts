@@ -2,7 +2,7 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IDatabaseMapper } from '@/application/interfaces/database-mapper.interface';
+import type { IDatabaseMapper } from '@/application/interfaces/infrastructure/database-mapper.interface';
 import type { IServiceFactory } from '@/infrastructure/core/interfaces/service.factory.interface';
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 

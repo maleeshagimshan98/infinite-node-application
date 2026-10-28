@@ -7,6 +7,7 @@
 import chalk from 'chalk';
 
 import { InfrastructureManager } from '@/infrastructure/infrastructure.manager';
+import type { IInfrastructureManager } from '@/application/interfaces/infrastructure/infrastructure-manager.interface';
 import type { IWorker } from '@/application/interfaces/worker.interface';
 
 import { autoRegisterWorkerComponents, container } from './core/service.container';
@@ -56,9 +57,9 @@ class InfiniteNodeWorker {
   private container: AwilixContainer;
 
   /**
-   * @type {InfrastructureManager} infrastructureManager
+   * @type {IInfrastructureManager} infrastructureManager
    */
-  private infrastructureManager: InfrastructureManager;
+  private infrastructureManager: IInfrastructureManager;
 
   /**
    * @type {ShutdownManager | undefined} shutdownManager

@@ -6,7 +6,7 @@ import { matchedData } from 'express-validator';
 
 import APIResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import type { LoginApplicationService } from '@/application/services/auth/login.application.service';
-import type { ILogger } from '@/application/interfaces/logger.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 
 import { BaseController } from '../base.controller';
 

@@ -9,7 +9,7 @@ import { NewPasswordResetCode, type PasswordResetCode } from '@/domain/auth/mode
 import type { LoginRecord } from '@/domain/auth/models/login-record';
 import type { IPasswordResetCodeRepository } from '@/application/interfaces/repositories/auth/password-reset-code.repository.interface';
 import type { ILoginRecordRepository } from '@/application/interfaces/repositories/auth/login-record.repository.interface';
-import type { TransactionOptions } from '@/application/interfaces/database-mapper.interface';
+import type { TransactionOptions } from '@/application/interfaces/infrastructure/database-mapper.interface';
 
 export class AccountRecoveryService extends BaseDomainService {
   /**

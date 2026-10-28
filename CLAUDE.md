@@ -68,6 +68,7 @@ src/
 ├── presentation/http/          # Routes, Controllers, Validators, Middleware
 ├── application/                # Application services (orchestration + transactions)
 │   └── interfaces/             # All cross-layer interface contracts live here
+│       └── infrastructure/     # Infrastructure service contracts (core/: base service, circuit breaker)
 ├── domain/                     # Pure business logic — ZERO infrastructure imports
 │   ├── base/                   # DomainEntity, BaseDomainService, DomainServiceError
 │   └── erp/ (or feature/)
@@ -89,7 +90,9 @@ src/
 
 ## 4. Dependency Injection (Awilix)
 
-`InfrastructureManager.init()` → registers infrastructure services by `service.serviceName()`.  
+`InfrastructureManager.init()` → registers infrastructure services by `service.serviceName()`. `InfrastructureManager`
+implements `IInfrastructureManager` (`@/application/interfaces/infrastructure/infrastructure-manager.interface`);
+`app.ts` and `worker.ts` hold it through that interface.  
 `autoRegisterApplicationComponents()` → auto-discovers by glob and registers as camelCase:
 
 | Glob pattern                                                              | Example class             | DI token                  |
@@ -410,7 +413,7 @@ File: `src/presentation/http/controllers/{feature}/{name}.controller.ts`
 
 ```typescript
 import type { ICustomerRepository } from '@/application/interfaces/repositories/erp/customer.repository.interface';
-import type { ILogger } from '@/application/interfaces/logger.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 
 export class CustomerController extends BaseController {
   constructor(
@@ -534,7 +537,7 @@ router.use('/customers', CustomerRoutes);
 
 Adding a new infrastructure service (e.g. new database, third-party API):
 
-1. **Interface** → `src/application/interfaces/{name}.interface.ts` (extends `IBaseInfrastructureService`, declares literal `serviceName()`)
+1. **Interface** → `src/application/interfaces/infrastructure/{name}.interface.ts` (extends `IBaseInfrastructureService`, declares literal `serviceName()`)
 2. **Config** → `src/infrastructure/{name}/driver/{driver}.config.ts` (extends `IDriverConfig`, reads env vars)
 3. **Driver** → `src/infrastructure/{name}/driver/{driver}.driver.ts` (implements `ICoreDriver<Client, Config>`)
 4. **Driver loader** → `src/infrastructure/{name}/driver/{driver}.driver.loader.ts`
@@ -582,7 +585,7 @@ single test request succeeds. `SMTPEmailService` is the reference use for a sing
   request), Redis (`disableOfflineQueue` already fails fast while disconnected), or the logger and
   local storage (no remote dependency).
 - **Build it in the factory and inject it** into the service constructor as `ICircuitBreaker`
-  (`@/application/interfaces/circuit-breaker/circuit-breaker.interface`); read
+  (`@/application/interfaces/infrastructure/core/circuit-breaker.interface`); read
   `failureThreshold` / `resetTimeout` from the driver config. One breaker per dependency — for HTTP,
   one per host, so one failing provider can't cut off the others. When breakers are created per
   call target, inject a function that creates one instead, and build one at startup in the factory
@@ -603,7 +606,7 @@ single test request succeeds. `SMTPEmailService` is the reference use for a sing
 - **Report the breaker in `/health`** by implementing the optional
   `IBaseInfrastructureService.circuitBreakerStatuses()`, returning each breaker's
   `circuitBreakerStatus()` (`ICircuitBreakerStatus`, from
-  `@/application/interfaces/circuit-breaker/circuit-breaker-status.interface`). A service with one
+  `@/application/interfaces/infrastructure/core/circuit-breaker-status.interface`). A service with one
   breaker per call target returns only those that are not closed, as `HTTPClientService` does. The
   health check adds them as `circuit_breakers`; the public response drops their names and the
   controller logs them instead. Breaker state never changes the service's health status.
@@ -690,7 +693,7 @@ single test request succeeds. `SMTPEmailService` is the reference use for a sing
 For calling external HTTP APIs, use the generic HTTP client at `src/infrastructure/http/`
 (`HTTPClientService`, built with the standard Driver → Service → Factory infrastructure pattern
 from `§14`). Resolve it from the container via the `httpClient` DI token (implements
-`IHTTPClient` from `@/application/interfaces/http-client.interface`). Configure request timeout
+`IHTTPClient` from `@/application/interfaces/infrastructure/http-client.interface`). Configure request timeout
 via the `HTTP_CLIENT_TIMEOUT` env var (defaults to `5000`ms if unset).
 
 All request methods take an `Omit<RequestConfig, 'method'>` config object. `RequestConfig.data`

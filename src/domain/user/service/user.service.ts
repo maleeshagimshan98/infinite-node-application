@@ -11,7 +11,7 @@ import type { IRoleRepository } from '@/application/interfaces/repositories/auth
 import type { IUserGroupRepository } from '@/application/interfaces/repositories/user-groups/user-group.repository.interface';
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
-import type { TransactionOptions } from '@/application/interfaces/database-mapper.interface';
+import type { TransactionOptions } from '@/application/interfaces/infrastructure/database-mapper.interface';
 
 /**
  * User Service

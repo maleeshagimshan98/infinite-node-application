@@ -3,7 +3,7 @@ import { matchedData } from 'express-validator';
 import { BaseController } from '@/presentation/http/controllers/base.controller';
 import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import type { AccountRecoveryService } from '@/domain/auth/service/account-recovery.service';
-import type { ILogger } from '@/application/interfaces/logger.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 
 import type { Request, Response } from 'express';
 

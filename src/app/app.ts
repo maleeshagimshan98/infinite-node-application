@@ -13,6 +13,7 @@ import { asValue } from 'awilix';
 import { scopePerRequest } from 'awilix-express';
 
 import { InfrastructureManager } from '@/infrastructure/infrastructure.manager';
+import type { IInfrastructureManager } from '@/application/interfaces/infrastructure/infrastructure-manager.interface';
 
 import { StartupBanner } from './core/utils/startup-banner';
 import { configLoader } from './core/config/config';
@@ -57,9 +58,9 @@ class InfiniteNodeApplication {
   private container: AwilixContainer;
 
   /**
-   * @type {InfrastructureManager} infrastructureManager - Manages infrastructure services
+   * @type {IInfrastructureManager} infrastructureManager - Manages infrastructure services
    */
-  private infrastructureManager: InfrastructureManager;
+  private infrastructureManager: IInfrastructureManager;
 
   /**
    * @type {StartupBanner} startupBanner - Utility for displaying startup messages

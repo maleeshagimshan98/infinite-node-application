@@ -13,7 +13,7 @@ import { NewLoginRecord, type LoginRecord } from '@/domain/auth/models/login-rec
 import type { User } from '@/domain/user/models/user';
 import type { IUserRepository } from '@/application/interfaces/repositories/user/user.repository.interface';
 import type { ILoginRecordRepository } from '@/application/interfaces/repositories/auth/login-record.repository.interface';
-import type { TransactionOptions } from '@/application/interfaces/database-mapper.interface';
+import type { TransactionOptions } from '@/application/interfaces/infrastructure/database-mapper.interface';
 
 const ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 

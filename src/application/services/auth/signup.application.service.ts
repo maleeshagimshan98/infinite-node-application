@@ -9,8 +9,8 @@ import type { UserGroupService } from '@/domain/user/service/user-group.service'
 import type { RoleService } from '@/domain/auth/service/role.service';
 import type { INewUser } from '@/domain/user/models/user';
 import type { IDatabaseMapper } from '@/application/interfaces';
-import type { IEmail } from '@/application/interfaces/email.interface';
-import type { ILogger } from '@/application/interfaces/logger.interface';
+import type { IEmail } from '@/application/interfaces/infrastructure/email.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 
 import { BaseApplicationService } from '../base/base.application.service';
 

@@ -2,7 +2,7 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { ISocket } from '@/application/interfaces/socket.interface';
+import type { ISocket } from '@/application/interfaces/infrastructure/socket.interface';
 import { SocketError } from '@/infrastructure/socket/errors/socket.error';
 
 import type { SocketsDriver } from './driver/sockets.driver';

@@ -32,7 +32,7 @@ export interface Job<T> {
 
 export type JobStatus = 'completed' | 'failed' | 'pending' | 'unknown';
 
-import type { IBaseInfrastructureService } from './base-infrastructure-service.interface';
+import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
 
 export interface IQueue extends IBaseInfrastructureService {
   serviceName(): 'queue';

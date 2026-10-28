@@ -3,7 +3,7 @@
  */
 
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
-import type { IHealthCheck, IHealthCheckResult } from '@/application/interfaces/health-check.interface';
+import type { IHealthCheck, IHealthCheckResult } from '@/application/interfaces/infrastructure/health-check.interface';
 
 /**
  * Health Service

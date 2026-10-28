@@ -7,11 +7,11 @@ import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure
 import type {
   ICircuitBreaker,
   ICircuitBreakerOptions,
-} from '@/application/interfaces/circuit-breaker/circuit-breaker.interface';
+} from '@/application/interfaces/infrastructure/core/circuit-breaker.interface';
 import type {
   CircuitState,
   ICircuitBreakerStatus,
-} from '@/application/interfaces/circuit-breaker/circuit-breaker-status.interface';
+} from '@/application/interfaces/infrastructure/core/circuit-breaker-status.interface';
 
 /**
  * Circuit breaker for a remote dependency.

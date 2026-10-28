@@ -652,7 +652,7 @@ export default ModelRepository;
 - `update(id: string, item: NewModel, transactionOptions?: TransactionOptions): Promise<Model | null>`
 - `delete(id: string, transactionOptions?: TransactionOptions): Promise<Model | null>`
 
-`TransactionOptions` is `{ session?: unknown }`, imported from `@/application/interfaces/database-mapper.interface`.
+`TransactionOptions` is `{ session?: unknown }`, imported from `@/application/interfaces/infrastructure/database-mapper.interface`.
 
 **Conventions**:
 
@@ -678,7 +678,7 @@ export default ModelRepository;
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import type { IModelRepository } from '@/application/interfaces/repositories/{feature}/model.repository.interface';
-import type { TransactionOptions } from '@/application/interfaces/database-mapper.interface';
+import type { TransactionOptions } from '@/application/interfaces/infrastructure/database-mapper.interface';
 
 import { NewModel, type Model } from '../models/{model-name}';
 import type { INewModel } from '../models/{model-name}';
@@ -827,7 +827,7 @@ export default ModelService;
 - Service file must match pattern: `**/service/*.service.{ts,js}`
 - DomainServiceError is caught by `catchExceptionsWrapper()` in BaseController
 - **Transaction Support**: All domain service methods that perform write operations (create, update, delete) or read operations within a transaction **MUST** accept an optional `transactionOptions?: TransactionOptions` parameter
-  - Import `TransactionOptions` from `@/application/interfaces/database-mapper.interface`
+  - Import `TransactionOptions` from `@/application/interfaces/infrastructure/database-mapper.interface`
   - This allows application services to pass database sessions for transaction support
   - Always pass the `transactionOptions` parameter to repository methods when it's provided
   - `TransactionOptions` is `{ session?: unknown }` where `session` depends on the underlying database mapper (Mongoose ClientSession, Sequelize Transaction, etc.)
@@ -1028,7 +1028,7 @@ import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import type { ModelService } from '@/domain/{feature}/service/{feature}.service';
 import type { ModelRepository } from '@/infrastructure/persistance/database/repositories/mongoose/{feature}/{model-name}.repository';
 import type { INewModel } from '@/domain/{feature}/models/{model-name}';
-import type { ILogger } from '@/application/interfaces/logger.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 
 import { BaseController } from '../base.controller';
 
@@ -1404,11 +1404,11 @@ exports, and how to register the seeder by hand, in dependency order, in
 Infrastructure services are accessible via dependency injection:
 
 ```typescript
-import type { ICache } from '@/application/interfaces/cache.interface';
-import type { ILogger } from '@/application/interfaces/logger.interface';
-import type { IQueue } from '@/application/interfaces/queue.interface';
-import type { IEmail } from '@/application/interfaces/email.interface';
-import type { IStorage } from '@/application/interfaces/storage.interface';
+import type { ICache } from '@/application/interfaces/infrastructure/cache.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
+import type { IQueue } from '@/application/interfaces/infrastructure/queue.interface';
+import type { IEmail } from '@/application/interfaces/infrastructure/email.interface';
+import type { IStorage } from '@/application/interfaces/infrastructure/storage.interface';
 
 export class MyService extends BaseDomainService {
   private cache: ICache;
@@ -1457,14 +1457,14 @@ export class MyService extends BaseDomainService {
 
 #### Step 1: Define Interface
 
-**Location**: `src/application/interfaces/{service-name}.interface.ts`
+**Location**: `src/application/interfaces/infrastructure/{service-name}.interface.ts`
 
 ```typescript
 /**
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IBaseInfrastructureService } from './base.interface';
+import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
 
 export interface IMyService extends IBaseInfrastructureService {
   serviceName(): 'myService';
@@ -1620,7 +1620,7 @@ export const myDriverLoader = async (): Promise<MyDriver> => {
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IMyService } from '@/application/interfaces/{service-name}.interface';
+import type { IMyService } from '@/application/interfaces/infrastructure/{service-name}.interface';
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 import type { MyDriver } from './driver/{driver-name}.driver';
@@ -1711,7 +1711,7 @@ export class MyService implements IMyService {
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IMyService } from '@/application/interfaces/{service-name}.interface';
+import type { IMyService } from '@/application/interfaces/infrastructure/{service-name}.interface';
 
 import { MyService } from './{service-name}.service';
 import { myDriverLoader } from './driver/{driver-name}.driver.loader';
@@ -1868,7 +1868,7 @@ export const MyCustomMiddleware = (config: SomeType) => {
 
 ```typescript
 import { container } from '@/app/core/service.container';
-import type { ILogger } from '@/application/interfaces/logger.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 
 export const LoggingMiddleware = () => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -2135,7 +2135,7 @@ export default PostRepository;
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import type { IPostRepository } from '@/application/interfaces/repositories/blog/post.repository.interface';
-import type { TransactionOptions } from '@/application/interfaces/database-mapper.interface';
+import type { TransactionOptions } from '@/application/interfaces/infrastructure/database-mapper.interface';
 
 import { NewPost, type Post } from '../models/post';
 import type { INewPost } from '../models/post';
@@ -2409,7 +2409,7 @@ import type { PostService } from '@/domain/blog/service/post.service';
 import type { PostRepository } from '@/infrastructure/persistance/database/repositories/mongoose/blog/post.repository';
 import type { INewPost } from '@/domain/blog/models/post';
 import type { AuthenticatedRequest } from '@/app/core/utils/request/authenticated-request';
-import type { ILogger } from '@/application/interfaces/logger.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 
 import { BaseController } from '../base.controller';
 
@@ -2826,7 +2826,7 @@ async getAll(req: Request, res: Response): Promise<Response> {
 ### File Upload
 
 ```typescript
-import type { IStorage } from '@/application/interfaces/storage.interface';
+import type { IStorage } from '@/application/interfaces/infrastructure/storage.interface';
 
 async uploadFile(req: Request, res: Response): Promise<Response> {
   const response = await this.catchExceptionsWrapper(async () => {

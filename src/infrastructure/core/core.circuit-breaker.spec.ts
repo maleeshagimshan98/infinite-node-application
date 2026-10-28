@@ -4,7 +4,7 @@
 
 import { CircuitOpenError } from '@/infrastructure/core/errors/circuit-open.error';
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
-import type { ICircuitBreakerOptions } from '@/application/interfaces/circuit-breaker/circuit-breaker.interface';
+import type { ICircuitBreakerOptions } from '@/application/interfaces/infrastructure/core/circuit-breaker.interface';
 
 import { CircuitBreaker } from './core.circuit-breaker';
 

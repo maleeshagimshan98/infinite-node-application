@@ -4,15 +4,17 @@
 
 import { asValue } from 'awilix';
 
-import type { IBaseInfrastructureService } from '@/application/interfaces/base-infrastructure-service.interface';
+import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
+import type {
+  IInfrastructureManager,
+  onServiceCreatedCallback,
+} from '@/application/interfaces/infrastructure/infrastructure-manager.interface';
 
 import { InfrastructureHealthCheckService } from './health/infrastructure-health-check.service';
 import { infrastructureLoader } from './infrastructure.loader';
 
 import type { InfrastructureFactoryClass } from './infrastructure.loader';
 import type { AwilixContainer } from 'awilix';
-
-export type onServiceCreatedCallback = (service: IBaseInfrastructureService) => void;
 
 /**
  * Infrastructure Manager
@@ -34,7 +36,7 @@ export type onServiceCreatedCallback = (service: IBaseInfrastructureService) => 
  * const healthCheck = container.resolve<IHealthCheck>('healthCheck');
  * ```
  */
-export class InfrastructureManager {
+export class InfrastructureManager implements IInfrastructureManager {
   private healthCheckService: InfrastructureHealthCheckService;
   private services: IBaseInfrastructureService[] = [];
 

@@ -5,9 +5,9 @@
 import axios from 'axios';
 
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
-import type { IHTTPClient, RequestConfig } from '@/application/interfaces/http-client.interface';
-import type { ICircuitBreaker } from '@/application/interfaces/circuit-breaker/circuit-breaker.interface';
-import type { ICircuitBreakerStatus } from '@/application/interfaces/circuit-breaker/circuit-breaker-status.interface';
+import type { IHTTPClient, RequestConfig } from '@/application/interfaces/infrastructure/http-client.interface';
+import type { ICircuitBreaker } from '@/application/interfaces/infrastructure/core/circuit-breaker.interface';
+import type { ICircuitBreakerStatus } from '@/application/interfaces/infrastructure/core/circuit-breaker-status.interface';
 
 import { HTTPResponse } from './http-response';
 

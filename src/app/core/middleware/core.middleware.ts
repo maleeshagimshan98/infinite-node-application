@@ -10,7 +10,7 @@ import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
 import express from 'express';
 
-import type { ILogger } from '@/application/interfaces/logger.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 
 import { coreMiddlewareConfig } from './middleware.config';
 import { buildRateLimitStore } from './rate-limit-store.factory';

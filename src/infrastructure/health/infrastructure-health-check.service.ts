@@ -7,8 +7,8 @@ import type {
   IHealthCheckResult,
   IServiceHealth,
   SystemHealthStatus,
-} from '@/application/interfaces/health-check.interface';
-import type { IBaseInfrastructureService } from '@/application/interfaces/base-infrastructure-service.interface';
+} from '@/application/interfaces/infrastructure/health-check.interface';
+import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
 
 import type { IDriverHealthStatus } from '../core/driver/core.driver';
 

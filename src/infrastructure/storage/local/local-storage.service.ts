@@ -5,7 +5,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
-import type { IStorage } from '@/application/interfaces/storage.interface';
+import type { IStorage } from '@/application/interfaces/infrastructure/storage.interface';
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 import { storageConfig } from './local-file-storage.config';

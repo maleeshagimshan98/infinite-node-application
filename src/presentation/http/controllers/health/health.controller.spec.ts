@@ -2,8 +2,11 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IHealthCheckResult, IServiceHealth } from '@/application/interfaces/health-check.interface';
-import type { ILogger } from '@/application/interfaces/logger.interface';
+import type {
+  IHealthCheckResult,
+  IServiceHealth,
+} from '@/application/interfaces/infrastructure/health-check.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 import { HealthService } from '@/domain/health/service/health.service';
 
 import { HealthController } from './health.controller';

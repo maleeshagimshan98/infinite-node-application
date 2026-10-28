@@ -2,7 +2,10 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { CircuitState, ICircuitBreakerStatus } from './circuit-breaker-status.interface';
+import type {
+  CircuitState,
+  ICircuitBreakerStatus,
+} from '@/application/interfaces/infrastructure/core/circuit-breaker-status.interface';
 
 export interface ICircuitBreakerOptions {
   /** Identifies the protected dependency in errors and logs (e.g. 'smtp') */

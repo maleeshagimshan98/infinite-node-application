@@ -2,8 +2,8 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IBaseInfrastructureService } from '@/application/interfaces/base-infrastructure-service.interface';
-import type { ICircuitBreakerStatus } from '@/application/interfaces/circuit-breaker/circuit-breaker-status.interface';
+import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
+import type { ICircuitBreakerStatus } from '@/application/interfaces/infrastructure/core/circuit-breaker-status.interface';
 import type { IDriverHealthStatus } from '@/infrastructure/core/driver/core.driver';
 
 import { InfrastructureHealthCheckService } from './infrastructure-health-check.service';

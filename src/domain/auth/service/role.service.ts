@@ -9,7 +9,7 @@ import type { IResourceRepository } from '@/application/interfaces/repositories/
 import type { IUserRepository } from '@/application/interfaces/repositories/user/user.repository.interface';
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
-import type { TransactionOptions } from '@/application/interfaces/database-mapper.interface';
+import type { TransactionOptions } from '@/application/interfaces/infrastructure/database-mapper.interface';
 
 /**
  * Role Service

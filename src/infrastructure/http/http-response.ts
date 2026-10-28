@@ -2,7 +2,7 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IHTTPResponse } from '@/application/interfaces/http-response.interface';
+import type { IHTTPResponse } from '@/application/interfaces/infrastructure/http-response.interface';
 
 class HTTPResponse implements IHTTPResponse {
   private status: string;

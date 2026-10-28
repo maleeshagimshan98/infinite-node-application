@@ -2,7 +2,7 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IStorage } from '@/application/interfaces/storage.interface';
+import type { IStorage } from '@/application/interfaces/infrastructure/storage.interface';
 
 import { LocalStorageService } from './local/local-storage.service';
 import { InfrastructureError } from '../core/errors/infrastructure.error';

@@ -10,7 +10,7 @@ Infrastructure services are initialized at boot time by `InfrastructureManager`,
 
 1. **All external system integrations belong in `src/infrastructure/`** — not in `src/app/core/`
 2. **Service configuration is read from env vars inside each factory** — there are no per-service config files in `app/core/config/`; only `app.config.ts`, `server.config.ts`, and `config.ts` live there
-3. **Application layer depends only on interfaces** — defined in `src/application/interfaces/`
+3. **Application layer depends only on interfaces** — defined in `src/application/interfaces/infrastructure/`
 4. **Each infrastructure service implements `IBaseInfrastructureService`** — declaring its `serviceName`, `singleton`, and `deferred` flags
 5. **Each infrastructure service has a factory implementing `IServiceFactory<T>`** — factories are registered in `infrastructure.loader.ts`
 6. **`InfrastructureManager` orchestrates all service initialization** — it iterates factory classes, calls `factory.create()`, and registers results in the Awilix container
@@ -104,17 +104,22 @@ src/
 
   application/
     interfaces/
-      base.interface.ts               ← IBaseInfrastructureService
-      database-mapper.interface.ts    ← IDatabaseMapper + TransactionOptions type
-      cache.interface.ts              ← ICache
-      storage.interface.ts            ← IStorage
-      email.interface.ts              ← IEmail
-      logger.interface.ts             ← ILogger
-      http-client.interface.ts        ← IHTTPClient + RequestConfig type
-      queue.interface.ts              ← IQueue
-      socket.interface.ts             ← ISocket
-      notification.interface.ts       ← INotification
-      health-check.interface.ts       ← IHealthCheck
+      infrastructure/
+        core/
+          base-infrastructure-service.interface.ts ← IBaseInfrastructureService
+          circuit-breaker.interface.ts             ← ICircuitBreaker + ICircuitBreakerOptions
+          circuit-breaker-status.interface.ts      ← ICircuitBreakerStatus + CircuitState
+        database-mapper.interface.ts  ← IDatabaseMapper + TransactionOptions type
+        cache.interface.ts            ← ICache
+        storage.interface.ts          ← IStorage
+        email.interface.ts            ← IEmail
+        logger.interface.ts           ← ILogger
+        http-client.interface.ts      ← IHTTPClient + RequestConfig type
+        queue.interface.ts            ← IQueue
+        socket.interface.ts           ← ISocket
+        notification.interface.ts     ← INotification
+        health-check.interface.ts     ← IHealthCheck
+        infrastructure-manager.interface.ts ← IInfrastructureManager
       repositories/
         base.repository.interface.ts  ← IBaseRepository<DBSchema, DomainModel, NewDomainModel>
     services/
@@ -184,7 +189,7 @@ src/
 
 **`IBaseInfrastructureService`** — every infrastructure service must implement this
 
-**Location**: `src/application/interfaces/base.interface.ts`
+**Location**: `src/application/interfaces/infrastructure/core/base-infrastructure-service.interface.ts`
 
 ```typescript
 export interface IBaseInfrastructureService {
@@ -242,11 +247,11 @@ export interface ICoreDriver<T, K extends IDriverConfig> {
 
 **Purpose**: Define the contracts that application and domain layers depend on. All extend `IBaseInfrastructureService` and declare their specific `serviceName` as a string literal type.
 
-**Location**: `src/application/interfaces/`
+**Location**: `src/application/interfaces/infrastructure/`
 
 ```typescript
 // storage.interface.ts
-import type { IBaseInfrastructureService } from './base.interface';
+import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
 
 export interface IStorage extends IBaseInfrastructureService {
   serviceName(): 'storage';
@@ -267,7 +272,7 @@ export interface IStorage extends IBaseInfrastructureService {
 
 ```typescript
 // database-mapper.interface.ts
-import type { IBaseInfrastructureService } from './base.interface';
+import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
 
 export type TransactionOptions = {
   session?: unknown; // Mongoose ClientSession, Sequelize Transaction, etc.
@@ -351,7 +356,7 @@ export const storageConfig = (): IFileSystemStorageConfig => ({
 
 ### 4. Service Implementation
 
-**Purpose**: Application-facing service implementing the interface from `application/interfaces/`. Reads its config on construction. For simple services (e.g. local storage), there is no separate driver — the service IS the implementation.
+**Purpose**: Application-facing service implementing the interface from `application/interfaces/infrastructure/`. Reads its config on construction. For simple services (e.g. local storage), there is no separate driver — the service IS the implementation.
 
 **Location**: `infrastructure/{service}/{impl}/`
 
@@ -360,7 +365,7 @@ export const storageConfig = (): IFileSystemStorageConfig => ({
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
-import type { IStorage } from '@/application/interfaces/storage.interface';
+import type { IStorage } from '@/application/interfaces/infrastructure/storage.interface';
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 import { storageConfig } from './local-file-storage.config';
@@ -429,7 +434,10 @@ For services with a driver (e.g. database), the service is created by first cons
 
 ```typescript
 // infrastructure/persistance/database/service/database-mapper/mongoose.service.ts
-import type { IDatabaseMapper, TransactionOptions } from '@/application/interfaces/database-mapper.interface';
+import type {
+  IDatabaseMapper,
+  TransactionOptions,
+} from '@/application/interfaces/infrastructure/database-mapper.interface';
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 import { isConnectionFailure, isMongooseDriverError } from '../../errors/mongoose-error.guards';
@@ -577,7 +585,7 @@ export const mongooseDriverLoader = async (): Promise<MongooseDriver> => {
 
 ```typescript
 // infrastructure/storage/storage-service.factory.ts
-import type { IStorage } from '@/application/interfaces/storage.interface';
+import type { IStorage } from '@/application/interfaces/infrastructure/storage.interface';
 import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 import { LocalStorageService } from './local/local-storage.service';
 import { InfrastructureError } from '../core/errors/infrastructure.error';
@@ -607,7 +615,7 @@ export class StorageServiceFactory implements IServiceFactory<IStorage> {
 
 ```typescript
 // infrastructure/persistance/database/service/database-mapper-service.factory.ts
-import type { IDatabaseMapper } from '@/application/interfaces/database-mapper.interface';
+import type { IDatabaseMapper } from '@/application/interfaces/infrastructure/database-mapper.interface';
 import type { IServiceFactory } from '@/infrastructure/core/interfaces/service.factory.interface';
 import { MongooseService } from './database-mapper/mongoose.service';
 import { mongooseDriverLoader } from './database-mapper/driver/mongoose.driver.loader';
@@ -646,7 +654,7 @@ export class DatabaseMapperServiceFactory implements IServiceFactory<IDatabaseMa
 **Location**: `src/infrastructure/infrastructure.loader.ts`
 
 ```typescript
-import type { IBaseInfrastructureService } from '@/application/interfaces/base.interface';
+import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
 import type { IServiceFactory } from './core/interfaces/service.factory.interface';
 
 import { CacheServiceFactory } from './cache';
@@ -684,8 +692,10 @@ export const infrastructureLoader: InfrastructureFactoryClass[] = [
 
 **Location**: `src/infrastructure/infrastructure.manager.ts`
 
+**Contract**: `IInfrastructureManager` (`init`, `initForWorker`, `shutdown`) in `src/application/interfaces/infrastructure/infrastructure-manager.interface.ts`. `app.ts` and `worker.ts` hold the manager through this interface.
+
 ```typescript
-export class InfrastructureManager {
+export class InfrastructureManager implements IInfrastructureManager {
   private services: IBaseInfrastructureService[] = [];
 
   async init(container: AwilixContainer): Promise<void> {
@@ -721,6 +731,8 @@ export class InfrastructureManager {
 ```typescript
 // src/app/app.ts (relevant portion)
 class InfiniteNodeApplication {
+  private infrastructureManager: IInfrastructureManager;
+
   constructor(routes: Router, shutdownManager?: ShutdownManager) {
     this.container = container;
     this.express_server = this.initExpressServer(config);
@@ -960,7 +972,7 @@ import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import type { CustomerRepository } from '@/infrastructure/persistance/database/repositories/mongoose/erp/customer/customer.repository';
 import { NewCustomer, type Customer, type INewCustomer } from '../models/customer';
-import type { TransactionOptions } from '@/application/interfaces/database-mapper.interface';
+import type { TransactionOptions } from '@/application/interfaces/infrastructure/database-mapper.interface';
 
 export class CustomerService extends BaseDomainService {
   private readonly customerRepository: CustomerRepository;
@@ -1095,7 +1107,7 @@ import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import type { CustomerService } from '@/domain/erp/customer-service/service/customer.service';
 import type { CustomerRepository } from '@/infrastructure/persistance/database/repositories/mongoose/erp/customer/customer.repository';
 import type { INewCustomer } from '@/domain/erp/customer-service/models/customer';
-import type { ILogger } from '@/application/interfaces/logger.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 import { BaseController } from '../base.controller';
 import type { Request, Response } from 'express';
 
@@ -1290,7 +1302,7 @@ index.ts
 ☐ Create config interface extending IDriverConfig (inside service folder)
 ☐ Create driver implementing ICoreDriver<ClientType, ConfigType> (if needed)
 ☐ Create driver loader function (if driver needed)
-☐ Create application interface extending IBaseInfrastructureService (in application/interfaces/)
+☐ Create application interface extending IBaseInfrastructureService (in application/interfaces/infrastructure/)
 ☐ Create service implementation (implements both interface AND IBaseInfrastructureService)
 ☐ Create factory class implementing IServiceFactory<YourInterface>
 ☐ Export factory from infrastructure/index.ts

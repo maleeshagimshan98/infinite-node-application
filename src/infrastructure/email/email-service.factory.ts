@@ -5,7 +5,7 @@
  * Supports multiple email providers (SMTP, SendGrid, AWS SES, etc.).
  */
 
-import type { IEmail } from '@/application/interfaces/email.interface';
+import type { IEmail } from '@/application/interfaces/infrastructure/email.interface';
 import { CircuitBreaker } from '@/infrastructure/core/core.circuit-breaker';
 import { isSmtpOutage } from '@/infrastructure/email/smtp/error/smtp-error.guards';
 

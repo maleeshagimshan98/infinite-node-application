@@ -2,7 +2,10 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IDatabaseMapper, TransactionOptions } from '@/application/interfaces/database-mapper.interface';
+import type {
+  IDatabaseMapper,
+  TransactionOptions,
+} from '@/application/interfaces/infrastructure/database-mapper.interface';
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 import { isConnectionFailure, isMongooseDriverError } from '../../errors/mongoose-error.guards';

@@ -2,9 +2,9 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IEmail } from '@/application/interfaces/email.interface';
-import type { ICircuitBreaker } from '@/application/interfaces/circuit-breaker/circuit-breaker.interface';
-import type { ICircuitBreakerStatus } from '@/application/interfaces/circuit-breaker/circuit-breaker-status.interface';
+import type { IEmail } from '@/application/interfaces/infrastructure/email.interface';
+import type { ICircuitBreaker } from '@/application/interfaces/infrastructure/core/circuit-breaker.interface';
+import type { ICircuitBreakerStatus } from '@/application/interfaces/infrastructure/core/circuit-breaker-status.interface';
 
 import { SmtpError } from './error/smtp.error';
 

@@ -8,7 +8,7 @@ import type { IUserRepository } from '@/application/interfaces/repositories/user
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import type { INewUserGroup } from '@/domain/user/models/user-group';
-import type { TransactionOptions } from '@/application/interfaces/database-mapper.interface';
+import type { TransactionOptions } from '@/application/interfaces/infrastructure/database-mapper.interface';
 
 /**
  * User Group Service

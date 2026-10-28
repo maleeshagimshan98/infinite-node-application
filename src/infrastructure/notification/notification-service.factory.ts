@@ -2,7 +2,7 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { INotification } from '@/application/interfaces/notification.interface';
+import type { INotification } from '@/application/interfaces/infrastructure/notification.interface';
 
 import { InMemoryNotificationService } from './in-memory/in-memory-notification.service';
 import { inMemoryNotificationDriverLoader } from './in-memory/driver/in-memory-notification.driver.loader';

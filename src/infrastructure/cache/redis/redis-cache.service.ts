@@ -2,7 +2,7 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { ICache } from '@/application/interfaces/cache.interface';
+import type { ICache } from '@/application/interfaces/infrastructure/cache.interface';
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 import type { RedisDriver } from './driver/redis.driver';

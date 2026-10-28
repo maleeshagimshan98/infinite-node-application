@@ -8,7 +8,7 @@ import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import type { ResourceService } from '@/domain/auth/service/resource.service';
 import type { IResourceRepository } from '@/application/interfaces/repositories/auth/resource.repository.interface';
 import type { INewResource } from '@/domain/auth/models/resource';
-import type { ILogger } from '@/application/interfaces/logger.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 
 import { BaseController } from '../base.controller';
 

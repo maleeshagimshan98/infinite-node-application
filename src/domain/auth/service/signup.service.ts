@@ -10,7 +10,7 @@ import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import { NewEmailVerificationCode, type EmailVerificationCode } from '@/domain/auth/models/email-verification-code';
 import type { IEmailVerificationCodeRepository } from '@/application/interfaces/repositories/auth/email-verification-code.repository.interface';
-import type { TransactionOptions } from '@/application/interfaces/database-mapper.interface';
+import type { TransactionOptions } from '@/application/interfaces/infrastructure/database-mapper.interface';
 
 const VERIFICATION_CODE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 

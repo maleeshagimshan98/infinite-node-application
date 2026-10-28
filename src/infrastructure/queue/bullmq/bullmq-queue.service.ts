@@ -4,7 +4,7 @@
 
 import { Worker } from 'bullmq';
 
-import type { IQueue, Job, JobOptions, JobStatus } from '@/application/interfaces/queue.interface';
+import type { IQueue, Job, JobOptions, JobStatus } from '@/application/interfaces/infrastructure/queue.interface';
 
 import { QueueDriver } from './driver/bullmq.driver';
 import { bullmqTelemetry } from './driver/bullmq.telemetry';

@@ -2,7 +2,7 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IBaseInfrastructureService } from './base-infrastructure-service.interface';
+import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
 
 export interface IDatabase extends IBaseInfrastructureService {
   serviceName(): 'database';

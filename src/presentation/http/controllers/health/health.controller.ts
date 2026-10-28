@@ -4,9 +4,12 @@
 
 import type { HealthService } from '@/domain/health/service/health.service';
 import APIResponseUtils from '@/app/core/utils/api-response/api-response-utils';
-import type { IHealthCheckResult, IServiceHealth } from '@/application/interfaces/health-check.interface';
-import type { ILogger } from '@/application/interfaces/logger.interface';
-import type { ICircuitBreakerStatus } from '@/application/interfaces/circuit-breaker/circuit-breaker-status.interface';
+import type {
+  IHealthCheckResult,
+  IServiceHealth,
+} from '@/application/interfaces/infrastructure/health-check.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
+import type { ICircuitBreakerStatus } from '@/application/interfaces/infrastructure/core/circuit-breaker-status.interface';
 
 import { BaseController } from '../base.controller';
 
