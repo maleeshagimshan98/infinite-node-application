@@ -1722,6 +1722,11 @@ import type { IServiceFactory } from '../core/interfaces/service.factory.interfa
 export type MyServiceDriverType = 'myDriver' | 'alternativeDriver';
 
 export class MyServiceFactory implements IServiceFactory<IMyService> {
+  // DI registration name — the same literal as the service's serviceName()
+  name(): 'myService' {
+    return 'myService';
+  }
+
   private isMyServiceDriverType(value: string): value is MyServiceDriverType {
     return ['myDriver', 'alternativeDriver'].includes(value);
   }
@@ -1752,6 +1757,10 @@ export class MyServiceFactory implements IServiceFactory<IMyService> {
 }
 ```
 
+If the service needs other infrastructure services, `create()` returns a **synchronous closure** instead (typed
+`Promise<IMyService | ServiceClosure<IMyService>>`), with each parameter named after a service's registration name —
+e.g. `return (queue: IQueue, logger: ILogger): IMyService => new MyService(driver, queue, logger);`. See CLAUDE.md §14.
+
 #### Step 7: Create Index Export
 
 **Location**: `src/infrastructure/{service}/index.ts`
@@ -1766,7 +1775,8 @@ export { MyServiceFactory } from './{service-name}-service.factory';
 
 #### Step 8: Register in Infrastructure Loader
 
-**Location**: `src/infrastructure/infrastructure.loader.ts`
+**Location**: `src/infrastructure/infrastructure.loader.ts` — any position; every service is registered before any is
+resolved, so the order does not matter.
 
 ```typescript
 import { MyServiceFactory } from './{service}'; // ADD THIS

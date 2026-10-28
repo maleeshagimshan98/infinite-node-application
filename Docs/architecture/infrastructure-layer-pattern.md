@@ -4,7 +4,7 @@
 
 This document describes the exact architectural approach for organizing infrastructure-level services (database, cache, storage, email, etc.) in this application. The pattern separates **drivers** (low-level client connections managed via `ICoreDriver`) from **services** (application-facing implementations that implement `IBaseInfrastructureService`) while maintaining clean architecture principles.
 
-Infrastructure services are initialized at boot time by `InfrastructureManager`, which iterates a registry of factory classes (`infrastructureLoader`). Each factory implements `IServiceFactory<T>` and is responsible for reading its own configuration from environment variables, creating its driver (if applicable), and returning a ready service instance. The `InfrastructureManager` then registers each service in the Awilix DI container by the name returned from `service.serviceName()`.
+Infrastructure services are initialized at boot time by `InfrastructureManager`, which iterates a registry of factory classes (`infrastructureLoader`). Each factory implements `IServiceFactory<T>` and is responsible for reading its own configuration from environment variables, creating its driver (if applicable), and returning either a ready service instance or — when the service needs other infrastructure services — a closure that builds it from them. The `InfrastructureManager` registers each result in the Awilix DI container under the factory's `name()`, then resolves them all.
 
 ## Core Principles
 
@@ -13,7 +13,7 @@ Infrastructure services are initialized at boot time by `InfrastructureManager`,
 3. **Application layer depends only on interfaces** — defined in `src/application/interfaces/infrastructure/`
 4. **Each infrastructure service implements `IBaseInfrastructureService`** — declaring its `serviceName`, `singleton`, and `deferred` flags
 5. **Each infrastructure service has a factory implementing `IServiceFactory<T>`** — factories are registered in `infrastructure.loader.ts`
-6. **`InfrastructureManager` orchestrates all service initialization** — it iterates factory classes, calls `factory.create()`, and registers results in the Awilix container
+6. **`InfrastructureManager` orchestrates all service initialization** — it iterates factory classes, calls `factory.create()`, registers every result in the Awilix container under `factory.name()`, and only then resolves them, so a service can depend on another infrastructure service wherever it sits in the loader
 7. **Drivers implement `ICoreDriver<ClientType, ConfigType>`** — only used internally by services; never registered in the DI container directly
 8. **Infrastructure errors are for infrastructure failures only** — a service wraps only its driver's own failures (the `try` covers the driver call alone; caller input is serialized/validated before it; caller callbacks are never wrapped), keeps the original error in `data.cause`, and never attaches objects carrying secrets. The error message is for the logs; clients get a generic 500/503 (`CLAUDE.md` §14–§15)
 
@@ -36,7 +36,7 @@ src/
   infrastructure/
     core/
       interfaces/
-        service.factory.interface.ts  ← IServiceFactory<T> { create(): Promise<T> }
+        service.factory.interface.ts  ← IServiceFactory<T> { name(); create(): Promise<T | ServiceClosure<T>> }
       driver/
         core.driver.ts                ← ICoreDriver<ClientType, ConfigType> interface
         core.driver.config.ts         ← IDriverConfig base interface
@@ -209,8 +209,12 @@ export interface IBaseInfrastructureService {
 **Location**: `src/infrastructure/core/interfaces/service.factory.interface.ts`
 
 ```typescript
-export interface IServiceFactory<T> {
-  create(): Promise<T>;
+// Parameters are named after the registration names of the services it needs; Awilix injects them by name.
+export type ServiceClosure<T> = FunctionReturning<T>; // from 'awilix'
+
+export interface IServiceFactory<T extends IBaseInfrastructureService> {
+  name(): ReturnType<T['serviceName']>; // DI registration name — equals the service's serviceName()
+  create(): Promise<T | ServiceClosure<T>>; // the service, or a synchronous closure that builds it
 }
 ```
 
@@ -579,7 +583,7 @@ export const mongooseDriverLoader = async (): Promise<MongooseDriver> => {
 
 ### 6. Service Factory
 
-**Purpose**: Creates a ready service instance based on env var configuration. Implements `IServiceFactory<InterfaceType>`. Reads the driver (via env var switch), constructs the driver if needed, then returns the service.
+**Purpose**: Creates a ready service instance based on env var configuration. Implements `IServiceFactory<InterfaceType>`. Reads the driver (via env var switch), constructs the driver if needed, then returns the service. `name()` returns the service's registration name — the same literal as its `serviceName()`.
 
 **Location**: `infrastructure/{service}/{service}-service.factory.ts`
 
@@ -591,6 +595,10 @@ import { LocalStorageService } from './local/local-storage.service';
 import { InfrastructureError } from '../core/errors/infrastructure.error';
 
 export class StorageServiceFactory implements IServiceFactory<IStorage> {
+  name(): 'storage' {
+    return 'storage';
+  }
+
   async createLocalStorageService(): Promise<IStorage> {
     return new LocalStorageService();
   }
@@ -622,6 +630,10 @@ import { mongooseDriverLoader } from './database-mapper/driver/mongoose.driver.l
 import { InfrastructureError } from '../../core/errors/infrastructure.error';
 
 export class DatabaseMapperServiceFactory implements IServiceFactory<IDatabaseMapper> {
+  name(): 'database_mapper' {
+    return 'database_mapper';
+  }
+
   async createMongooseService(): Promise<IDatabaseMapper> {
     const mongooseService = new MongooseService(await mongooseDriverLoader());
     return mongooseService;
@@ -644,6 +656,17 @@ export class DatabaseMapperServiceFactory implements IServiceFactory<IDatabaseMa
   }
 }
 ```
+
+**A service that needs other infrastructure services**: `create()` does the async driver setup, then returns a **synchronous closure** whose parameters are named after the registration names of the services it needs. The manager registers the closure as a singleton and Awilix injects the parameters by name (CLASSIC) when it is resolved:
+
+```typescript
+async create(): Promise<IEmail | ServiceClosure<IEmail>> {
+  const driver = await smtpDriverLoader();
+  return (queue: IQueue, logger: ILogger): IEmail => new QueuedEmailService(driver, queue, logger);
+}
+```
+
+The closure must not be `async`: Awilix registers whatever it returns, so every consumer would receive a Promise. A dependency that is not registered fails startup with `InfrastructureError` `DRIVER_ERROR` naming the service and the dependency — in the worker and the seeder too, which leave out the socket service.
 
 ---
 
@@ -682,13 +705,17 @@ export const infrastructureLoader: InfrastructureFactoryClass[] = [
 ];
 ```
 
-> **To add a new infrastructure service**: Create the factory class, then add it to this array. No changes needed in `app.ts` or `InfrastructureManager`.
+> **To add a new infrastructure service**: Create the factory class, then add it to this array, in any position — every service is registered before any is resolved, so the order does not matter. No changes needed in `app.ts` or `InfrastructureManager`.
 
 ---
 
 ### 8. InfrastructureManager (Bootstrap Orchestrator)
 
-**Purpose**: Iterates every factory in `infrastructureLoader`, calls `factory.create()`, then registers each service in the Awilix container using the name returned by `service.serviceName()`.
+**Purpose**: Builds every infrastructure service from `infrastructureLoader` in three phases:
+
+1. **Register** — calls each `factory.create()` and registers the result under `factory.name()`: a service with `asValue()`, a closure as a singleton whose parameters are injected by name.
+2. **Resolve** — resolves every service. Awilix builds a closure's dependencies inside the call that builds the closure, so the loader order does not matter. A missing or cyclic dependency, a `serviceName()` that differs from the factory's `name()`, or `singleton()` returning `false` fails here with `InfrastructureError` `DRIVER_ERROR`.
+3. **Track** — only once every service has resolved, adds them to the health check and to the shutdown list, in the order they were built. `shutdown()` walks that list backwards, so dependents stop before their dependencies.
 
 **Location**: `src/infrastructure/infrastructure.manager.ts`
 
@@ -698,23 +725,41 @@ export const infrastructureLoader: InfrastructureFactoryClass[] = [
 export class InfrastructureManager implements IInfrastructureManager {
   private services: IBaseInfrastructureService[] = [];
 
-  async init(container: AwilixContainer): Promise<void> {
-    for (const FactoryClass of infrastructureLoader) {
-      const factory = new FactoryClass();
-      const service: IBaseInfrastructureService = await factory.create();
-      const serviceName = service.serviceName();
+  private async loadServices(container: AwilixContainer, loader: InfrastructureFactoryClass[]): Promise<void> {
+    const factories = loader.map((FactoryClass) => new FactoryClass());
+    const built: IBaseInfrastructureService[] = []; // dependencies before their dependents
 
-      if (service.singleton()) {
-        container.register({ [serviceName]: asValue(service) });
-        this.services.push(service);
+    // 1. Register
+    for (const factory of factories) {
+      const created = await factory.create();
+      if (typeof created === 'function') {
+        // Singleton resolver around asFunction(created).classic() that pushes the service to `built` when built
+        container.register({ [factory.name()]: this.closureResolver(created, built) });
+      } else {
+        built.push(created);
+        container.register({ [factory.name()]: asValue(created) });
       }
     }
 
+    // 2. Resolve (AwilixResolutionError → InfrastructureError DRIVER_ERROR)
+    for (const factory of factories) {
+      this.assertService(this.resolveService(container, factory.name()), factory.name());
+    }
+
+    // 3. Track
+    for (const service of built) {
+      this.services.push(service);
+      this.healthCheckService.registerService(service);
+    }
+  }
+
+  async init(container: AwilixContainer): Promise<void> {
+    await this.loadServices(container, this.loader);
     container.register({ healthCheck: asValue(this.healthCheckService) });
   }
 
   async shutdown(): Promise<void> {
-    // Shutdown in reverse initialization order (LIFO)
+    // Reverse build order: dependents before their dependencies
     for (const service of [...this.services].reverse()) {
       await service.shutdown?.();
     }
@@ -1290,8 +1335,10 @@ index.ts
       → infrastructureManager.init(container)
             → for each FactoryClass in infrastructureLoader:
                   factory = new FactoryClass()
-                  service = await factory.create()          ← reads env vars, inits driver if needed
-                  container.register({ [service.serviceName()]: asValue(service) })
+                  created = await factory.create()          ← reads env vars, inits driver if needed
+                  container.register({ [factory.name()]: asValue(created) or singleton closure })
+            → resolve every factory.name()                  ← closures get their dependencies by name
+            → track services in build order                 ← health check + shutdown (reverse order)
       → autoRegisterApplicationComponents()                  ← scans *.service.ts, *.repository.ts, *.controller.ts
       → express app.use(routes)
 ```
@@ -1304,9 +1351,10 @@ index.ts
 ☐ Create driver loader function (if driver needed)
 ☐ Create application interface extending IBaseInfrastructureService (in application/interfaces/infrastructure/)
 ☐ Create service implementation (implements both interface AND IBaseInfrastructureService)
-☐ Create factory class implementing IServiceFactory<YourInterface>
+☐ Create factory class implementing IServiceFactory<YourInterface> — name() returns the serviceName() literal;
+  create() returns a synchronous closure if the service needs other infrastructure services
 ☐ Export factory from infrastructure/index.ts
-☐ Add factory class to infrastructureLoader array in infrastructure.loader.ts
+☐ Add factory class to infrastructureLoader array in infrastructure.loader.ts (any position)
 ```
 
 **Adding a new API endpoint** (complete checklist):

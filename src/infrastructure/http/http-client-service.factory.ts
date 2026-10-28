@@ -29,6 +29,15 @@ import type { IServiceFactory } from '../core/interfaces/service.factory.interfa
  */
 export class HTTPClientServiceFactory implements IServiceFactory<IHTTPClient> {
   /**
+   * Returns the DI registration name of the service this factory builds
+   *
+   * @returns {'httpClient'} Service registration name
+   */
+  name(): 'httpClient' {
+    return 'httpClient';
+  }
+
+  /**
    * Creates an HTTP client service instance that guards each host with its own circuit breaker
    *
    * @returns {Promise<IHTTPClient>} An HTTP client service instance

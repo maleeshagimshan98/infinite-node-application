@@ -23,6 +23,15 @@ import type { IServiceFactory } from '../core/interfaces/service.factory.interfa
  */
 export class SocketServiceFactory implements IServiceFactory<ISocket> {
   /**
+   * Returns the DI registration name of the service this factory builds
+   *
+   * @returns {'socket'} Service registration name
+   */
+  name(): 'socket' {
+    return 'socket';
+  }
+
+  /**
    * Creates a Socket.IO service instance
    *
    * @returns {Promise<ISocket>} A Socket.IO service instance

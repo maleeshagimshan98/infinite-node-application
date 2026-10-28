@@ -12,6 +12,15 @@ import type { IServiceFactory } from '../core/interfaces/service.factory.interfa
 
 export class QueueServiceFactory implements IServiceFactory<IQueue> {
   /**
+   * Returns the DI registration name of the service this factory builds
+   *
+   * @returns {'queue'} Service registration name
+   */
+  name(): 'queue' {
+    return 'queue';
+  }
+
+  /**
    * Creates a BullMQ queue service instance
    *
    * @returns {Promise<IQueue>} A BullMQ queue service instance

@@ -14,6 +14,15 @@ export type CacheDriverType = 'redis' | 'memcached' | 'inmemory';
 
 export class CacheServiceFactory implements IServiceFactory<ICache> {
   /**
+   * Returns the DI registration name of the service this factory builds
+   *
+   * @returns {'cache'} Service registration name
+   */
+  name(): 'cache' {
+    return 'cache';
+  }
+
+  /**
    * Type guard to validate cache driver type
    */
   private isCacheDriverType(value: string): value is CacheDriverType {

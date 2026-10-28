@@ -13,6 +13,15 @@ export type StorageDriverType = 'filesystem' | 'aws' | 'gcp' | 'azure';
 
 export class StorageServiceFactory implements IServiceFactory<IStorage> {
   /**
+   * Returns the DI registration name of the service this factory builds
+   *
+   * @returns {'storage'} Service registration name
+   */
+  name(): 'storage' {
+    return 'storage';
+  }
+
+  /**
    * Create a storage service instance using the provided local file storage driver
    *
    * @returns {Promise<IStorage>} implementation

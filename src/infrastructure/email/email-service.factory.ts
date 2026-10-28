@@ -28,6 +28,15 @@ import type { IServiceFactory } from '../core/interfaces/service.factory.interfa
  */
 export class EmailServiceFactory implements IServiceFactory<IEmail> {
   /**
+   * Returns the DI registration name of the service this factory builds
+   *
+   * @returns {'email'} Service registration name
+   */
+  name(): 'email' {
+    return 'email';
+  }
+
+  /**
    * Creates an SMTP email service instance whose sends are guarded by a circuit breaker
    *
    * @returns {Promise<IEmail>} An SMTP email service instance

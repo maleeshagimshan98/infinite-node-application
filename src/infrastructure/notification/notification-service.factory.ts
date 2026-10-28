@@ -26,6 +26,15 @@ import type { IServiceFactory } from '../core/interfaces/service.factory.interfa
  */
 export class NotificationServiceFactory implements IServiceFactory<INotification> {
   /**
+   * Returns the DI registration name of the service this factory builds
+   *
+   * @returns {'notification'} Service registration name
+   */
+  name(): 'notification' {
+    return 'notification';
+  }
+
+  /**
    * Creates an In-Memory notification service instance
    *
    * This method creates and initializes the InMemoryNotificationDriver,

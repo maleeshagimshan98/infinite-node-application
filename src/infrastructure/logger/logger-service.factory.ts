@@ -32,6 +32,15 @@ export type LoggerDriverType = 'winston' | 'bunyan' | 'pino';
  */
 export class LoggerServiceFactory implements IServiceFactory<ILogger> {
   /**
+   * Returns the DI registration name of the service this factory builds
+   *
+   * @returns {'logger'} Service registration name
+   */
+  name(): 'logger' {
+    return 'logger';
+  }
+
+  /**
    * Type guard to validate logger driver type
    * @param {unknown} value - The value to check
    * @returns {value is LoggerDriverType} True if the value is a valid logger driver type

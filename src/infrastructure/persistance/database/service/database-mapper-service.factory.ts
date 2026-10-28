@@ -25,6 +25,15 @@ export type DatabaseMapperDriverType = 'mongoose' | 'sequelize' | 'typeorm' | 'p
  */
 export class DatabaseMapperServiceFactory implements IServiceFactory<IDatabaseMapper> {
   /**
+   * Returns the DI registration name of the service this factory builds
+   *
+   * @returns {'database_mapper'} Service registration name
+   */
+  name(): 'database_mapper' {
+    return 'database_mapper';
+  }
+
+  /**
    * Type guard to validate database mapper driver type
    *
    * @param {unknown} driver - The value to check

@@ -94,7 +94,13 @@ src/
 (`IAppMetadata` from `@/application/interfaces/app-metadata.interface`: `name`, `version`, `url`, `port`,
 `environment`) before infrastructure starts. `InfiniteNodeWorker` registers `appMetadata` too, via the shared
 `registerAppMetadata()` in `src/app/core/service.container.ts`.  
-`InfrastructureManager.init()` → registers infrastructure services by `service.serviceName()`. `InfrastructureManager`
+`InfrastructureManager.init()` → registers each infrastructure service under its factory's `name()`: a service the
+factory returns with `asValue()`, a closure as a singleton whose parameters Awilix injects by name (CLASSIC). Every
+service is registered before any is resolved, so the order of `infrastructureLoader` does not matter. Once all have
+resolved, the services join the health check and are tracked for shutdown in the order they were built, so
+dependents shut down before their dependencies. A missing or cyclic dependency, a service whose `serviceName()`
+differs from its factory's `name()`, or a service whose `singleton()` is `false` fails startup with
+`InfrastructureError` `DRIVER_ERROR` (§14). `InfrastructureManager`
 implements `IInfrastructureManager` (`@/application/interfaces/infrastructure/infrastructure-manager.interface`);
 `app.ts` and `worker.ts` hold it through that interface.  
 `autoRegisterApplicationComponents()` → auto-discovers by glob and registers as camelCase:
@@ -546,11 +552,30 @@ Adding a new infrastructure service (e.g. new database, third-party API):
 3. **Driver** → `src/infrastructure/{name}/driver/{driver}.driver.ts` (implements `ICoreDriver<Client, Config>`)
 4. **Driver loader** → `src/infrastructure/{name}/driver/{driver}.driver.loader.ts`
 5. **Service** → `src/infrastructure/{name}/{name}.service.ts` (implements both your interface and `IBaseInfrastructureService`)
-6. **Factory** → `src/infrastructure/{name}/{name}-service.factory.ts` (implements `IServiceFactory<YourInterface>`, reads `process.env.X_DRIVER` switch)
+6. **Factory** → `src/infrastructure/{name}/{name}-service.factory.ts` (implements `IServiceFactory<YourInterface>`, reads `process.env.X_DRIVER` switch; `name()` returns the same literal as the service's `serviceName()` — the DI registration name)
 7. **Export** → `src/infrastructure/{name}/index.ts`
-8. **Register** → add factory class to `src/infrastructure/infrastructure.loader.ts`
+8. **Register** → add factory class to `src/infrastructure/infrastructure.loader.ts` (any position — the order does not matter)
 
 **No other files need changing.** `InfrastructureManager` auto-picks it up.
+
+### Depending on other infrastructure services
+
+A factory whose service needs other infrastructure services returns a **closure** from `create()` instead of the
+service (`ServiceClosure<T>` from `@/infrastructure/core/interfaces/service.factory.interface`). Each parameter is
+named after the registration name of a service it needs; the manager resolves them by name:
+
+```typescript
+async create(): Promise<IEmail | ServiceClosure<IEmail>> {
+  const driver = await smtpDriverLoader(); // async setup happens here, before the closure is returned
+  return (queue: IQueue, logger: ILogger): IEmail => new QueuedEmailService(driver, queue, logger);
+}
+```
+
+- **Keep the closure synchronous.** Awilix registers whatever it returns, so an `async` closure would hand every
+  consumer a Promise.
+- **A missing dependency fails startup** with `InfrastructureError` `DRIVER_ERROR` naming the service and the
+  dependency. `initForWorker()` (worker, seeder) leaves out the socket service, so a dependency on `socket` fails
+  there.
 
 ### Error handling in infrastructure services
 
