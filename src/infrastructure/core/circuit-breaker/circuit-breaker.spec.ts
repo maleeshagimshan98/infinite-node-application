@@ -6,7 +6,7 @@ import { CircuitOpenError } from '@/infrastructure/core/errors/circuit-open.erro
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 import type { ICircuitBreakerOptions } from '@/application/interfaces/infrastructure/core/circuit-breaker.interface';
 
-import { CircuitBreaker } from './core.circuit-breaker';
+import { CircuitBreaker } from './circuit-breaker';
 
 const THRESHOLD = 2;
 const RESET_TIMEOUT = 1000;

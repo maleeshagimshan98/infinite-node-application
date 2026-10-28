@@ -9,7 +9,7 @@
  */
 
 import type { IHTTPClient } from '@/application/interfaces/infrastructure/http-client.interface';
-import { CircuitBreaker } from '@/infrastructure/core/core.circuit-breaker';
+import { CircuitBreaker } from '@/infrastructure/core/circuit-breaker/circuit-breaker';
 import type { ICircuitBreaker } from '@/application/interfaces/infrastructure/core/circuit-breaker.interface';
 
 import { HTTPClientService } from './http-client.service';

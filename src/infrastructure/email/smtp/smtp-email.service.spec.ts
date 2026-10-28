@@ -4,7 +4,7 @@
 
 import nodemailer from 'nodemailer';
 
-import { CircuitBreaker } from '@/infrastructure/core/core.circuit-breaker';
+import { CircuitBreaker } from '@/infrastructure/core/circuit-breaker/circuit-breaker';
 import { CircuitOpenError } from '@/infrastructure/core/errors/circuit-open.error';
 
 import { SMTPDriver } from './driver/smtp.driver';

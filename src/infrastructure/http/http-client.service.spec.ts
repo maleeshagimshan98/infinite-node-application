@@ -6,7 +6,7 @@ import http from 'http';
 
 import axios from 'axios';
 
-import { CircuitBreaker } from '@/infrastructure/core/core.circuit-breaker';
+import { CircuitBreaker } from '@/infrastructure/core/circuit-breaker/circuit-breaker';
 import { CircuitOpenError } from '@/infrastructure/core/errors/circuit-open.error';
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 import type { ICircuitBreaker } from '@/application/interfaces/infrastructure/core/circuit-breaker.interface';

@@ -6,7 +6,7 @@
  */
 
 import type { IEmail } from '@/application/interfaces/infrastructure/email.interface';
-import { CircuitBreaker } from '@/infrastructure/core/core.circuit-breaker';
+import { CircuitBreaker } from '@/infrastructure/core/circuit-breaker/circuit-breaker';
 import { isSmtpOutage } from '@/infrastructure/email/smtp/error/smtp-error.guards';
 
 import { SMTPEmailService } from './smtp/smtp-email.service';

@@ -90,6 +90,10 @@ src/
 
 ## 4. Dependency Injection (Awilix)
 
+`InfiniteNodeApplication` (constructor) → registers `httpServer`, `expressServer` and `appMetadata`
+(`IAppMetadata` from `@/application/interfaces/app-metadata.interface`: `name`, `version`, `url`, `port`,
+`environment`) before infrastructure starts. `InfiniteNodeWorker` registers `appMetadata` too, via the shared
+`registerAppMetadata()` in `src/app/core/service.container.ts`.  
 `InfrastructureManager.init()` → registers infrastructure services by `service.serviceName()`. `InfrastructureManager`
 implements `IInfrastructureManager` (`@/application/interfaces/infrastructure/infrastructure-manager.interface`);
 `app.ts` and `worker.ts` hold it through that interface.  
@@ -574,7 +578,7 @@ An infrastructure error type means "this infrastructure failed" — nothing else
 
 ### Circuit breakers
 
-`CircuitBreaker` (`src/infrastructure/core/core.circuit-breaker.ts`) stops calling a remote
+`CircuitBreaker` (`src/infrastructure/core/circuit-breaker/circuit-breaker.ts`) stops calling a remote
 dependency that keeps failing: once failures outnumber successes by more than `failureThreshold`,
 calls are rejected with `CircuitOpenError` without running, until `resetTimeout` has passed and a
 single test request succeeds. `SMTPEmailService` is the reference use for a single dependency,
