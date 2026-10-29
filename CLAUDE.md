@@ -565,9 +565,9 @@ service (`ServiceClosure<T>` from `@/infrastructure/core/interfaces/service.fact
 named after the registration name of a service it needs; the manager resolves them by name:
 
 ```typescript
-async create(): Promise<IEmail | ServiceClosure<IEmail>> {
+async create(): Promise<IEmailService | ServiceClosure<IEmailService>> {
   const driver = await smtpDriverLoader(); // async setup happens here, before the closure is returned
-  return (queue: IQueue, logger: ILogger): IEmail => new QueuedEmailService(driver, queue, logger);
+  return (queue: IQueue, logger: ILogger): IEmailService => new QueuedEmailService(driver, queue, logger);
 }
 ```
 
@@ -639,6 +639,45 @@ single test request succeeds. `SMTPEmailService` is the reference use for a sing
   breaker per call target returns only those that are not closed, as `HTTPClientService` does. The
   health check adds them as `circuit_breakers`; the public response drops their names and the
   controller logs them instead. Breaker state never changes the service's health status.
+
+### Email log
+
+The email log records each email the application sends or tries to send: who triggered it, the
+recipients, the subject, the status and why a send failed. It uses the standard resource layout:
+
+| Part                                                                                 | Location                                                                      |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Entity (`EmailStatus`, `INewEmail`, `IEmail`, `NewEmail`, `Email`)                   | `src/domain/app/email/models/email.ts`                                        |
+| Schema, mapper, repository (`email_logs` collection)                                 | `src/infrastructure/persistance/database/repositories/mongoose/email/`        |
+| `IEmailRepository` (type alias of `IBaseRepository<Email, NewEmail>` for now)        | `src/application/interfaces/repositories/email/email.repository.interface.ts` |
+| `EmailLoggerService` (`getById`, `getAll`, `get(offset, limit)`, `create`, `update`) | `src/infrastructure/email/email-log/email-logger.service.ts`                  |
+
+- **Only the email infrastructure writes the log.** Domain and application code send email through
+  `IEmailService` (DI token `emailService`) and learn only that it was handed off. `EmailLoggerService`
+  is not registered in DI; the email service builds it, and it builds its own `EmailRepository`.
+  Authorized users read the log through `emailRepository` (auto-registered); there are no endpoints yet
+  (§20).
+- **Status moves only from `pending`**, through `Email.markSent(sentOn?)` or `Email.markFailed(errorMessage)`.
+  Any other move throws `DomainEntityError`. Reason: Mongoose drops `undefined` keys from `$set`, so
+  `update()` can never clear a stored field, and an email that changed status twice would keep a stale
+  `sent_on` or `error_message`. A `sent` email needs `sent_on`; a `failed` one needs `error_message`.
+- **The body is kept only while `pending`.** `markSent()` / `markFailed()` empty it, and the entity
+  rejects a sent or failed email that still has one. Reason: the body can carry one-time codes that
+  signup stores only as SHA-256 hashes.
+- **`user_id` is the user who triggered the send.** It is stored as an ObjectId with `ref: 'user'`.
+  `INewEmailSchema.user_id` is optional in TypeScript only, because the inherited `toFilter()` passes
+  partial filters through `toPersistence()`. The schema still requires it, and `EmailMapper.toDomain()`
+  throws `PersistanceError` for a record without one.
+- **`ttl` is informational** (seconds). It does not expire the record.
+- **Records expire after `EMAIL_LOG_TTL_DAYS`** (default `30`) through a TTL index on `createdAt`.
+  When the variable changes, MongoDB keeps the existing index's `expireAfterSeconds`; apply the new
+  value with `collMod`, or drop the index so it is rebuilt.
+- **`EmailLoggerService` passes repository errors through unchanged**: `RepositoryError`,
+  `InfrastructureError`, `PersistanceError`, or a stored record's `DomainEntityError`.
+  `get(offset, limit)` throws `RangeError` for an out-of-range page, because the repository treats a
+  `limit` of 0 as "no limit".
+- **Never name a domain service `EmailService`.** Auto-registration would give it the token
+  `emailService`, which belongs to the infrastructure email service. Use a name like `EmailLogService`.
 
 ---
 
@@ -770,15 +809,16 @@ Errors:
 
 ## 20. Work In Progress / Planned Features
 
-| Feature                            | Status                               |
-| ---------------------------------- | ------------------------------------ |
-| Queued workflow execution (BullMQ) | Modeled, not wired                   |
-| Execution stack data passing       | Partially built                      |
-| Auth middleware on routes          | Scaffolded (currently commented out) |
-| Email/SMS/push notifications       | Settings modeled, no send logic      |
-| Multi-currency ERP                 | Fields exist, no FX conversion       |
-| Activity log emission from ERP     | Not started                          |
-| Workflow success schema evaluation | Commented out                        |
+| Feature                               | Status                                                             |
+| ------------------------------------- | ------------------------------------------------------------------ |
+| Queued workflow execution (BullMQ)    | Modeled, not wired                                                 |
+| Execution stack data passing          | Partially built                                                    |
+| Auth middleware on routes             | Scaffolded (currently commented out)                               |
+| Email/SMS/push notifications          | Settings modeled, no send logic                                    |
+| Email log (`EmailLoggerService`, §14) | Built, not wired — no email service writes to it yet; no endpoints |
+| Multi-currency ERP                    | Fields exist, no FX conversion                                     |
+| Activity log emission from ERP        | Not started                                                        |
+| Workflow success schema evaluation    | Commented out                                                      |
 
 ---
 
