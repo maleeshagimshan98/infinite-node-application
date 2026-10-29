@@ -14,7 +14,7 @@ export * from './infrastructure/core/base-infrastructure-service.interface';
 export * from './infrastructure/core/circuit-breaker.interface';
 export * from './infrastructure/core/circuit-breaker-status.interface';
 export * from './infrastructure/storage.interface';
-export * from './infrastructure/email.interface';
+export * from './infrastructure/email-service.interface';
 export * from './infrastructure/logger.interface';
 export * from './infrastructure/cache.interface';
 export * from './infrastructure/notification.interface';

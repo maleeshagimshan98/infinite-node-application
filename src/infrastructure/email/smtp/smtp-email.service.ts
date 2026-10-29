@@ -2,7 +2,7 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IEmail } from '@/application/interfaces/infrastructure/email.interface';
+import type { IEmailService } from '@/application/interfaces/infrastructure/email-service.interface';
 import type { ICircuitBreaker } from '@/application/interfaces/infrastructure/core/circuit-breaker.interface';
 import type { ICircuitBreakerStatus } from '@/application/interfaces/infrastructure/core/circuit-breaker-status.interface';
 
@@ -18,7 +18,7 @@ import type { Transporter } from 'nodemailer';
  * SMTP server keeps failing they are rejected immediately instead of each waiting out the connection timeout.
  *
  * @class SMTPEmailService
- * @implements {IEmail}
+ * @implements {IEmailService}
  *
  * @example
  * ```typescript
@@ -31,7 +31,7 @@ import type { Transporter } from 'nodemailer';
  * );
  * ```
  */
-export class SMTPEmailService implements IEmail {
+export class SMTPEmailService implements IEmailService {
   private readonly driver: SMTPDriver;
 
   /**
@@ -65,10 +65,10 @@ export class SMTPEmailService implements IEmail {
   /**
    * Returns the service name identifier for this infrastructure service
    *
-   * @returns {'email'} Service name identifier
+   * @returns {'emailService'} Service name identifier
    */
-  serviceName(): 'email' {
-    return 'email';
+  serviceName(): 'emailService' {
+    return 'emailService';
   }
 
   /**

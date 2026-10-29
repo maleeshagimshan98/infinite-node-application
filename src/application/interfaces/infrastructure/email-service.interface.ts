@@ -4,8 +4,8 @@
 
 import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
 
-export interface IEmail extends IBaseInfrastructureService {
-  serviceName(): 'email';
+export interface IEmailService extends IBaseInfrastructureService {
+  serviceName(): 'emailService';
   singleton(): true;
   deferred(): false;
 

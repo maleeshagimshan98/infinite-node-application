@@ -9,7 +9,7 @@ import type { UserGroupService } from '@/domain/user/service/user-group.service'
 import type { RoleService } from '@/domain/auth/service/role.service';
 import type { INewUser } from '@/domain/user/models/user';
 import type { IDatabaseMapper } from '@/application/interfaces';
-import type { IEmail } from '@/application/interfaces/infrastructure/email.interface';
+import type { IEmailService } from '@/application/interfaces/infrastructure/email-service.interface';
 import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 
 import { BaseApplicationService } from '../base/base.application.service';
@@ -26,7 +26,7 @@ export class SignupApplicationService extends BaseApplicationService {
   private userService: UserService;
   private userGroupService: UserGroupService;
   private roleService: RoleService;
-  private email: IEmail;
+  private emailService: IEmailService;
   private logger: ILogger;
 
   constructor(
@@ -35,7 +35,7 @@ export class SignupApplicationService extends BaseApplicationService {
     userService: UserService,
     userGroupService: UserGroupService,
     roleService: RoleService,
-    email: IEmail,
+    emailService: IEmailService,
     logger: ILogger,
   ) {
     super(database_mapper);
@@ -43,7 +43,7 @@ export class SignupApplicationService extends BaseApplicationService {
     this.userService = userService;
     this.userGroupService = userGroupService;
     this.roleService = roleService;
-    this.email = email;
+    this.emailService = emailService;
     this.logger = logger;
   }
 
@@ -57,7 +57,7 @@ export class SignupApplicationService extends BaseApplicationService {
    */
   private async sendVerificationEmail(email: string, rawCode: string): Promise<void> {
     try {
-      await this.email.sendEmail(email, 'Verify your email', `Your verification code is: ${rawCode}`);
+      await this.emailService.sendEmail(email, 'Verify your email', `Your verification code is: ${rawCode}`);
     } catch (error) {
       this.logger.logError('Failed to send verification email', { email, error });
     }

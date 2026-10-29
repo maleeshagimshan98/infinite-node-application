@@ -182,7 +182,7 @@ export class InfrastructureHealthCheckService implements IHealthCheck {
       database_mapper: 'database',
       cache: 'cache',
       storage: 'storage',
-      email: 'email',
+      emailService: 'email',
       queue: 'queue',
       logger: 'logger',
       notification: 'notification',
