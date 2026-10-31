@@ -8,7 +8,7 @@ import chalk from 'chalk';
 
 import { InfrastructureManager } from '@/infrastructure/infrastructure.manager';
 import type { IInfrastructureManager } from '@/application/interfaces/infrastructure/infrastructure-manager.interface';
-import type { IWorker } from '@/application/interfaces/worker.interface';
+import type { IWorker } from '@/application/interfaces/worker/worker.interface';
 
 import { appConfig } from './core/config/app.config';
 import { autoRegisterWorkerComponents, container, registerAppMetadata } from './core/service.container';
