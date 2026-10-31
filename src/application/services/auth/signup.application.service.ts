@@ -8,11 +8,15 @@ import type { UserService } from '@/domain/user/service/user.service';
 import type { UserGroupService } from '@/domain/user/service/user-group.service';
 import type { RoleService } from '@/domain/auth/service/role.service';
 import type { INewUser } from '@/domain/user/models/user';
+import { NewEmail } from '@/domain/app/email/models/email';
 import type { IDatabaseMapper } from '@/application/interfaces';
 import type { IEmailService } from '@/application/interfaces/infrastructure/email-service.interface';
 import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 
 import { BaseApplicationService } from '../base/base.application.service';
+
+// Matches the verification code's 24 h lifetime in SignupService.
+const VERIFICATION_EMAIL_TTL_SECONDS = 24 * 60 * 60;
 
 /**
  * Orchestrates user registration across the two independent aggregates a new User depends on
@@ -48,18 +52,28 @@ export class SignupApplicationService extends BaseApplicationService {
   }
 
   /**
-   * Send a verification-code email, swallowing and logging any delivery failure so it never
+   * Queue a verification-code email, swallowing and logging any failure to queue it so it never
    * fails the caller's registration/resend operation.
    *
+   * @param {string} userId - The id of the user the email is sent to.
    * @param {string} email - The recipient's email address.
    * @param {string} rawCode - The raw (unhashed) verification code to deliver.
    * @returns {Promise<void>}
    */
-  private async sendVerificationEmail(email: string, rawCode: string): Promise<void> {
+  private async sendVerificationEmail(userId: string, email: string, rawCode: string): Promise<void> {
     try {
-      await this.emailService.sendEmail(email, 'Verify your email', `Your verification code is: ${rawCode}`);
+      await this.emailService.enqueueEmail(
+        new NewEmail({
+          user_id: userId,
+          to: [email],
+          subject: 'Verify your email',
+          body: `Your verification code is: ${rawCode}`,
+          status: 'pending',
+          ttl: VERIFICATION_EMAIL_TTL_SECONDS,
+        }),
+      );
     } catch (error) {
-      this.logger.logError('Failed to send verification email', { email, error });
+      this.logger.logError('Failed to queue verification email', { email, error });
     }
   }
 
@@ -98,10 +112,10 @@ export class SignupApplicationService extends BaseApplicationService {
       return { id: createdUser.id, status: createdUser.status, email: createdUser.email, rawCode };
     });
 
-    // Sending the email is deliberately outside the transaction — an SMTP failure must never
+    // Queueing the email is deliberately outside the transaction — a queue failure must never
     // roll back a successful registration or code generation.
     if (sendEmail) {
-      await this.sendVerificationEmail(email, rawCode);
+      await this.sendVerificationEmail(id, email, rawCode);
     }
 
     return { id, status };
@@ -130,8 +144,8 @@ export class SignupApplicationService extends BaseApplicationService {
    * @throws {DomainServiceError} INVALID_OPERATION when the user's email is already verified.
    */
   async resendVerificationCode(email: string): Promise<void> {
-    const { rawCode } = await this.signupService.resendVerificationCode(email);
-    await this.sendVerificationEmail(email, rawCode);
+    const { userId, rawCode } = await this.signupService.resendVerificationCode(email);
+    await this.sendVerificationEmail(userId, email, rawCode);
   }
 }
 

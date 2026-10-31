@@ -2,6 +2,8 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import { Types } from 'mongoose';
+
 import { Email, NewEmail } from '@/domain/app/email/models/email';
 import { RepositoryError } from '@/infrastructure/core/errors/repository.error';
 import type { IEmailRepository } from '@/application/interfaces/repositories/email/email.repository.interface';
@@ -46,6 +48,15 @@ describe('EmailLoggerService', () => {
     repository = mockRepository();
     service = new EmailLoggerService(repository);
     email = new Email({ ...pendingData, id: '64b7f0c2a1b2c3d4e5f60719' });
+  });
+
+  it('newId returns a new ObjectId each time, without touching the repository', () => {
+    const first = service.newId();
+    const second = service.newId();
+
+    expect(Types.ObjectId.isValid(first)).toBe(true);
+    expect(second).not.toBe(first);
+    expect(repository.create).not.toHaveBeenCalled();
   });
 
   it('getById returns the email with that id', async () => {

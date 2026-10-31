@@ -4,6 +4,8 @@
 
 import type { IDriverConfig } from '@/infrastructure/core/driver/core.driver.config';
 import type { ICircuitBreakerOptions } from '@/application/interfaces/infrastructure/core/circuit-breaker.interface';
+import { emailQueueConfig } from '@/infrastructure/email/queue/email-queue.config';
+import type { IEmailQueueConfig } from '@/infrastructure/email/queue/email-queue.config';
 
 export interface ISMTPConfig extends IDriverConfig {
   host: string;
@@ -18,6 +20,7 @@ export interface ISMTPConfig extends IDriverConfig {
   greetingTimeout: number;
   socketTimeout: number;
   circuitBreaker: Pick<ICircuitBreakerOptions, 'failureThreshold' | 'resetTimeout'>;
+  queue: IEmailQueueConfig;
 }
 
 export const smtpConfig = (): ISMTPConfig => {
@@ -45,5 +48,6 @@ export const smtpConfig = (): ISMTPConfig => {
         : 5,
       resetTimeout: Number(process.env.EMAIL_CIRCUIT_RESET_TIMEOUT) || 30000,
     },
+    queue: emailQueueConfig(),
   };
 };

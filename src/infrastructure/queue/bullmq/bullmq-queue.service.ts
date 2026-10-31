@@ -273,6 +273,30 @@ export class BullMQQueueService implements IQueue {
   }
 
   /**
+   * Closes the workers processing a queue, waiting for their in-flight jobs to finish
+   *
+   * The workers are forgotten afterwards, so `shutdown()` does not close them again.
+   *
+   * @param {string} queueName - The name of the queue whose workers to close
+   * @returns {Promise<void>}
+   * @throws {QueueError} If a worker fails to close
+   */
+  async closeWorkers(queueName: string): Promise<void> {
+    const workers = this.workers.get(queueName) ?? [];
+    this.workers.delete(queueName);
+    try {
+      for (const worker of workers) {
+        await worker.close();
+      }
+    } catch (e: unknown) {
+      throw new QueueError(
+        `Failed to close workers for queue "${queueName}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+        { cause: e },
+      );
+    }
+  }
+
+  /**
    * Gets the current status of a job
    *
    * @param {string} jobId - The unique job identifier

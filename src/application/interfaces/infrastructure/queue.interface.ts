@@ -75,6 +75,14 @@ export interface IQueue extends IBaseInfrastructureService {
   processJobs<T>(queueName: string, processor: (job: Job<T>) => Promise<void>): Promise<void>;
 
   /**
+   * Stop processing a queue: close its workers, waiting for the jobs they are running to finish
+   *
+   * @param {string} queueName - Name of the queue whose workers to close
+   * @returns {Promise<void>}
+   */
+  closeWorkers(queueName: string): Promise<void>;
+
+  /**
    * Retry all failed jobs on a queue
    *
    * @param {string} queueName - Name of the queue

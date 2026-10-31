@@ -2,6 +2,8 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import { Types } from 'mongoose';
+
 import type { Email, NewEmail } from '@/domain/app/email/models/email';
 import type { IEmailRepository } from '@/application/interfaces/repositories/email/email.repository.interface';
 import { EmailRepository } from '@/infrastructure/persistance/database/repositories/mongoose/email/email.repository';
@@ -25,6 +27,15 @@ const NEWEST_FIRST: Record<string, 1 | -1> = { _id: -1 };
  */
 export class EmailLoggerService {
   constructor(private readonly emailRepository: IEmailRepository = new EmailRepository()) {}
+
+  /**
+   * Generate an id for an email that is not logged yet, so it can be logged under that id later.
+   *
+   * @returns {string} A new id, unique to this email.
+   */
+  newId(): string {
+    return new Types.ObjectId().toString();
+  }
 
   /**
    * Get a logged email by its id.

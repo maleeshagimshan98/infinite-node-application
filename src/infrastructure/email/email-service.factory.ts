@@ -6,14 +6,17 @@
  */
 
 import type { IEmailService } from '@/application/interfaces/infrastructure/email-service.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
+import type { IQueue } from '@/application/interfaces/infrastructure/queue.interface';
 import { CircuitBreaker } from '@/infrastructure/core/circuit-breaker/circuit-breaker';
+import { EmailLoggerService } from '@/infrastructure/email/email-log/email-logger.service';
 import { isSmtpOutage } from '@/infrastructure/email/smtp/error/smtp-error.guards';
 
 import { SMTPEmailService } from './smtp/smtp-email.service';
 import { smtpDriverLoader } from './smtp/driver/smtp.driver.loader';
 import { InfrastructureError } from '../core/errors/infrastructure.error';
 
-import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
+import type { IServiceFactory, ServiceClosure } from '../core/interfaces/service.factory.interface';
 
 /**
  * Factory class for creating email service instances
@@ -37,26 +40,30 @@ export class EmailServiceFactory implements IServiceFactory<IEmailService> {
   }
 
   /**
-   * Creates an SMTP email service instance whose sends are guarded by a circuit breaker
+   * Creates a closure that builds the SMTP email service from the queue and logger services. Sends are guarded by
+   * a circuit breaker.
    *
-   * @returns {Promise<IEmailService>} An SMTP email service instance
-   * @throws {RangeError} If the configured circuit breaker threshold or reset timeout is invalid
+   * @returns {Promise<ServiceClosure<IEmailService>>} A closure building an SMTP email service instance
+   * @throws {RangeError} If the configured circuit breaker or email queue settings are invalid
    */
-  async createSMTPEmailService(): Promise<IEmailService> {
+  async createSMTPEmailService(): Promise<ServiceClosure<IEmailService>> {
     const driver = await smtpDriverLoader();
     const circuitBreaker = new CircuitBreaker({
       name: 'smtp',
       ...driver.config().circuitBreaker,
       isFailure: isSmtpOutage,
     });
-    return new SMTPEmailService(driver, circuitBreaker);
+    return (queue: IQueue, logger: ILogger): IEmailService =>
+      new SMTPEmailService(driver, circuitBreaker, queue, new EmailLoggerService(), logger);
   }
 
   /**
-   * Creates an email service instance based on the configured email driver type
+   * Creates an email service, or a closure building it, based on the configured email driver type
    *
-   * @returns {Promise<IEmailService>} An email service instance
+   * @returns {Promise<IEmailService | ServiceClosure<IEmailService>>} An email service instance, or a closure that
+   * builds one from the infrastructure services it depends on
    * @throws {InfrastructureError} If the email type is not supported
+   * @throws {RangeError} If the configured circuit breaker or email queue settings are invalid
    *
    * @example
    * ```typescript
@@ -64,7 +71,7 @@ export class EmailServiceFactory implements IServiceFactory<IEmailService> {
    * const email = await factory.create();
    * ```
    */
-  async create(): Promise<IEmailService> {
+  async create(): Promise<IEmailService | ServiceClosure<IEmailService>> {
     const emailType = process.env.EMAIL_DRIVER || 'smtp';
     switch (emailType.toLowerCase()) {
       case 'smtp':
