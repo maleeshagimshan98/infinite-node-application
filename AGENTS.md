@@ -515,3 +515,14 @@ string }`. The relationship between the generic type parameters is only guarante
 
 **Everything else** — any new assertion in domain services, controllers, application logic, or
 anywhere not covered above — requires asking the user first, even when it "obviously" works.
+
+---
+
+## Pull Requests
+
+- **Template:** `.github/pull_request_template.md` — Summary, Changes, Breaking changes, Test plan, Checklist, Notes for reviewers
+- **Base branch:** `dev`; `main` only for a `dev` → `main` release, which also bumps `version` in `package.json`
+- **Title:** Conventional Commits — `type(scope): summary`
+- **`gh pr create --body` replaces the template** — write the body under its headings and pass it with `--body-file`
+- Tick only the checks you actually ran; list every changed contract under Breaking changes, or write "None"
+- Full rules: `CLAUDE.md` §25

@@ -3,6 +3,7 @@ dist
 build
 *.yaml
 *.yml
+*.md
 coverage
 *.min.js
 *.bundle.js

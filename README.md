@@ -169,7 +169,7 @@ npm start
   `src/*.ts` via ts-node with file watching; prod: `ecosystem.prod.config.js`, runs the compiled
   `dist/*.js` — `start:all` rebuilds first via a `prestart:all` hook)
 - lint / lint:fix: ESLint with TypeScript + Prettier
-- format: Prettier write across the repo
+- format: Prettier write across the repo (markdown and YAML are excluded in `.prettierignore`)
 - test: Jest (ts-jest + babel-jest configured)
 - seed / seed:clear: Run the TypeScript DB seeder directly (`tsx`) — seed or clear default data
 - seed:prod / seed:prod:clear: Same, against the compiled `dist/` output (requires `npm run build`
@@ -332,6 +332,20 @@ without external services, except `base-repository.spec.ts`, which needs a real 
 - Add feature routes under src/presentation/http/routes and controllers under
   src/presentation/http/controllers; mount new routes in
   src/presentation/http/routes/index.ts
+
+## Contributing
+
+- Branch from `dev` and open the pull request against `dev`. `dev` is merged into `main` for each
+  release, which also bumps `version` in `package.json`
+- Pull request titles and commit messages use Conventional Commits: `type(scope): summary`, e.g.
+  `feat(email): add an AWS SES email driver` (types in use: `feat`, `fix`, `refactor`, `docs`,
+  `chore`)
+- GitHub fills the pull request body from
+  [`.github/pull_request_template.md`](.github/pull_request_template.md): summary, changes,
+  breaking changes, test plan, checklist and notes for reviewers. Its checks are the Definition of
+  Done in §23 of `CLAUDE.md`, plus `npm test`
+- GitHub offers the template only once it is on `main`. With the GitHub CLI, `gh pr create --body`
+  replaces the template; `gh pr create --web` opens the GitHub form, which starts from it
 
 ## License
 

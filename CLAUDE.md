@@ -990,6 +990,8 @@ Every code change must pass **all four** before it is considered complete:
    `npm run lint:fix` / `npm run format`.
 4. **No type errors** — `npx tsc --noEmit` passes and `npm run build` succeeds.
 
+A pull request records these checks in the template's Test plan and Checklist (§25).
+
 ---
 
 ## 24. Type Assertions Policy
@@ -1041,3 +1043,20 @@ string }`. The relationship between the generic type parameters is only guarante
    but a populated field holds the referenced document at runtime; Mongoose's typings don't
    reflect population, so the mapper must assert to the known populated shape (see §8 Population
    Strategy).
+
+---
+
+## 25. Pull Requests
+
+Every pull request uses `.github/pull_request_template.md`. Its Test plan and Checklist are §23 plus `npm test`.
+
+- **Base branch** — `dev` for feature and fix branches. Only a release merges `dev` into `main`, and a release PR also
+  bumps `version` in `package.json`.
+- **Title** — Conventional Commits, as in the git history: `type(scope): summary`, e.g.
+  `feat(email): add an AWS SES email driver`.
+- **Body from the GitHub CLI** — `gh pr create --body` replaces the template instead of filling it. Write the body
+  under the template's headings (Summary, Changes, Breaking changes, Test plan, Checklist, Notes for reviewers) and pass
+  it with `--body-file`. Tick only the checks you actually ran.
+- **Breaking changes** — list every changed contract (interfaces in `src/application/interfaces/`, repository or
+  service signatures, error types, routes, response shapes, renamed or removed env vars), or write "None".
+- GitHub fills the body from the template only once the template is on the default branch (`main`).
