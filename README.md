@@ -184,7 +184,7 @@ npm start
   1.  Loads dotenv from .env.{NODE_ENV}
   2.  Loads config via configLoader()
   3.  Creates Express app and HTTP server
-  4.  Registers httpServer and expressServer into Awilix container
+  4.  Registers httpServer, expressServer and appMetadata (name, version, url, port, environment) into Awilix container
   5.  Initializes infrastructure services (DI) via `InfrastructureManager`: cache, database mapper (Mongoose), queue, socket, storage, email, notification, http client, logger
   6.  Builds middleware stack (cookie-parser, session, CORS, helmet, rate-limit with Redis store, morgan, JSON, urlencoded, content-type, request logger)
   7.  Mounts /health, /health/live, /health/ready

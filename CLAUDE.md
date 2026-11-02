@@ -91,7 +91,7 @@ src/
 ## 4. Dependency Injection (Awilix)
 
 `InfiniteNodeApplication` (constructor) → registers `httpServer`, `expressServer` and `appMetadata`
-(`IAppMetadata` from `@/application/interfaces/app-metadata.interface`: `name`, `version`, `url`, `port`,
+(`IAppMetadata` from `@/application/interfaces/app/application-metadata.interface`: `name`, `version`, `url`, `port`,
 `environment`) before infrastructure starts. `InfiniteNodeWorker` registers `appMetadata` too, via the shared
 `registerAppMetadata()` in `src/app/core/service.container.ts`.  
 `InfrastructureManager.init()` → registers each infrastructure service under its factory's `name()`: a service the
@@ -606,12 +606,13 @@ An infrastructure error type means "this infrastructure failed" — nothing else
 `CircuitBreaker` (`src/infrastructure/core/circuit-breaker/circuit-breaker.ts`) stops calling a remote
 dependency that keeps failing: once failures outnumber successes by more than `failureThreshold`,
 calls are rejected with `CircuitOpenError` without running, until `resetTimeout` has passed and a
-single test request succeeds. `SMTPEmailService` is the reference use for a single dependency,
-`HTTPClientService` for one breaker per host (§18).
+single test request succeeds. `SMTPEmailService` and `SESEmailService` are the reference uses for a
+single dependency, `HTTPClientService` for one breaker per host (§18).
 
-- **Use one for remote dependencies the client library doesn't retry**, such as SMTP and
-  third-party HTTP APIs. Not for MongoDB (a hard dependency whose timeouts already bound each
-  request), Redis (`disableOfflineQueue` already fails fast while disconnected), or the logger and
+- **Use one for remote dependencies the client library doesn't retry**, or retries only within each
+  call, such as SMTP, SES (the AWS SDK tries every call up to 3 times, so an unreachable SES would
+  hold each send for all of them) and third-party HTTP APIs. Not for MongoDB (a hard dependency
+  whose timeouts already bound each request), Redis (`disableOfflineQueue` already fails fast while disconnected), or the logger and
   local storage (no remote dependency).
 - **Build it in the factory and inject it** into the service constructor as `ICircuitBreaker`
   (`@/application/interfaces/infrastructure/core/circuit-breaker.interface`); read
@@ -623,7 +624,8 @@ single test request succeeds. `SMTPEmailService` is the reference use for a sing
   your `InfrastructureError` subclass, not the library's raw error.
 - **Count only outage errors.** By default every `InfrastructureError` counts; pass `isFailure` when
   some of them mean the dependency rejected one request, not that it is down (e.g. `isSmtpOutage()`
-  ignores nodemailer's `EENVELOPE` / `EMESSAGE`). To count a value the call _returns_, pass
+  ignores nodemailer's `EENVELOPE` / `EMESSAGE`; `isSesOutage()` ignores every client-fault answer,
+  such as `MessageRejected`). To count a value the call _returns_, pass
   `isFailureResult` as `execute()`'s second argument: the caller still receives the value unchanged
   (e.g. `HTTPClientService` counts 5xx / 408 / 429 responses).
 - **The protected call must have a timeout.** A test request that never settles keeps the circuit
@@ -640,30 +642,88 @@ single test request succeeds. `SMTPEmailService` is the reference use for a sing
   health check adds them as `circuit_breakers`; the public response drops their names and the
   controller logs them instead. Breaker state never changes the service's health status.
 
+### Email drivers
+
+`EMAIL_DRIVER` picks the email service `EmailServiceFactory` builds. Every email service extends
+`BaseEmailService` (`src/infrastructure/email/base/base-email.service.ts`), which holds the queue and
+email log flow (Email log, below). A driver implements only `transport()`, which hands one message to
+its provider, and `getDriver()`.
+
+| `EMAIL_DRIVER`   | Service            | Location                         |
+| ---------------- | ------------------ | -------------------------------- |
+| `smtp` (default) | `SMTPEmailService` | `src/infrastructure/email/smtp/` |
+| `aws-ses`        | `SESEmailService`  | `src/infrastructure/email/ses/`  |
+
+Any other value, `ses` and `console` included, fails startup with `InfrastructureError` `DRIVER_ERROR`.
+
+**AWS SES** (`@aws-sdk/client-sesv2`):
+
+- **Credentials come from the AWS default provider chain**: the ECS task role in production, an AWS
+  profile locally. Never put access keys in env config.
+- **Settings**: `EMAIL_FROM` (required; startup fails with `RangeError` without it), `EMAIL_SES_REGION`
+  (falls back to `AWS_REGION`, which ECS sets; startup fails with `DriverError` when neither is set),
+  `EMAIL_SES_CONNECTION_TIMEOUT` (default `5000` ms) and `EMAIL_SES_REQUEST_TIMEOUT` (default `10000`
+  ms). The client sets `throwOnRequestTimeout`: without it an exceeded `requestTimeout` only logs a
+  warning and the request keeps waiting.
+- **Errors become `SesError`** (`EMAIL_ERROR`) with `data.code` (the SES exception name or the
+  network error code), `data.fault` (`'client'` when SES refused the request), `data.httpStatusCode`,
+  `data.requestId`, and in `data.cause` a copy holding only the original's name, message and stack.
+  The SDK error itself is never kept: it carries the raw HTTP response.
+- **The `aws_ses` circuit breaker** counts network errors, timeouts, credential failures and server faults,
+  never client faults (Circuit breakers, above). `health()` calls `GetAccount`, bounded to one request's
+  timeouts.
+- **Deployment prerequisites**: the ECS task role needs `ses:SendEmail` on the sender identity and
+  `ses:GetAccount` for the health check. `EMAIL_FROM` must be an SES identity (address or domain)
+  verified in the region. Without SES production access, the account is in the sandbox and SES accepts
+  only verified recipients.
+
 ### Email log
 
 The email log records each email the application sends or tries to send: who triggered it, the
 recipients, the subject, the status and why a send failed. It uses the standard resource layout:
 
-| Part                                                                                 | Location                                                                      |
-| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| Entity (`EmailStatus`, `INewEmail`, `IEmail`, `NewEmail`, `Email`)                   | `src/domain/app/email/models/email.ts`                                        |
-| Schema, mapper, repository (`email_logs` collection)                                 | `src/infrastructure/persistance/database/repositories/mongoose/email/`        |
-| `IEmailRepository` (type alias of `IBaseRepository<Email, NewEmail>` for now)        | `src/application/interfaces/repositories/email/email.repository.interface.ts` |
-| `EmailLoggerService` (`getById`, `getAll`, `get(offset, limit)`, `create`, `update`) | `src/infrastructure/email/email-log/email-logger.service.ts`                  |
+| Part                                                                                          | Location                                                                      |
+| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Entity (`EmailStatus`, `INewEmail`, `IEmail`, `NewEmail`, `Email`)                            | `src/domain/app/email/models/email.ts`                                        |
+| Schema, mapper, repository (`email_logs` collection)                                          | `src/infrastructure/persistance/database/repositories/mongoose/email/`        |
+| `IEmailRepository` (type alias of `IBaseRepository<Email, NewEmail>` for now)                 | `src/application/interfaces/repositories/email/email.repository.interface.ts` |
+| `EmailLoggerService` (`newId`, `getById`, `getAll`, `get(offset, limit)`, `create`, `update`) | `src/infrastructure/email/email-log/email-logger.service.ts`                  |
+| `enqueueEmail` / `deliverQueuedEmail`, shared by every email driver (`BaseEmailService`)      | `src/infrastructure/email/base/base-email.service.ts`                         |
+| Email queue settings (`IEmailQueueConfig`, `EMAIL_QUEUE_*`)                                   | `src/infrastructure/email/queue/email-queue.config.ts`                        |
+| `EmailWorker` (DI token `emailWorker`, worker process only)                                   | `src/application/workers/email/email.worker.ts`                               |
 
 - **Only the email infrastructure writes the log.** Domain and application code send email through
   `IEmailService` (DI token `emailService`) and learn only that it was handed off. `EmailLoggerService`
   is not registered in DI; the email service builds it, and it builds its own `EmailRepository`.
   Authorized users read the log through `emailRepository` (auto-registered); there are no endpoints yet
   (§20).
+- **Send email with `enqueueEmail(new NewEmail({ ..., status: 'pending' }))`**, which resolves to the
+  email's log id once the job is queued. `sendEmail()` sends immediately and logs nothing. Signup uses
+  `enqueueEmail()`.
+- **The queue comes first, the log second.** `enqueueEmail()` queues the whole email (`IEmailJobData`)
+  under an id from `EmailLoggerService.newId()`, and writes nothing to the database. The worker's
+  `deliverQueuedEmail(job)` logs it as `pending` under that id, and only then sends it. Reason: a
+  database outage must not lose or send an unlogged email. A database failure throws, so nothing is
+  sent and BullMQ retries the job. The fixed id means a retry finds the same record instead of
+  logging a duplicate.
+- **Retries come from `EMAIL_QUEUE_ATTEMPTS`** (total tries, default `5`), `EMAIL_QUEUE_RETRY_DELAY`
+  (default `10000` ms) and `EMAIL_QUEUE_BACKOFF` (`exponential` default, or `fixed`). The queue name is
+  `EMAIL_QUEUE_NAME`, default `${APP_NAME}-email-queue`. A failed send is rethrown so BullMQ retries
+  it; on the last attempt (`attemptsMade + 1 >= EMAIL_QUEUE_ATTEMPTS`) the email is first marked
+  `failed`. An email that is no longer `pending` (a job running again after it finished) is not sent
+  again.
+- **A log update after a successful send is logged, never rethrown.** Reason: a retried job would find
+  the email still `pending` and send it a second time.
+- **If `addJob()` fails**, `enqueueEmail()` tries to log the email as `failed`, then rethrows the
+  `QueueError`.
 - **Status moves only from `pending`**, through `Email.markSent(sentOn?)` or `Email.markFailed(errorMessage)`.
   Any other move throws `DomainEntityError`. Reason: Mongoose drops `undefined` keys from `$set`, so
   `update()` can never clear a stored field, and an email that changed status twice would keep a stale
   `sent_on` or `error_message`. A `sent` email needs `sent_on`; a `failed` one needs `error_message`.
 - **The body is kept only while `pending`.** `markSent()` / `markFailed()` empty it, and the entity
   rejects a sent or failed email that still has one. Reason: the body can carry one-time codes that
-  signup stores only as SHA-256 hashes.
+  signup stores only as SHA-256 hashes. The queued job holds a copy until it finishes; finished jobs are
+  deleted (`removeOnComplete` / `removeOnFail`).
 - **`user_id` is the user who triggered the send.** It is stored as an ObjectId with `ref: 'user'`.
   `INewEmailSchema.user_id` is optional in TypeScript only, because the inherited `toFilter()` passes
   partial filters through `toPersistence()`. The schema still requires it, and `EmailMapper.toDomain()`
@@ -815,7 +875,7 @@ Errors:
 | Execution stack data passing          | Partially built                                                    |
 | Auth middleware on routes             | Scaffolded (currently commented out)                               |
 | Email/SMS/push notifications          | Settings modeled, no send logic                                    |
-| Email log (`EmailLoggerService`, §14) | Built, not wired — no email service writes to it yet; no endpoints |
+| Email log (`EmailLoggerService`, §14) | Wired — signup emails go through `EmailWorker`; no endpoints       |
 | Multi-currency ERP                    | Fields exist, no FX conversion                                     |
 | Activity log emission from ERP        | Not started                                                        |
 | Workflow success schema evaluation    | Commented out                                                      |
