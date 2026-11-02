@@ -6,7 +6,7 @@ import path from 'path';
 
 import { asClass, asFunction, asValue, createContainer } from 'awilix';
 
-import type { IAppMetadata } from '@/application/interfaces/app/app-metadata.interface';
+import type { IAppMetadata } from '@/application/interfaces/app/application-metadata.interface';
 
 import type { IAppConfig } from './config/app.config';
 
