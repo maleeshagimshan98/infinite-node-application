@@ -2,6 +2,8 @@
  * Copyright - 2025 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import crypto from 'crypto';
+
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import { normalizeEmail } from '@/domain/base/normalize-email';
@@ -81,12 +83,22 @@ export class AccountRecoveryService extends BaseDomainService {
   }
 
   /**
-   * Generate a random reset code
+   * Hash a reset code using SHA-256 — only the hash is ever persisted.
    *
-   * @returns {string} A random reset code
+   * @param {string} code - The raw reset code to hash.
+   * @returns {string} The hex-encoded SHA-256 digest.
    */
-  generateResetCode(): string {
-    return Math.random().toString(36).substr(2);
+  private hashCode(code: string): string {
+    return crypto.createHash('sha256').update(code).digest('hex');
+  }
+
+  /**
+   * Generate a cryptographically random reset code.
+   *
+   * @returns {string} A random hex-encoded token.
+   */
+  private generateCode(): string {
+    return crypto.randomBytes(32).toString('hex');
   }
 
   /**
@@ -95,7 +107,7 @@ export class AccountRecoveryService extends BaseDomainService {
    * @param {string} email - User email
    * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
    * @returns {Promise<{ userId: string; email: string; rawCode: string }>} The user's id and stored email, and the
-   * new reset code, which the caller must deliver to the user out-of-band (e.g. email).
+   * raw (unhashed) reset code — it is never stored, and the caller must deliver it to the user out-of-band (e.g. email).
    * @throws {DomainServiceError} NOT_FOUND if user doesn't exist
    * @throws {DomainServiceError} CONFLICT if an old reset code is concurrently changed mid-cancellation.
    * @throws {DomainServiceError} ALREADY_EXISTS if a concurrent request issued an active reset code for the email first.
@@ -115,10 +127,10 @@ export class AccountRecoveryService extends BaseDomainService {
 
       await this.cancelOldResetCodes(address, transactionOptions);
 
-      const rawCode = this.generateResetCode();
+      const rawCode = this.generateCode();
       const passwordResetCode = new NewPasswordResetCode({
         email: address,
-        code: rawCode,
+        code: this.hashCode(rawCode),
         valid_till: new Date(new Date().getTime() + 0.5 * 60 * 60 * 1000),
         status: 'active',
       });
@@ -153,7 +165,7 @@ export class AccountRecoveryService extends BaseDomainService {
       const passwordResetCode = await this.passwordResetCodeRepository.findOne(
         {
           email: address,
-          code: verificationCode,
+          code: this.hashCode(verificationCode),
           status: 'active',
         },
         {},

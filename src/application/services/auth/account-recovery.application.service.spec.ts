@@ -2,6 +2,8 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import crypto from 'crypto';
+
 import { AccountRecoveryService } from '@/domain/auth/service/account-recovery.service';
 import { UserService } from '@/domain/user/service/user.service';
 import { User } from '@/domain/user/models/user';
@@ -87,7 +89,7 @@ describe('AccountRecoveryApplicationService', () => {
     jest.restoreAllMocks();
   });
 
-  it('issues the reset code in a transaction and emails the code that was stored', async () => {
+  it('issues the reset code in a transaction and emails the raw code whose hash was stored', async () => {
     jest.spyOn(userService, 'getByEmail').mockResolvedValue(
       new User({
         id: USER_ID,
@@ -120,12 +122,13 @@ describe('AccountRecoveryApplicationService', () => {
     });
     const storedCode = passwordResetCodeRepository.create.mock.calls[0]?.[0].code;
     const email = emailService.enqueueEmail.mock.calls[0]?.[0];
-    expect(storedCode).toEqual(expect.any(String));
+    const rawCode = email?.body.match(/^Your password reset code is: ([0-9a-f]{64})$/)?.[1] ?? '';
+    expect(rawCode).not.toBe('');
+    expect(storedCode).toBe(crypto.createHash('sha256').update(rawCode).digest('hex'));
     expect(email?.user_id).toBe(USER_ID);
     expect(email?.to).toEqual([EMAIL]);
     expect(email?.status).toBe('pending');
     expect(email?.ttl).toBe(30 * 60);
-    expect(email?.body).toBe(`Your password reset code is: ${storedCode}`);
   });
 
   it('logs a failure to queue the email without failing the request', async () => {
