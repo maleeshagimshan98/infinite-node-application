@@ -82,7 +82,7 @@ describe('EmailServiceFactory', () => {
     process.env = originalEnv;
   });
 
-  it.each(['ses', 'aws-ses', 'SES'])('builds the SES email service for EMAIL_DRIVER=%s', async (driver) => {
+  it.each(['aws-ses', 'AWS-SES'])('builds the SES email service for EMAIL_DRIVER=%s', async (driver) => {
     process.env.EMAIL_DRIVER = driver;
     process.env.EMAIL_FROM = 'noreply@example.com';
     process.env.EMAIL_SES_REGION = 'eu-west-1';
@@ -93,7 +93,7 @@ describe('EmailServiceFactory', () => {
   });
 
   it('fails to build the SES email service without EMAIL_FROM', async () => {
-    process.env.EMAIL_DRIVER = 'ses';
+    process.env.EMAIL_DRIVER = 'aws-ses';
     process.env.EMAIL_SES_REGION = 'eu-west-1';
 
     await expect(new EmailServiceFactory().create()).rejects.toBeInstanceOf(RangeError);
@@ -111,7 +111,7 @@ describe('EmailServiceFactory', () => {
     expect(smtpDriverLoader).toHaveBeenCalledTimes(1);
   });
 
-  it.each(['console', 'placeholder', 'mailgun'])(
+  it.each(['ses', 'console', 'placeholder', 'mailgun'])(
     'rejects EMAIL_DRIVER=%s without building the SMTP driver',
     async (driver) => {
       process.env.EMAIL_DRIVER = driver;

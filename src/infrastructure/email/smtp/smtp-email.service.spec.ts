@@ -2,7 +2,6 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import { Types } from 'mongoose';
 import nodemailer from 'nodemailer';
 
 import type { IEmailJobData } from '@/application/interfaces/infrastructure/email-service.interface';
@@ -232,12 +231,11 @@ describe('SMTPEmailService', () => {
     it('queues the whole email under a generated id with the configured retries, without writing the log', async () => {
       const { service, queue, repository } = createService();
 
-      const id = await service.enqueueEmail(new NewEmail({ ...emailData, status: 'pending' }));
+      await service.enqueueEmail(new NewEmail({ ...emailData, status: 'pending' }));
 
-      expect(Types.ObjectId.isValid(id)).toBe(true);
       expect(queue.addJob).toHaveBeenCalledWith(
         QUEUE_NAME,
-        { ...emailData, id },
+        { ...emailData, id: expect.stringMatching(/^[0-9a-f]{24}$/) },
         { attempts: 3, backoff: { type: 'exponential', delay: 1000 }, removeOnComplete: true, removeOnFail: true },
       );
       expect(repository.create).not.toHaveBeenCalled();
@@ -246,9 +244,8 @@ describe('SMTPEmailService', () => {
     it("keeps an email's own id", async () => {
       const { service, queue } = createService();
 
-      const id = await service.enqueueEmail(new NewEmail({ ...jobData, status: 'pending' }));
+      await service.enqueueEmail(new NewEmail({ ...jobData, status: 'pending' }));
 
-      expect(id).toBe(EMAIL_ID);
       expect(queue.addJob).toHaveBeenCalledWith(QUEUE_NAME, jobData, expect.any(Object));
     });
 

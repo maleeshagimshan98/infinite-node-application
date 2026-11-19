@@ -47,9 +47,9 @@ export interface IEmailService extends IBaseInfrastructureService {
    * Queue an email for the email worker to log and send
    *
    * @param {NewEmail} email - The email to send; must be pending
-   * @returns {Promise<string>} The email's log id, once the email is queued. The worker writes the log record.
+   * @returns {Promise<void>} resolving once the email is queued. The worker writes the log record.
    */
-  enqueueEmail(email: NewEmail): Promise<string>;
+  enqueueEmail(email: NewEmail): Promise<void>;
 
   /**
    * Log and send one queued email; called by the email worker for each job

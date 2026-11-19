@@ -84,7 +84,7 @@ function toSesError(error: unknown): SesError {
  * @example
  * ```typescript
  * const emailService = new SESEmailService(driver, circuitBreaker, queue, new EmailLoggerService(), logger);
- * const emailId = await emailService.enqueueEmail(
+ * await emailService.enqueueEmail(
  *   new NewEmail({ user_id, to: ['user@example.com'], subject: 'Welcome!', body: '<h1>Hi</h1>', status: 'pending', ttl: 0 }),
  * );
  * ```

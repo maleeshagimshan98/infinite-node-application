@@ -185,11 +185,11 @@ export abstract class BaseEmailService implements IEmailService {
    * lost while the database is unreachable. Only when the job cannot be queued is a failed record logged.
    *
    * @param {NewEmail} email - The email to send; must be pending
-   * @returns {Promise<string>} The id the email will be logged under
+   * @returns {Promise<void>} resolving once the email is queued
    * @throws {RangeError} When the email is not pending; nothing is queued
    * @throws {QueueError} QUEUE_ERROR when the job cannot be queued
    */
-  async enqueueEmail(email: NewEmail): Promise<string> {
+  async enqueueEmail(email: NewEmail): Promise<void> {
     if (email.status !== 'pending') {
       throw new RangeError(`Only a pending email can be queued; this one is ${email.status}`);
     }
@@ -222,8 +222,6 @@ export abstract class BaseEmailService implements IEmailService {
       await this.logUnqueuedEmail(data, error);
       throw error;
     }
-
-    return data.id;
   }
 
   /**

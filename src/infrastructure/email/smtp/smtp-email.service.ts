@@ -32,7 +32,7 @@ import type { Transporter } from 'nodemailer';
  * const emailService = new SMTPEmailService(driver, circuitBreaker, queue, new EmailLoggerService(), logger);
  *
  * // API process: queue the email
- * const emailId = await emailService.enqueueEmail(
+ * await emailService.enqueueEmail(
  *   new NewEmail({ user_id, to: ['user@example.com'], subject: 'Welcome!', body: '<h1>Hi</h1>', status: 'pending', ttl: 0 }),
  * );
  *

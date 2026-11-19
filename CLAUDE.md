@@ -91,8 +91,8 @@ src/
 ## 4. Dependency Injection (Awilix)
 
 `InfiniteNodeApplication` (constructor) → registers `httpServer`, `expressServer` and `appMetadata`
-(`IAppMetadata` from `@/application/interfaces/app/application-metadata.interface`: `name`, `version`, `url`, `port`,
-`environment`) before infrastructure starts. `InfiniteNodeWorker` registers `appMetadata` too, via the shared
+(`IAppMetadata` from `@/application/interfaces/app/metadata/application-metadata.interface`: `name`, `version`, `url`,
+`port`, `environment`) before infrastructure starts. `InfiniteNodeWorker` registers `appMetadata` too, via the shared
 `registerAppMetadata()` in `src/app/core/service.container.ts`.  
 `InfrastructureManager.init()` → registers each infrastructure service under its factory's `name()`: a service the
 factory returns with `asValue()`, a closure as a singleton whose parameters Awilix injects by name (CLASSIC). Every
@@ -697,8 +697,8 @@ recipients, the subject, the status and why a send failed. It uses the standard 
   is not registered in DI; the email service builds it, and it builds its own `EmailRepository`.
   Authorized users read the log through `emailRepository` (auto-registered); there are no endpoints yet
   (§20).
-- **Send email with `enqueueEmail(new NewEmail({ ..., status: 'pending' }))`**, which resolves to the
-  email's log id once the job is queued. `sendEmail()` sends immediately and logs nothing. Signup uses
+- **Send email with `enqueueEmail(new NewEmail({ ..., status: 'pending' }))`**, which resolves once the
+  job is queued. `sendEmail()` sends immediately and logs nothing. Signup uses
   `enqueueEmail()`.
 - **The queue comes first, the log second.** `enqueueEmail()` queues the whole email (`IEmailJobData`)
   under an id from `EmailLoggerService.newId()`, and writes nothing to the database. The worker's
