@@ -5,8 +5,8 @@
 import { Email } from '@/domain/app/email/models/email';
 import type { IEmailRepository } from '@/application/interfaces/repositories/email/email.repository.interface';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
-import { RepositoryError } from '@/infrastructure/core/errors/repository.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
+import { RepositoryError } from '@/application/interfaces/errors/repository.error';
 
 import { EmailLogService } from './email-log.service';
 

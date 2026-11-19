@@ -1663,7 +1663,7 @@ export const myDriverLoader = async (): Promise<MyDriver> => {
  */
 
 import type { IMyService } from '@/application/interfaces/infrastructure/{service-name}.interface';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import type { MyDriver } from './driver/{driver-name}.driver';
 import type { MyClient } from 'my-client-library';
@@ -1753,11 +1753,11 @@ export class MyService implements IMyService {
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 import type { IMyService } from '@/application/interfaces/infrastructure/{service-name}.interface';
 
 import { MyService } from './{service-name}.service';
 import { myDriverLoader } from './driver/{driver-name}.driver.loader';
-import { InfrastructureError } from '../core/errors/infrastructure.error';
 
 import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 

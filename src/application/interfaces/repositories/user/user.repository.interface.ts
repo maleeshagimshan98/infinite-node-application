@@ -6,6 +6,8 @@ import type { User, NewUser } from '@/domain/user/models/user';
 
 import type { IBaseRepository } from '../base.repository.interface';
 
-export interface IUserRepository extends IBaseRepository<User, NewUser> {}
+// A type alias, not an empty interface (`@typescript-eslint/no-empty-object-type`); turn it into an interface
+// that extends IBaseRepository once it gains queries of its own.
+export type IUserRepository = IBaseRepository<User, NewUser>;
 
 export default IUserRepository;

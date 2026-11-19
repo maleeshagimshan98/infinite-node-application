@@ -3,7 +3,7 @@
  */
 
 import { CircuitOpenError } from '@/infrastructure/core/errors/circuit-open.error';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 import type { ICircuitBreakerOptions } from '@/application/interfaces/infrastructure/core/circuit-breaker.interface';
 
 import { CircuitBreaker } from './circuit-breaker';

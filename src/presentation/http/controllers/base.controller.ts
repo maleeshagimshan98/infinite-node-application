@@ -9,7 +9,7 @@ import { PaginationException } from '@/app/core/utils/pagination/pagination-exce
 import { RouteParamException } from '@/app/core/utils/request/route-param-exception';
 import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 import { DomainEntityError } from '@/domain/base';
 
 import type { Request } from 'express';
@@ -18,17 +18,15 @@ class BaseController {
   constructor(protected readonly logger: ILogger) {}
 
   /**
-   * Log an exception caught by `catchExceptionsWrapper()`: to stdout, and through the logger so it reaches the log
-   * files and the OpenTelemetry log pipeline with the request's `trace_id`. A server error (5xx) is logged as an
-   * error with its stack; anything else is a client error and is logged as a warning.
+   * Log an exception caught by `catchExceptionsWrapper()` through the logger, so it reaches the log files and the
+   * OpenTelemetry log pipeline with the request's `trace_id`. A server error (5xx) is logged as an error with its
+   * stack; anything else is a client error and is logged as a warning.
    *
    * @param {unknown} exception - The caught exception.
    * @param {number} statusCode - The HTTP status code of the response sent for it.
    * @returns {void}
    */
   protected logErrors(exception: unknown, statusCode: number): void {
-    console.log(exception); //... temp
-
     const message = `Request failed with ${statusCode}: ${exception instanceof Error ? exception.message : String(exception)}`;
     const meta = this.exceptionLogMeta(exception, statusCode);
     if (statusCode >= 500) {

@@ -3,7 +3,7 @@
  */
 
 import type { ICache } from '@/application/interfaces/infrastructure/cache.interface';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import type { RedisDriver } from './driver/redis.driver';
 import type { RedisClientType } from 'redis';

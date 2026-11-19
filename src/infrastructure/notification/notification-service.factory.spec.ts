@@ -5,7 +5,7 @@
 import * as path from 'path';
 
 import { DriverError } from '@/infrastructure/core/errors/driver.error';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { InMemoryNotificationService } from './in-memory/in-memory-notification.service';
 import { NotificationServiceFactory } from './notification-service.factory';

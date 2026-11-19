@@ -5,7 +5,7 @@
 import type { IEmailService } from '@/application/interfaces/infrastructure/email-service.interface';
 import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 import type { IQueue } from '@/application/interfaces/infrastructure/queue.interface';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { EmailServiceFactory } from './email-service.factory';
 import { SESEmailService } from './ses/ses-email.service';

@@ -3,10 +3,10 @@
  */
 
 import type { ICache } from '@/application/interfaces/infrastructure/cache.interface';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { RedisCacheService } from './redis/redis-cache.service';
 import { redisDriverLoader } from './redis/driver/redis.driver.loader';
-import { InfrastructureError } from '../core/errors/infrastructure.error';
 
 import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 

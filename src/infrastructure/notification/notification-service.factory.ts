@@ -5,12 +5,12 @@
 import type { INotificationManager } from '@/application/interfaces/infrastructure/notification/notification-manager.interface';
 import { CircuitBreaker } from '@/infrastructure/core/circuit-breaker/circuit-breaker';
 import { isSnsOutage } from '@/infrastructure/notification/sns/error/sns-error.guards';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { InMemoryNotificationService } from './in-memory/in-memory-notification.service';
 import { inMemoryNotificationDriverLoader } from './in-memory/driver/in-memory-notification.driver.loader';
 import { SNSPushNotificationService } from './sns/sns-push-notification.service';
 import { snsDriverLoader } from './sns/driver/sns.driver.loader';
-import { InfrastructureError } from '../core/errors/infrastructure.error';
 
 import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 

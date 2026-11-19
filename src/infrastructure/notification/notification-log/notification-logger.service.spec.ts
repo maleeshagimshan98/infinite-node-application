@@ -5,7 +5,7 @@
 import { Types } from 'mongoose';
 
 import { NewNotification, Notification } from '@/domain/app/notification/models/notification';
-import { RepositoryError } from '@/infrastructure/core/errors/repository.error';
+import { RepositoryError } from '@/application/interfaces/errors/repository.error';
 import type { INotificationRepository } from '@/application/interfaces/repositories/notification/notification.repository.interface';
 
 import { NotificationLoggerService } from './notification-logger.service';

@@ -3,9 +3,9 @@
  */
 
 import type { IVersionedEntity } from '@/application/interfaces/repositories/base.repository.interface';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
-import { RepositoryError } from '@/infrastructure/core/errors/repository.error';
-import type { RepositoryErrorType } from '@/infrastructure/core/errors/repository.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
+import { RepositoryError } from '@/application/interfaces/errors/repository.error';
+import type { RepositoryErrorType } from '@/application/interfaces/errors/repository.error';
 
 import { DomainServiceError } from './domain-service.error';
 

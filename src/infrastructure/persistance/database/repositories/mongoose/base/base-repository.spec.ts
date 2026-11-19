@@ -12,7 +12,7 @@ import { Types } from 'mongoose';
 import { NewResource, Resource } from '@/domain/auth/models/resource';
 import { NewRole, Role } from '@/domain/auth/models/role';
 import { NewUser, User } from '@/domain/user/models/user';
-import { RepositoryError } from '@/infrastructure/core/errors/repository.error';
+import { RepositoryError } from '@/application/interfaces/errors/repository.error';
 
 import { PersistanceError } from '../../../errors/persistance.error';
 import { ResourceRepository } from '../resources/resource.repository';

@@ -11,8 +11,8 @@ import type { IEmailRepository } from '@/application/interfaces/repositories/ema
 import { Email, NewEmail } from '@/domain/app/email/models/email';
 import { CircuitBreaker } from '@/infrastructure/core/circuit-breaker/circuit-breaker';
 import { CircuitOpenError } from '@/infrastructure/core/errors/circuit-open.error';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
-import { RepositoryError } from '@/infrastructure/core/errors/repository.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
+import { RepositoryError } from '@/application/interfaces/errors/repository.error';
 import { EmailLoggerService } from '@/infrastructure/email/email-log/email-logger.service';
 import { QueueError } from '@/infrastructure/queue/errors/queue.error';
 

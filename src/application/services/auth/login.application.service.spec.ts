@@ -15,7 +15,7 @@ import type {
   IVersionedEntity,
 } from '@/application/interfaces/repositories/base.repository.interface';
 import type { ILoginRecordRepository } from '@/application/interfaces/repositories/auth/login-record.repository.interface';
-import { RepositoryError } from '@/infrastructure/core/errors/repository.error';
+import { RepositoryError } from '@/application/interfaces/errors/repository.error';
 
 import { LoginApplicationService } from './login.application.service';
 

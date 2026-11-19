@@ -4,7 +4,7 @@
 
 import { createClient } from 'redis';
 
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { RedisDriver } from './driver/redis.driver';
 import { redisConfig } from './driver/redis.config';

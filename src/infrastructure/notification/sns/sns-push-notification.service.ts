@@ -8,7 +8,7 @@ import type { ICircuitBreaker } from '@/application/interfaces/infrastructure/co
 import type { ICircuitBreakerStatus } from '@/application/interfaces/infrastructure/core/circuit-breaker-status.interface';
 import type { INotificationManager } from '@/application/interfaces/infrastructure/notification/notification-manager.interface';
 import type { INewNotification } from '@/application/interfaces/infrastructure/notification/notification.interface';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { SnsError } from './error/sns.error';
 

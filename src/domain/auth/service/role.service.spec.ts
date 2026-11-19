@@ -12,7 +12,7 @@ import type { IRoleRepository } from '@/application/interfaces/repositories/auth
 import type { IResourceRepository } from '@/application/interfaces/repositories/auth/resource.repository.interface';
 import type { IUserRepository } from '@/application/interfaces/repositories/user/user.repository.interface';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
-import { RepositoryError } from '@/infrastructure/core/errors/repository.error';
+import { RepositoryError } from '@/application/interfaces/errors/repository.error';
 
 import { RoleService } from './role.service';
 

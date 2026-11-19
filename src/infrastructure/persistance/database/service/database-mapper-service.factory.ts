@@ -4,7 +4,7 @@
 
 import type { IDatabaseMapper } from '@/application/interfaces/infrastructure/database-mapper.interface';
 import type { IServiceFactory } from '@/infrastructure/core/interfaces/service.factory.interface';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { MongooseService } from './database-mapper/mongoose.service';
 import { mongooseDriverLoader } from './database-mapper/driver/mongoose.driver.loader';

@@ -7,7 +7,7 @@ import type { ILogger } from '@/application/interfaces/infrastructure/logger.int
 import type { IQueue, Job } from '@/application/interfaces/infrastructure/queue.interface';
 import { NewEmail } from '@/domain/app/email/models/email';
 import type { Email } from '@/domain/app/email/models/email';
-import { RepositoryError } from '@/infrastructure/core/errors/repository.error';
+import { RepositoryError } from '@/application/interfaces/errors/repository.error';
 import type { EmailLoggerService } from '@/infrastructure/email/email-log/email-logger.service';
 import type { IEmailQueueConfig } from '@/infrastructure/email/queue/email-queue.config';
 

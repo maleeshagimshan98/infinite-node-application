@@ -6,8 +6,8 @@ import { createContainer } from 'awilix';
 
 import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
 import type { IHealthCheck } from '@/application/interfaces/infrastructure/health-check.interface';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
-import { InfrastructureError } from './core/errors/infrastructure.error';
 import { InfrastructureManager } from './infrastructure.manager';
 import { SocketServiceFactory } from './socket/socket-service.factory';
 

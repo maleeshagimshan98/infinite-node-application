@@ -3,10 +3,10 @@
  */
 
 import type { ISocket } from '@/application/interfaces/infrastructure/socket.interface';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { SocketIOService } from './socketio/socketio-socket.service';
 import { socketDriverLoader } from './socketio/driver/socket-driver.loader';
-import { InfrastructureError } from '../core/errors/infrastructure.error';
 
 import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 

@@ -2,8 +2,8 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
-import { RepositoryError } from '@/infrastructure/core/errors/repository.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
+import { RepositoryError } from '@/application/interfaces/errors/repository.error';
 
 import { BaseDomainService } from './base.domain.service';
 import { DomainServiceError } from './domain-service.error';

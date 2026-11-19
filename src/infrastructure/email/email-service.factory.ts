@@ -12,12 +12,12 @@ import { CircuitBreaker } from '@/infrastructure/core/circuit-breaker/circuit-br
 import { EmailLoggerService } from '@/infrastructure/email/email-log/email-logger.service';
 import { isSesOutage } from '@/infrastructure/email/ses/error/ses-error.guards';
 import { isSmtpOutage } from '@/infrastructure/email/smtp/error/smtp-error.guards';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { SESEmailService } from './ses/ses-email.service';
 import { sesDriverLoader } from './ses/driver/ses.driver.loader';
 import { SMTPEmailService } from './smtp/smtp-email.service';
 import { smtpDriverLoader } from './smtp/driver/smtp.driver.loader';
-import { InfrastructureError } from '../core/errors/infrastructure.error';
 
 import type { IServiceFactory, ServiceClosure } from '../core/interfaces/service.factory.interface';
 

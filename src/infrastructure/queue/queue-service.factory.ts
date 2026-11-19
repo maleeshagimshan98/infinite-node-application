@@ -3,10 +3,10 @@
  */
 
 import type { IQueue } from '@/application/interfaces/infrastructure/queue.interface';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { BullMQQueueService } from './bullmq/bullmq-queue.service';
 import { bullmqDriverLoader } from './bullmq/driver/bullmq.driver.loader';
-import { InfrastructureError } from '../core/errors/infrastructure.error';
 
 import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 

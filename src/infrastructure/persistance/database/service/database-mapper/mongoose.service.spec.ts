@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 
 import { DomainEntityError } from '@/domain/base/DomainEntityError';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { PersistanceError } from '../../errors/persistance.error';
 import {

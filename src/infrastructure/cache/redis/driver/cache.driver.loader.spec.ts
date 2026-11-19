@@ -15,7 +15,7 @@ jest.mock('./redis.driver');
 
 import { createClient } from 'redis';
 
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { redisConfig } from './redis.config';
 import { RedisDriver } from './redis.driver';

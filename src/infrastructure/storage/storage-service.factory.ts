@@ -3,9 +3,9 @@
  */
 
 import type { IStorage } from '@/application/interfaces/infrastructure/storage.interface';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { LocalStorageService } from './local/local-storage.service';
-import { InfrastructureError } from '../core/errors/infrastructure.error';
 
 import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 

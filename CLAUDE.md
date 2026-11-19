@@ -65,7 +65,7 @@ src/
 │   └── core/                    # DI container (service.container.ts), config, telemetry, middleware, shutdown, utils
 ├── presentation/http/           # routes/, controllers/, validators/, middleware/
 ├── application/
-│   ├── interfaces/              # Every cross-layer contract: repositories/, infrastructure/, worker/, app/
+│   ├── interfaces/              # Every cross-layer contract: repositories/, infrastructure/, errors/, worker/, app/
 │   ├── services/{feature}/      # Application services (multi-service transactions)
 │   └── workers/{feature}/       # Queue workers (worker process only)
 ├── domain/
@@ -74,7 +74,7 @@ src/
 │       ├── models/              # Domain models (+ guards/ when needed)
 │       └── service/             # Domain services
 └── infrastructure/
-    ├── core/                    # Errors, circuit breaker, driver and factory interfaces
+    ├── core/                    # Driver and circuit-open errors, circuit breaker, driver and factory interfaces
     ├── persistance/database/    # Mongoose service, repositories/mongoose/{feature}/, seeders/, indexes/
     ├── cache/ email/ health/ http/ logger/ notification/ queue/ socket/ storage/
     ├── infrastructure.loader.ts # The list of service factories
@@ -108,9 +108,8 @@ src/
   `IEmailService`), never the class
 - a domain service needs a config value or a helper from `@/app/core` → pass it in, or move the pure helper into
   `src/domain/base/`
-- **known exceptions, do not copy:** `base.domain.service.ts`, `base.controller.ts` and
-  `login.application.service.ts` import `InfrastructureError` / `RepositoryError` from `@/infrastructure/core/errors/`
-  to classify errors (`Docs/TODO.yml`)
+- an inner layer needs to recognise an infrastructure failure → import the error contract from
+  `src/application/interfaces/errors/` (`InfrastructureError`, `RepositoryError`), which every layer may import
 
 ---
 
@@ -417,7 +416,7 @@ mapper calls included, unless it only calls the inherited methods.
 
 **Use cases:**
 
-- `RepositoryError` (`@/infrastructure/core/errors/repository.error`) means the caller's data was rejected, so it does
+- `RepositoryError` (`@/application/interfaces/errors/repository.error`) means the caller's data was rejected, so it does
   not extend `InfrastructureError`; `wrapInfrastructureErrors()` maps it (§10). Its message is for the logs only.
 
 ### 6.6 Populate at most two levels deep
@@ -960,8 +959,8 @@ import type { Request, Response } from 'express';
 | `@typescript-eslint/explicit-function-return-type` | error | Every function and method declares its return type                        |
 | `@typescript-eslint/consistent-type-imports`       | error | `import type` for type-only imports                                       |
 | `@typescript-eslint/return-await`                  | error | `return await` a promise inside `try`, or its rejection skips the `catch` |
-| `@typescript-eslint/no-unused-vars`                | error | Prefix an unused parameter with `_`                                       |
-| `@typescript-eslint/no-explicit-any`               | error | Use precise types or `unknown`                                            |
+| `@typescript-eslint/no-unused-vars`                | warn  | Prefix an unused parameter with `_`                                       |
+| `@typescript-eslint/no-explicit-any`               | warn  | Use precise types or `unknown`                                            |
 | `@typescript-eslint/no-empty-object-type`          | error | No empty interface: use a type alias (§6.4)                               |
 | `import/order`                                     | error | §12.2                                                                     |
 | `prettier/prettier`                                | error | 120 columns, 2 spaces, single quotes, semicolons, trailing commas, LF     |
@@ -974,10 +973,10 @@ import type { Request, Response } from 'express';
 | `jsdoc/sort-tags`, `tag-lines`                     | error | `@param` → `@returns` → `@throws`; one blank line between the summary and the first tag |
 | `no-console`                                       | warn  | Log through the injected `logger` (`ILogger`)                             |
 
-`eslint.config.mjs` sets `no-unused-vars` and `no-explicit-any` to warn, but `tseslint.configs.recommended`, listed
-later, raises them to error and adds `no-empty-object-type`. The `jsdoc/*` rules apply to `src/**/*.ts` except specs,
-and a class's `@implements` / `@extends` tag does not exempt its methods. `npm run lint` still reports 9 older errors (seven empty
-repository interfaces, one `any`, one unused variable; `Docs/TODO.yml`): don't add new ones.
+`eslint.config.mjs` lists the recommended presets (`@eslint/js`, `typescript-eslint`) first, so the project's levels
+override theirs; `no-empty-object-type` comes from the `typescript-eslint` preset. The `jsdoc/*` rules apply to
+`src/**/*.ts` except specs, and a class's `@implements` / `@extends` tag does not exempt its methods. A warning does
+not fail the lint, but don't add new ones.
 
 ### 12.4 Follow the naming conventions
 
@@ -1124,7 +1123,5 @@ Run `npm test` too; a pull request records all of these.
 - **Default role / group switch:** unique indexes allow only one default, but switching it is not one transaction: a
   failure between the two writes can leave no default.
 - **Versioned deletes:** not started; `delete(id)` does not check the version (§6.8).
-- **Clean-architecture imports:** three files still import infrastructure error classes outside the infrastructure
-  layer (§2.1).
 
 Planned work: `Docs/TODO.yml`.

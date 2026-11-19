@@ -3,10 +3,10 @@
  */
 
 import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { WinstonLoggerService } from './winston/winston-logger.service';
 import { winstonDriverLoader } from './winston/driver/winston.driver.loader';
-import { InfrastructureError } from '../core/errors/infrastructure.error';
 
 import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 

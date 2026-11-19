@@ -5,7 +5,7 @@
 import { Types } from 'mongoose';
 
 import { Email, NewEmail } from '@/domain/app/email/models/email';
-import { RepositoryError } from '@/infrastructure/core/errors/repository.error';
+import { RepositoryError } from '@/application/interfaces/errors/repository.error';
 import type { IEmailRepository } from '@/application/interfaces/repositories/email/email.repository.interface';
 
 import { EmailLoggerService } from './email-logger.service';

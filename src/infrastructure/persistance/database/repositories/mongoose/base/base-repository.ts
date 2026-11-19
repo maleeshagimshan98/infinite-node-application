@@ -7,8 +7,8 @@ import type {
   IVersionedEntity,
 } from '@/application/interfaces/repositories/base.repository.interface';
 import type { TransactionOptions } from '@/application/interfaces';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
-import { RepositoryError } from '@/infrastructure/core/errors/repository.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
+import { RepositoryError } from '@/application/interfaces/errors/repository.error';
 import {
   hasTransactionRetryLabel,
   isConnectionFailure,

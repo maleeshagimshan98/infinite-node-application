@@ -6,7 +6,7 @@ import type {
   IDatabaseMapper,
   TransactionOptions,
 } from '@/application/interfaces/infrastructure/database-mapper.interface';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { isConnectionFailure, isMongooseDriverError } from '../../errors/mongoose-error.guards';
 import { PersistanceError } from '../../errors/persistance.error';

@@ -6,7 +6,7 @@ import type { APIResponse } from '@/app/core/utils/api-response/api-response';
 import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 import { ErrorResponseMessages } from '@/app/core/utils/error-response-messages';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { BaseController } from './base.controller';
 
@@ -34,10 +34,6 @@ const createLogger = (): jest.Mocked<ILogger> => ({
 
 describe('BaseController error responses', () => {
   const controller = new TestController(createLogger());
-
-  beforeEach(() => {
-    jest.spyOn(console, 'log').mockImplementation(() => undefined);
-  });
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -112,14 +108,14 @@ describe('BaseController exception logging', () => {
     jest.restoreAllMocks();
   });
 
-  it('logs a server error to the console and as an error with its stack', async () => {
+  it('logs a server error through the logger only, as an error with its stack', async () => {
     const error = new InfrastructureError(RAW_DRIVER_MESSAGE, 'DATABASE_ERROR', undefined, {
       cause: new Error('socket hang up'),
     });
 
     await controller.run(error);
 
-    expect(consoleLog).toHaveBeenCalledWith(error);
+    expect(consoleLog).not.toHaveBeenCalled();
     expect(logger.logWarn).not.toHaveBeenCalled();
     expect(logger.logError).toHaveBeenCalledWith(`Request failed with 500: ${RAW_DRIVER_MESSAGE}`, {
       statusCode: 500,
@@ -148,12 +144,12 @@ describe('BaseController exception logging', () => {
     );
   });
 
-  it('logs a client error to the console and as a warning without a stack or its data', async () => {
+  it('logs a client error through the logger only, as a warning without a stack or its data', async () => {
     const error = new DomainServiceError('Password is too short', 'VALIDATION_ERROR', { password: 'hunter2' });
 
     await controller.run(error);
 
-    expect(consoleLog).toHaveBeenCalledWith(error);
+    expect(consoleLog).not.toHaveBeenCalled();
     expect(logger.logError).not.toHaveBeenCalled();
     expect(logger.logWarn).toHaveBeenCalledWith('Request failed with 400: Password is too short', {
       statusCode: 400,

@@ -7,8 +7,8 @@ import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import type { LoginService } from '@/domain/auth/service/login.service';
 import type { UserService } from '@/domain/user/service/user.service';
 import type { User } from '@/domain/user/models/user';
-import type { ICache, IDatabaseMapper, ILogger, TransactionOptions } from '@/application/interfaces';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import type { ICache, IDatabaseMapper, ILogger } from '@/application/interfaces';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { BaseApplicationService } from '../base/base.application.service';
 
@@ -282,9 +282,9 @@ export class LoginApplicationService extends BaseApplicationService {
       throw this.authError(EXPIRED_TOKEN_MESSAGE);
     }
 
-    const next = await this.dbTransaction(async (session: TransactionOptions) => {
-      await this.mutateLoginRecord(() => this.loginService.expireLoginRecord(record, session));
-      return this.loginService.createLoginRecord(identity.id, identity.groups, session);
+    const next = await this.dbTransaction(async ({ session }) => {
+      await this.mutateLoginRecord(() => this.loginService.expireLoginRecord(record, { session }));
+      return this.loginService.createLoginRecord(identity.id, identity.groups, { session });
     });
 
     await this.evictLoginRecord(accessToken);

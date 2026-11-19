@@ -3,7 +3,7 @@
  */
 
 import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import type winston from 'winston';
 import type { WinstonDriver } from './driver/winston.driver';

@@ -41,8 +41,8 @@ src/
         core.driver.ts                ← ICoreDriver<ClientType, ConfigType> interface
         core.driver.config.ts         ← IDriverConfig base interface
       errors/
-        infrastructure.error.ts
-        driver.error.ts
+        driver.error.ts               ← DriverError (InfrastructureError and RepositoryError live in
+        circuit-open.error.ts           application/interfaces/errors/, so every layer can import them)
 
     cache/                            ← Cache service (e.g. Redis)
     email/                            ← Email service (EMAIL_DRIVER: smtp | aws-ses)
@@ -410,7 +410,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 
 import type { IStorage } from '@/application/interfaces/infrastructure/storage.interface';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { storageConfig } from './local-file-storage.config';
 
@@ -482,7 +482,7 @@ import type {
   IDatabaseMapper,
   TransactionOptions,
 } from '@/application/interfaces/infrastructure/database-mapper.interface';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { isConnectionFailure, isMongooseDriverError } from '../../errors/mongoose-error.guards';
 import { PersistanceError } from '../../errors/persistance.error';
@@ -632,7 +632,7 @@ export const mongooseDriverLoader = async (): Promise<MongooseDriver> => {
 import type { IStorage } from '@/application/interfaces/infrastructure/storage.interface';
 import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 import { LocalStorageService } from './local/local-storage.service';
-import { InfrastructureError } from '../core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 export class StorageServiceFactory implements IServiceFactory<IStorage> {
   name(): 'storage' {
@@ -667,7 +667,7 @@ import type { IDatabaseMapper } from '@/application/interfaces/infrastructure/da
 import type { IServiceFactory } from '@/infrastructure/core/interfaces/service.factory.interface';
 import { MongooseService } from './database-mapper/mongoose.service';
 import { mongooseDriverLoader } from './database-mapper/driver/mongoose.driver.loader';
-import { InfrastructureError } from '../../core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 export class DatabaseMapperServiceFactory implements IServiceFactory<IDatabaseMapper> {
   name(): 'database_mapper' {
@@ -1074,7 +1074,7 @@ classifies what `fn` throws, in this order:
 
 `update()`'s own `RepositoryError` `VERSION_CONFLICT` passes through the wrapper unchanged (rule 3).
 
-`RepositoryError` (`@/infrastructure/core/errors/repository.error`) is rejected caller data, not an
+`RepositoryError` (`@/application/interfaces/errors/repository.error`) is rejected caller data, not an
 infrastructure failure, so it does not extend `InfrastructureError`; `wrapInfrastructureErrors()`
 maps it to a `DomainServiceError` (§11b). Every translated error keeps the original in `data.cause`.
 

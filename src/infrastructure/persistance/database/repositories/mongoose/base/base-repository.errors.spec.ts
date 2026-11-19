@@ -7,8 +7,8 @@
 import mongoose from 'mongoose';
 
 import { DomainEntityError } from '@/domain/base/DomainEntityError';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
-import { RepositoryError } from '@/infrastructure/core/errors/repository.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
+import { RepositoryError } from '@/application/interfaces/errors/repository.error';
 
 import { PersistanceError } from '../../../errors/persistance.error';
 import { UserModel } from '../user/user.model';

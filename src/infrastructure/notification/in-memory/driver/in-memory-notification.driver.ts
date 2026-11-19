@@ -3,7 +3,7 @@
  */
 
 import type { ICoreDriver } from '@/infrastructure/core/driver/core.driver';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import type { IInMemoryNotificationConfig } from './in-memory-notification.config';
 

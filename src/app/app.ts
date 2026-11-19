@@ -321,10 +321,9 @@ class InfiniteNodeApplication {
   /**
    * Event listener for HTTP server "listening" event.
    *
-   * @param {http.Server} server - The server that started listening.
    * @returns {void}
    */
-  private onListening(server: http.Server): void {
+  private onListening(): void {
     const bind = this.getServerBindString();
     debugLog(`Listening on ${bind}`);
   }
@@ -339,7 +338,7 @@ class InfiniteNodeApplication {
     this.httpServer.listen(config.app.port);
     this.httpServer.on('error', (error: NodeJS.ErrnoException) => this.onListenError(error, config.app.port));
     this.httpServer.on('clientError', (error: Error, socket: net.Socket) => this.onClientError(error, socket));
-    this.httpServer.on('listening', () => this.onListening(this.httpServer as http.Server));
+    this.httpServer.on('listening', () => this.onListening());
     // this.express_server.listen(); TODO - CHECK
   }
 

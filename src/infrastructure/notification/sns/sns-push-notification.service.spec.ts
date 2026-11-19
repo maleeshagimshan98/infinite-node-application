@@ -13,7 +13,7 @@ import {
 
 import { CircuitBreaker } from '@/infrastructure/core/circuit-breaker/circuit-breaker';
 import { CircuitOpenError } from '@/infrastructure/core/errors/circuit-open.error';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { SNSDriver } from './driver/sns.driver';
 import { isSnsOutage } from './error/sns-error.guards';

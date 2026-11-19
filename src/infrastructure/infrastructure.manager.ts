@@ -9,8 +9,8 @@ import type {
   IInfrastructureManager,
   onServiceCreatedCallback,
 } from '@/application/interfaces/infrastructure/infrastructure-manager.interface';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
-import { InfrastructureError } from './core/errors/infrastructure.error';
 import { InfrastructureHealthCheckService } from './health/infrastructure-health-check.service';
 import { infrastructureLoader } from './infrastructure.loader';
 

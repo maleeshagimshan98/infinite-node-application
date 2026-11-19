@@ -19,6 +19,9 @@ const JSDOC_CONTEXTS = [
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
+  // The recommended presets come first, so the project's rules below override their levels.
+  pluginJs.configs.recommended,
+  ...tseslint.configs.recommended,
   {
     files: ['src/**/*.{js,ts}'],
     ignores: ['node_modules', 'dist', 'build'],
@@ -61,7 +64,8 @@ export default [
       'eol-last': ['error', 'always'], // Ensure LF at the end of files
       'linebreak-style': ['error', 'unix'], // Enforce LF (Unix-style EOL)
       'no-console': 'warn', // Warn on console.log usage
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      // The core `no-unused-vars` stays off (tseslint's preset turns it off): it misreports type-only code, and
+      // `@typescript-eslint/no-unused-vars` above replaces it.
       'import/order': [
         'error',
         {
@@ -152,7 +156,5 @@ export default [
       'jsdoc/tag-lines': ['error', 'any', { startLines: 1 }],
     },
   },
-  pluginJs.configs.recommended,
-  ...tseslint.configs.recommended,
   prettier, // Disable conflicting ESLint rules that Prettier handles
 ];

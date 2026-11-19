@@ -6,9 +6,8 @@ import type { EmailVerificationCode, NewEmailVerificationCode } from '@/domain/a
 
 import type { IBaseRepository } from '../base.repository.interface';
 
-export interface IEmailVerificationCodeRepository extends IBaseRepository<
-  EmailVerificationCode,
-  NewEmailVerificationCode
-> {}
+// A type alias, not an empty interface (`@typescript-eslint/no-empty-object-type`); turn it into an interface
+// that extends IBaseRepository once it gains queries of its own.
+export type IEmailVerificationCodeRepository = IBaseRepository<EmailVerificationCode, NewEmailVerificationCode>;
 
 export default IEmailVerificationCodeRepository;

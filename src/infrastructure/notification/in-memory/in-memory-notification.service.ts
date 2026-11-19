@@ -4,7 +4,7 @@
 
 import type { INotificationManager } from '@/application/interfaces/infrastructure/notification/notification-manager.interface';
 import type { INewNotification } from '@/application/interfaces/infrastructure/notification/notification.interface';
-import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import type { InMemoryNotificationDriver } from './driver/in-memory-notification.driver';
 
