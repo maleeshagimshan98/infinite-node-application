@@ -15,7 +15,7 @@ Infrastructure services are initialized at boot time by `InfrastructureManager`,
 5. **Each infrastructure service has a factory implementing `IServiceFactory<T>`** — factories are registered in `infrastructure.loader.ts`
 6. **`InfrastructureManager` orchestrates all service initialization** — it iterates factory classes, calls `factory.create()`, registers every result in the Awilix container under `factory.name()`, and only then resolves them, so a service can depend on another infrastructure service wherever it sits in the loader
 7. **Drivers implement `ICoreDriver<ClientType, ConfigType>`** — only used internally by services; never registered in the DI container directly
-8. **Infrastructure errors are for infrastructure failures only** — a service wraps only its driver's own failures (the `try` covers the driver call alone; caller input is serialized/validated before it; caller callbacks are never wrapped), keeps the original error in `data.cause`, and never attaches objects carrying secrets. The error message is for the logs; clients get a generic 500/503 (`CLAUDE.md` §14–§15)
+8. **Infrastructure errors are for infrastructure failures only** — a service wraps only its driver's own failures (the `try` covers the driver call alone; caller input is serialized/validated before it; caller callbacks are never wrapped), keeps the original error in `data.cause`, and never attaches objects carrying secrets. The error message is for the logs; clients get a generic 500/503 (`CLAUDE.md` §10–§11)
 
 ## Directory Structure
 
@@ -45,10 +45,24 @@ src/
         driver.error.ts
 
     cache/                            ← Cache service (e.g. Redis)
-    email/                            ← Email service (e.g. SendGrid, SMTP)
+    email/                            ← Email service (EMAIL_DRIVER: smtp | aws-ses)
+      base/
+        base-email.service.ts         ← BaseEmailService — queue + email log flow shared by every driver
+      smtp/                           ← SMTPEmailService + SMTP driver
+      ses/                            ← SESEmailService + AWS SES driver (@aws-sdk/client-sesv2)
+      email-log/
+        email-logger.service.ts       ← EmailLoggerService — keeps the email log (§10d); not in DI
+      queue/
+        email-queue.config.ts         ← IEmailQueueConfig — email queue name and retries (EMAIL_QUEUE_*)
+      email-service.factory.ts        ← EmailServiceFactory implements IServiceFactory<IEmailService>
     http/                             ← HTTP client service
     logger/                           ← Logging service (e.g. Winston)
-    notification/                     ← Notification service
+    notification/                     ← Notification service (NOTIFICATION_DRIVER: inmemory | aws-sns)
+      in-memory/                      ← InMemoryNotificationService + in-memory driver
+      sns/                            ← SNSPushNotificationService + AWS SNS driver (@aws-sdk/client-sns)
+      notification-log/
+        notification-logger.service.ts ← NotificationLoggerService — keeps the notification log (§10e); not in DI
+      notification-service.factory.ts ← NotificationServiceFactory implements IServiceFactory<INotificationManager>
     queue/                            ← Message queue service
     socket/                           ← WebSocket service (Socket.io)
 
@@ -70,6 +84,14 @@ src/
               base-repository.ts      ← BaseRepository<DBModel, DomainModel, NewDomainModel>
               base.mapper.interface.ts ← IBaseMapper<DBSchema, DomainModel, NewDomainModel>
             auth/
+            email/
+              email.model.ts          ← INewEmailSchema + EmailSchema (TTL index) + EmailModel ('email_log')
+              email.mapper.ts         ← EmailMapper extends BaseMapper
+              email.repository.ts     ← EmailRepository extends BaseRepository (auto-registered)
+            notification/
+              notification.model.ts   ← INewNotificationSchema + NotificationSchema + NotificationModel ('notification_log')
+              notification.mapper.ts  ← NotificationMapper extends BaseMapper
+              notification.repository.ts ← NotificationRepository extends BaseRepository (auto-registered)
             erp/
               customer/
                 customer.model.ts     ← INewCustomerSchema + Mongoose schema + model
@@ -112,16 +134,27 @@ src/
         database-mapper.interface.ts  ← IDatabaseMapper + TransactionOptions type
         cache.interface.ts            ← ICache
         storage.interface.ts          ← IStorage
-        email.interface.ts            ← IEmail
+        email-service.interface.ts    ← IEmailService (DI token `emailService`)
         logger.interface.ts           ← ILogger
         http-client.interface.ts      ← IHTTPClient + RequestConfig type
-        queue.interface.ts            ← IQueue
+        queue.interface.ts            ← IQueue (processJobs starts a worker; closeWorkers closes it — §9a)
         socket.interface.ts           ← ISocket
-        notification.interface.ts     ← INotification
+        notification/
+          notification-manager.interface.ts ← INotificationManager
+          notification.interface.ts         ← INotification + INotificationChannel + INotificationStatus + INewNotification
         health-check.interface.ts     ← IHealthCheck
         infrastructure-manager.interface.ts ← IInfrastructureManager
       repositories/
         base.repository.interface.ts  ← IBaseRepository<DBSchema, DomainModel, NewDomainModel>
+        email/
+          email.repository.interface.ts ← IEmailRepository
+        notification/
+          notification.repository.interface.ts ← INotificationRepository
+      worker/
+        worker.interface.ts           ← IWorker (workerName, init, shutdown)
+    workers/
+      email/
+        email.worker.ts               ← EmailWorker implements IWorker (worker process only — §9a)
     services/
       base/
         base.application.service.ts   ← BaseApplicationService (provides dbTransaction())
@@ -131,6 +164,13 @@ src/
         purchase-order.application.service.ts
 
   domain/
+    app/
+      email/
+        models/
+          email.ts                    ← EmailStatus, INewEmail, IEmail, NewEmail, Email (the email log record)
+      notification/
+        models/
+          notification.ts             ← INewNotificationRecord, NewNotification, Notification (the notification log record)
     base/
       DomainEntity.ts
       service/
@@ -349,7 +389,7 @@ export const storageConfig = (): IFileSystemStorageConfig => ({
   driverName: 'storage',
   singleton: false,
   deferred: true,
-  optional: process.env.STORAGE_SERVICE_OPTIONAL === 'false',
+  optional: process.env.STORAGE_SERVICE_OPTIONAL === 'true',
   params: {
     rootPath: process.env.STORAGE_ROOT_PATH || './storage',
   },
@@ -660,9 +700,9 @@ export class DatabaseMapperServiceFactory implements IServiceFactory<IDatabaseMa
 **A service that needs other infrastructure services**: `create()` does the async driver setup, then returns a **synchronous closure** whose parameters are named after the registration names of the services it needs. The manager registers the closure as a singleton and Awilix injects the parameters by name (CLASSIC) when it is resolved:
 
 ```typescript
-async create(): Promise<IEmail | ServiceClosure<IEmail>> {
+async create(): Promise<IEmailService | ServiceClosure<IEmailService>> {
   const driver = await smtpDriverLoader();
-  return (queue: IQueue, logger: ILogger): IEmail => new QueuedEmailService(driver, queue, logger);
+  return (queue: IQueue, logger: ILogger): IEmailService => new QueuedEmailService(driver, queue, logger);
 }
 ```
 
@@ -809,6 +849,79 @@ class InfiniteNodeApplication {
 
 ---
 
+### 9a. Worker Process (worker.ts) and Queue Workers
+
+**Purpose**: Run the queue workers in a separate process with no HTTP server. `InfiniteNodeWorker`
+(`src/app/worker.ts`, started by `src/worker.ts`) is the worker-process counterpart of `InfiniteNodeApplication`.
+
+**Startup**:
+
+1. `InfrastructureManager.initForWorker()` — builds the infrastructure services, without the socket service.
+2. `autoRegisterWorkerComponents()` — registers the same services and repositories as §9 (no controllers), plus
+   `src/application/workers/**/*.worker.{ts,js}` (`EmailWorker` → `'emailWorker'`).
+3. Resolves every registration whose name ends in `Worker` and that implements `IWorker`.
+4. Calls `init()` on each worker, which starts its queue processors.
+
+**Shutdown** (`ShutdownManager` hooks, in this order):
+
+| Priority | Hook                      | Does                                                                   |
+| -------- | ------------------------- | ---------------------------------------------------------------------- |
+| HIGH     | `workers` (10 s)          | `shutdown()` on every worker, which waits for its in-flight jobs       |
+| MEDIUM   | `infrastructure-services` | `InfrastructureManager.shutdown()` — closes Redis, the database, etc.  |
+| LOW      | `telemetry`               | `otelSdk.shutdown()` — flushes spans, metrics and log records          |
+
+Workers stop first, so the jobs they are running finish while Redis and the database are still connected.
+
+**A worker** implements `IWorker` (`src/application/interfaces/worker/worker.interface.ts`) in
+`src/application/workers/{feature}/{name}.worker.ts` and ends with `export default ClassName;`. `EmailWorker` is the
+reference:
+
+```typescript
+// src/application/workers/email/email.worker.ts
+export class EmailWorker implements IWorker {
+  constructor(
+    private readonly queue: IQueue,
+    private readonly emailService: IEmailService,
+  ) {}
+
+  workerName(): string {
+    return 'email';
+  }
+
+  // Starts a BullMQ worker on the email queue
+  async init(): Promise<void> {
+    await this.queue.processJobs<IEmailJobData>(this.emailService.emailQueueName(), (job) =>
+      this.emailService.deliverQueuedEmail(job),
+    );
+  }
+
+  // Closes it, waiting for the emails being sent
+  async shutdown(): Promise<void> {
+    await this.queue.closeWorkers(this.emailService.emailQueueName());
+  }
+}
+
+export default EmailWorker;
+```
+
+Rules:
+
+1. **Close every processor you start.** Each `queue.processJobs(queueName, processor)` starts a BullMQ worker with its
+   own Redis connection, which the queue service keeps until it is closed. Call `queue.closeWorkers(queueName)` once
+   the queue no longer needs processing: in `shutdown()` for every queue `init()` processes, and right after the work
+   is done wherever a processor runs for a limited time. An open worker keeps polling Redis and taking jobs, and the
+   queue service keeps a reference to it, so its connection and memory are never freed.
+2. **`closeWorkers()` waits for the jobs in flight**, then forgets the workers, so the queue service's own
+   `shutdown()` does not close them again. It has no timeout of its own: keep jobs shorter than the 10 s `workers`
+   hook. Never close a BullMQ `Worker` directly; a worker sees only `IQueue`.
+3. **It closes every worker on the queue.** Two `processJobs()` calls on one queue start two workers, and both close.
+   Never call it for a queue another component still processes.
+4. **Failures**: a worker that fails to close throws `QueueError` (`QUEUE_ERROR`) once every other worker on the queue
+   is closed, and `InfiniteNodeWorker` logs it and still shuts down the other workers. A worker that fails to start is
+   force-closed by `processJobs()` before it throws `QueueError`, so there is nothing to pass to `closeWorkers()`.
+
+---
+
 ### 10. Persistence Layer — Schema, Mapper, Repository
 
 #### 10a. Mongoose Schema Model
@@ -823,6 +936,7 @@ import type { Types } from 'mongoose';
 // ⚠️ ONLY export INew{Model}Schema — do NOT add IModel or IModelSchema here
 export interface INewCustomerSchema {
   _id?: Types.ObjectId;
+  __v?: number; // Mongoose's version key: read by the mapper, written only by BaseRepository.update()
   no: string;
   name: string;
   balance_lcy: number;
@@ -839,10 +953,20 @@ export const CustomerSchema = new Schema<INewCustomerSchema>(
   { timestamps: true },
 );
 
+// CustomerService checks that `no` is unique; the index enforces it under concurrency.
+CustomerSchema.index({ no: 1 }, { unique: true });
+
 export const CustomerModel = model('customer', CustomerSchema);
 ```
 
 > **RULE**: Only one schema interface (`INew{Model}Schema`). Never add `IModel extends INew{Model}Schema` here. The mapper handles `_id` via an intersection type.
+
+> **RULE**: Every uniqueness rule a domain service checks has a matching unique index, declared with
+> `schema.index()` (partial — `partialFilterExpression` — when the rule is conditional, e.g. one default
+> role). The service check gives the specific message; only the index stops two concurrent requests
+> from both writing (`DUPLICATE_KEY`). Indexes are built by `npm run db:indexes`, which audits for
+> existing duplicates first (comparing `lowercase` / `trim` paths such as emails normalized) and never
+> drops an index; production runs `db:indexes:prod` before each rollout with `MONGODB_AUTO_INDEX=false`.
 
 #### 10b. Mapper
 
@@ -854,14 +978,15 @@ import { Types } from 'mongoose';
 
 import type { NewCustomer } from '@/domain/erp/customer-service/models/customer';
 import { Customer } from '@/domain/erp/customer-service/models/customer';
-import type { IBaseMapper } from '../base/base.mapper.interface';
+import { BaseMapper } from '../base/base.mapper';
 import type { INewCustomerSchema } from './customer.model';
 
-export class CustomerMapper implements IBaseMapper<INewCustomerSchema, Customer, NewCustomer> {
+export class CustomerMapper extends BaseMapper<INewCustomerSchema, Customer, NewCustomer> {
   // ✅ Use intersection type — never create a separate ICustomerSchema interface
   toDomain(data: INewCustomerSchema & { _id: Types.ObjectId }): Customer {
     return new Customer({
       id: data._id.toString(),
+      version: this.toVersion(data.__v, data._id), // BaseMapper; PersistanceError without __v
       no: data.no,
       name: data.name,
       balance_lcy: data.balance_lcy,
@@ -870,7 +995,7 @@ export class CustomerMapper implements IBaseMapper<INewCustomerSchema, Customer,
   }
 
   toPersistence(data: NewCustomer): INewCustomerSchema {
-    // Only include _id if it exists on the domain model
+    // Only include _id if it exists on the domain model. Never write __v: only BaseRepository.update() does.
     return !data.id
       ? { no: data.no, name: data.name, balance_lcy: data.balance_lcy }
       : { _id: new Types.ObjectId(data.id), no: data.no, name: data.name, balance_lcy: data.balance_lcy };
@@ -920,8 +1045,16 @@ export default CustomerRepository;
 | `findOne`  | `(filter: Partial<DBModel>, sort?, opts?): Promise<DomainModel \| null>`            |
 | `find`     | `(filter: Partial<DBModel>, limit?, offset?, sort?, opts?): Promise<DomainModel[]>` |
 | `count`    | `(filter: Partial<DBModel>, opts?): Promise<number>`                                |
-| `update`   | `(id: string, item: NewDomainModel, opts?): Promise<DomainModel>`                   |
-| `delete`   | `(id: string, opts?): Promise<void>`                                                |
+| `update`   | `(id: string, item: DomainModel, opts?): Promise<DomainModel \| null>`              |
+| `delete`   | `(id: string, opts?): Promise<DomainModel \| null>`                                 |
+
+**`update()` is a conditional write.** It takes the entity as read (`DomainModel extends
+IVersionedEntity`, so it carries `version`) and runs
+`findOneAndUpdate({ _id: id, __v: item.version }, { $set: toPersistence(item), $inc: { __v: 1 } })`:
+it returns the entity at its new version, `null` when no document has the id, and throws
+`RepositoryError` `VERSION_CONFLICT` when the document has moved past `item.version` (an update made from
+a stale read). Inside a transaction, a concurrent commit to the same document raises a `WriteConflict`
+labelled `TransientTransactionError` instead, and `withTransaction` re-runs the callback.
 
 **Error handling**: every inherited method runs inside `protected wrapDatabaseErrors(operation, fn)`,
 and a custom query method in a concrete repository must too
@@ -939,9 +1072,148 @@ classifies what `fn` throws, in this order:
    not open (Mongoose's buffering timeout) → `InfrastructureError` `CONNECTION_ERROR`
 6. Anything else → `PersistanceError` (`DATABASE_ERROR`)
 
+`update()`'s own `RepositoryError` `VERSION_CONFLICT` passes through the wrapper unchanged (rule 3).
+
 `RepositoryError` (`@/infrastructure/core/errors/repository.error`) is rejected caller data, not an
 infrastructure failure, so it does not extend `InfrastructureError`; `wrapInfrastructureErrors()`
 maps it to a `DomainServiceError` (§11b). Every translated error keeps the original in `data.cause`.
+
+#### 10d. The Email Log
+
+The email log records each email the application sends or tries to send. Its entity, schema, mapper,
+repository and repository contract follow §10a–§10c and §11a like any other resource:
+
+- the entity is in `src/domain/app/email/models/email.ts`;
+- the persistence files are in `repositories/mongoose/email/`;
+- `IEmailRepository` is in `application/interfaces/repositories/email/`.
+
+What is specific to it is who writes it: **only the email infrastructure**. Domain and application code
+send email through `IEmailService` (DI token `emailService`) and learn only that it was handed off. The
+email service keeps the log through `EmailLoggerService`
+(`src/infrastructure/email/email-log/email-logger.service.ts`). That service is not registered in DI,
+and it builds its own `EmailRepository`:
+
+```typescript
+// infrastructure/email/email-log/email-logger.service.ts
+export class EmailLoggerService {
+  constructor(private readonly emailRepository: IEmailRepository = new EmailRepository()) {}
+
+  newId(): string; // an id to log a not-yet-logged email under later
+  async getById(id: string): Promise<Email | null>; // null when there is none, like findById
+  async getAll(): Promise<Email[]>; // newest first
+  async get(offset: number, limit: number): Promise<Email[]>; // one page, newest first; RangeError when out of range
+  async create(email: NewEmail): Promise<Email>;
+  async update(email: Email): Promise<Email | null>;
+}
+```
+
+Emails are sent from a queue. Application code calls
+`enqueueEmail(new NewEmail({ ..., status: 'pending' }))`. The `EmailWorker`
+(`src/application/workers/email/email.worker.ts`, worker process only) hands each job to the email
+service's `deliverQueuedEmail(job)`, which writes the log, and closes the email queue's workers on
+shutdown (§9a):
+
+```typescript
+// API process — enqueueEmail(): queue the whole email under a fixed id; no database call
+const data: IEmailJobData = { id: email.id ?? this.emailLogger.newId(), user_id, to, cc, bcc, subject, body, ttl };
+await this.queue.addJob(queueName, data, { attempts, backoff: { type, delay }, removeOnComplete: true, removeOnFail: true });
+
+// Worker process — deliverQueuedEmail(job): log first, then send
+const email =
+  (await this.emailLogger.getById(job.data.id)) ??
+  (await this.emailLogger.create(new NewEmail({ ...job.data, status: 'pending' }))); // a throw here sends nothing
+await this.transport(email); // a throw here is retried; on the last attempt the email is marked failed first
+email.markSent();
+await this.emailLogger.update(email); // a failure here is logged, never rethrown
+```
+
+The queue settings come from `EMAIL_QUEUE_NAME` (default `${APP_NAME}-email-queue`),
+`EMAIL_QUEUE_ATTEMPTS` (total tries, default `5`), `EMAIL_QUEUE_RETRY_DELAY` (default `10000` ms) and
+`EMAIL_QUEUE_BACKOFF` (`exponential` or `fixed`).
+
+Rules:
+
+1. **Status moves only from `pending`**: `Email.markSent(sentOn?)` → `sent`, `Email.markFailed(message)`
+   → `failed`. Any other move throws `DomainEntityError`. Mongoose drops `undefined` keys from `$set`,
+   so `update()` cannot clear a stored field; allowing one move per email means a stale `sent_on` or
+   `error_message` can never be left behind. A `sent` email needs `sent_on`, a `failed` one needs
+   `error_message`.
+2. **The body is kept only while `pending`.** Both moves empty it, and the entity rejects a sent or
+   failed email that still has one. The body can carry one-time codes that signup stores only as
+   SHA-256 hashes. The schema does not mark `body` `required`, because Mongoose rejects `''` for a
+   required string. The queued job holds a copy until it finishes; finished jobs are deleted.
+3. **`user_id` is the user who triggered the send**, stored as an ObjectId with `ref: 'user'`.
+   `INewEmailSchema.user_id` is optional in TypeScript only, because the inherited `toFilter()` passes
+   partial filters through `toPersistence()`; the schema still requires it, and `EmailMapper.toDomain()`
+   throws `PersistanceError` for a record without one. **`ttl`** is an informational number of seconds
+   and does not expire the record.
+4. **Records expire after `EMAIL_LOG_TTL_DAYS`** (default `30`) through a TTL index on `createdAt`.
+   When the variable changes, MongoDB keeps the existing index's `expireAfterSeconds`; apply the new
+   value with `collMod`, or drop the index so it is rebuilt.
+5. **Errors pass through unchanged.** `EmailLoggerService` does not translate repository errors
+   (`RepositoryError`, `InfrastructureError`, `PersistanceError`); the email service that calls it
+   decides what a logging failure means for the send.
+6. **Never name a domain service `EmailService`**: auto-registration would give it the token
+   `emailService`, which belongs to the infrastructure email service.
+7. **The queue comes first, the log second.** `enqueueEmail()` makes no database call. The worker logs
+   the email as `pending` before sending it, so a database outage sends nothing and BullMQ retries the
+   job. The id is fixed when the email is queued, so a retry finds the same record; a `DUPLICATE_KEY`
+   from a concurrent run means it is already logged.
+8. **A failed send is rethrown, so BullMQ retries it.** On the last attempt
+   (`attemptsMade + 1 >= EMAIL_QUEUE_ATTEMPTS`) the email is first marked `failed`. An email that is no
+   longer `pending` is not sent again.
+9. **A log update after a successful send is logged, never rethrown**: a retried job would find the
+   email still `pending` and send it a second time. If the job cannot be queued at all,
+   `enqueueEmail()` tries to log the email as `failed`, then rethrows the `QueueError`.
+
+#### 10e. The Notification Log
+
+The notification log records each notification the application sends or tries to send, one record per
+channel. Like the email log (§10d), it follows §10a–§10c and §11a:
+
+- the record shape (`INotification`, `INotificationChannel`, `INotificationStatus`) is in
+  `application/interfaces/infrastructure/notification/notification.interface.ts`;
+- the entity (`NewNotification`, `Notification`) is in `src/domain/app/notification/models/notification.ts`.
+  `Notification` implements `INotification`;
+- the persistence files are in `repositories/mongoose/notification/` (collection `notification_logs`);
+- `INotificationRepository` is in `application/interfaces/repositories/notification/`.
+
+Only the notification infrastructure writes it, through `NotificationLoggerService`
+(`src/infrastructure/notification/notification-log/notification-logger.service.ts`). That service is not
+registered in DI, and it builds its own `NotificationRepository`. Nothing calls it yet: the notification
+manager will, once `enqueueNotification()` is implemented.
+
+```typescript
+// infrastructure/notification/notification-log/notification-logger.service.ts
+export class NotificationLoggerService {
+  constructor(private readonly notificationRepository: INotificationRepository = new NotificationRepository()) {}
+
+  newId(): string; // an id to log a not-yet-logged notification under later
+  async getById(id: string): Promise<Notification | null>; // null when there is none, like findById
+  async getAll(): Promise<Notification[]>; // newest first
+  async get(offset: number, limit: number): Promise<Notification[]>; // one page, newest first; RangeError when out of range
+  async create(notification: NewNotification): Promise<Notification>;
+  async update(notification: Notification): Promise<Notification | null>;
+}
+```
+
+Rules:
+
+1. **One record per channel.** The same notification sent by email and SMS is two records.
+2. **Two input types.** `INewNotification` is what callers pass to `INotificationManager.enqueueNotification()`;
+   it has no `id`, `status` or `service_provider`, which the manager sets. `INewNotificationRecord`
+   (`INotification` with an optional `id`) is what builds a `NewNotification`.
+3. **`triggered_on` must be a `Date`.** The entity throws `DomainEntityError` for a string, which is what a
+   queued notification's job data holds after BullMQ's JSON round trip; convert it first.
+4. **Status moves only from `pending`**: `Notification.markSent()` → `sent`, `Notification.markFailed()` →
+   `failed`. Any other move throws `DomainEntityError`, so a job that runs again can neither send a finished
+   notification a second time nor relabel a sent one as failed.
+5. **`channel` and `status` are checked twice**, against `NOTIFICATION_CHANNELS` / `NOTIFICATION_STATUSES`
+   (exported by the entity): in the entity's constructor and in the schema's `enum`.
+6. **`data` is a Mixed field, stored as given.** The schema sets `minimize: false`, so an empty payload is
+   kept as `{}`; `update()` replaces it whole. There is no TTL index: records do not expire.
+7. **Errors pass through unchanged**, as in `EmailLoggerService`: the caller decides what a logging failure
+   means for the send.
 
 ---
 
@@ -955,8 +1227,9 @@ maps it to a `DomainServiceError` (§11b). Every translated error keeps the orig
 // domain/erp/customer-service/models/customer.ts
 
 export interface INewCustomer {
-  // For user input / creation (id optional)
+  // For user input / creation (id and version optional)
   id?: string;
+  version?: number; // in an update payload: the version the client read
   no: string;
   name: string;
   balance_lcy?: number;
@@ -964,20 +1237,26 @@ export interface INewCustomer {
 }
 
 export interface ICustomer extends INewCustomer {
-  // For existing DB entities (id required)
+  // For existing DB entities (id and version required)
   id: string;
+  version: number;
 }
 
 export class NewCustomer extends DomainEntity {
   // For creating new entities
   protected _id?: string;
+  protected _version?: number;
   protected _no: string;
   // ...
   constructor(data: INewCustomer) {
     super(); /* ... */
+    if (data.version !== undefined) this._version = NewCustomer.checkVersion(data.version);
   }
   get id(): string | undefined {
     return this._id;
+  }
+  get version(): number | undefined {
+    return this._version; // read-only: no setter
   }
   get no(): string {
     return this._no;
@@ -987,17 +1266,26 @@ export class NewCustomer extends DomainEntity {
 export class Customer extends NewCustomer {
   // For existing entities from DB
   protected _id: string;
+  protected _version: number;
   constructor(data: ICustomer) {
     super(data);
     this._id = data.id;
+    this._version = Customer.checkVersion(data.version); // redeclared fields are reset after super()
   }
   get id(): string {
     return this._id;
+  }
+  get version(): number {
+    return this._version;
   }
 }
 
 export default Customer;
 ```
+
+Every root entity carries a read-only `version` (how many times it has been updated; Mongoose's
+`__v`). Only `BaseRepository.update()` advances it, so it has no setter. API responses include it, and
+`PUT` bodies send it back (§11b).
 
 | Context                     | Type to use          |
 | --------------------------- | -------------------- |
@@ -1046,6 +1334,20 @@ export class CustomerService extends BaseDomainService {
     return customer;
   }
 
+  async updateCustomer(
+    id: string,
+    data: Partial<INewCustomer>,
+    transactionOptions?: TransactionOptions,
+  ): Promise<Customer> {
+    const { version, ...changes } = data; // version has no setter: Object.assign() would throw on it
+    const customer = await this.getCustomerById(id, transactionOptions);
+    this.assertVersion(customer, version, 'Customer'); // CONFLICT for a stale version, before any write
+    Object.assign(customer, changes);
+    const updated = await this.customerRepository.update(id, customer, transactionOptions);
+    if (!updated) throw new DomainServiceError(`Customer with id '${id}' not found`, 'NOT_FOUND');
+    return updated;
+  }
+
   async countCustomers(): Promise<number> {
     return this.customerRepository.count({});
   }
@@ -1062,6 +1364,7 @@ export default CustomerService;
 | `'USER_PERMISSION_ERROR'` | 403         |
 | `'NOT_FOUND'`             | 404         |
 | `'ALREADY_EXISTS'`        | 400         |
+| `'CONFLICT'`              | 409         |
 | `'VALIDATION_ERROR'`      | 400         |
 | `'INVALID_OPERATION'`     | 400         |
 | `'INCOMPLETE_MODEL'`      | 400         |
@@ -1073,8 +1376,13 @@ export default CustomerService;
   infrastructure type (`data.type`) is `NETWORK_ERROR` / `CONNECTION_ERROR`, otherwise 500 — always
   with a generic message, never the infrastructure error's own.
 - `wrapInfrastructureErrors()` maps a repository's `RepositoryError` (§10c) first: `DUPLICATE_KEY` →
-  `'ALREADY_EXISTS'`, `INVALID_ID` → `'VALIDATION_ERROR'`, each with a fixed client-safe message (the
-  repository's message holds index names and key values) and without calling `onError`.
+  `'ALREADY_EXISTS'`, `INVALID_ID` → `'VALIDATION_ERROR'`, `VERSION_CONFLICT` → `'CONFLICT'`, each
+  with a fixed client-safe message (the repository's message holds index names and key values) and
+  without calling `onError`.
+- An `update` takes the `version` the client read: destructure it out of the payload, then call
+  `this.assertVersion(entity, version, 'Name')` right after reading the entity and before any side
+  effect. It throws `'CONFLICT'` for a stale version and does nothing for `undefined` (internal callers
+  write with the version they just read).
 
 ---
 

@@ -60,10 +60,14 @@ npm ci
 
 2. Environment files
 
-The app loads .env files by NODE_ENV in src/app/app.ts:
+Outside production, the app loads `.env.${NODE_ENV}` in src/app/core/config/load-env.ts (in production, Docker
+Compose or PM2 injects `.env.production`):
 
 ```ts
-dotenv.config({ path: path.resolve(__dirname, `../../.env.${process.env.NODE_ENV}`) });
+dotenv.config({
+  path: path.resolve(__dirname, `../../../../.env.${process.env.NODE_ENV}`),
+  override: false,
+});
 ```
 
 Create .env.development for local dev (example):
@@ -82,8 +86,8 @@ MONGODB_URI=mongodb://localhost:27017/infinite-node?replicaSet=rs0
 
 # Redis / Cache
 CACHE_DRIVER=redis
-CACHE_SERVER_URL=redis://127.0.0.1:6379
-CACHE_TTL=3600
+REDIS_SERVER_URL=redis://127.0.0.1:6379
+REDIS_TTL=3600
 
 # JWT (RS256) — see Docs/Getting_Started.md#4-generating-jwt-rs256-keys to generate these
 JWT_PRIVATE_KEY=
@@ -239,10 +243,11 @@ Located in src/app/core/config:
 - src/presentation/http/routes/user.routes.ts under /users — user CRUD
 - src/presentation/http/routes/health.routes.ts under /health — see [Quickstart](#quickstart)
 - Validation: RequestValidatorMiddleware wraps express-validator schemas; UserValidatorMiddleware
-  authenticates the request on every route (per §13 of `CLAUDE.md`)
+  authenticates every route except the public health and sign-in/sign-up routes (see `CLAUDE.md`
+  §9.5 Authenticate every non-public route)
 - API responses: ApiResponseUtils in app/core/utils/api-response. Infrastructure failures
   (database, cache, queue, …) always answer with a generic 500, or 503 for network/connection
-  failures — the underlying error is logged, never returned (see §15 of `CLAUDE.md`)
+  failures — the underlying error is logged, never returned (see `CLAUDE.md` §10 Errors → HTTP status)
 - Mongoose models: User, LoginRecord, UserGroup, PasswordResetCodes, Resource, Role
 
 ### Logging
@@ -329,7 +334,7 @@ without external services, except `base-repository.spec.ts`, which needs a real 
 
 ## Extending
 
-- Add an infrastructure service by following the pattern in §14 of `CLAUDE.md` (interface → driver
+- Add an infrastructure service by following `CLAUDE.md` §11 Infrastructure services (interface → driver
   → service → factory), then register the factory in
   src/infrastructure/infrastructure.loader.ts
 - Add feature routes under src/presentation/http/routes and controllers under
@@ -346,7 +351,7 @@ without external services, except `base-repository.spec.ts`, which needs a real 
 - GitHub fills the pull request body from
   [`.github/pull_request_template.md`](.github/pull_request_template.md): summary, changes,
   breaking changes, test plan, checklist and notes for reviewers. Its checks are the Definition of
-  Done in §23 of `CLAUDE.md`, plus `npm test`
+  Done in `CLAUDE.md` §13.2, plus `npm test`
 - GitHub offers the template only once it is on `main`. With the GitHub CLI, `gh pr create --body`
   replaces the template; `gh pr create --web` opens the GitHub form, which starts from it
 

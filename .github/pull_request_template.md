@@ -27,11 +27,11 @@ routes, response shapes, renamed or removed env vars, data migrations. Write "No
 
 ## Checklist
 
-- [ ] Follows the layer patterns in `CLAUDE.md` / `AGENTS.md`; no inner layer imports an outer one
-- [ ] Full-tag JSDoc on every new or changed non-trivial method (`CLAUDE.md` §22)
-- [ ] No new type assertions beyond the pre-approved exceptions (`CLAUDE.md` §24)
+- [ ] Follows the patterns in `CLAUDE.md`; imports point inward (`CLAUDE.md` §2.1)
+- [ ] Full-tag JSDoc on every new or changed non-trivial method (`CLAUDE.md` §12.5 JSDoc)
+- [ ] No new type assertions beyond the pre-approved exceptions (`CLAUDE.md` §12.6 Type assertions)
 - [ ] New env vars are in `.env.example`
-- [ ] Docs updated where behavior or a pattern changed (`CLAUDE.md`, `AGENTS.md`, `README.md`, `Docs/`)
+- [ ] Docs updated where behavior or a pattern changed (`CLAUDE.md`, `README.md`, `Docs/`)
 - [ ] Release PR (`dev` → `main`): `version` bumped in `package.json`
 
 ## Notes for reviewers

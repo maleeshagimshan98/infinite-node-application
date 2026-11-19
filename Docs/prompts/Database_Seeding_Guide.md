@@ -28,6 +28,10 @@ Seeders are **idempotent** — re-running them skips data that already exists.
 ## Prerequisites
 
 - MongoDB reachable with the connection settings of your environment
+- **Indexes built first**: run `npm run db:indexes` before `npm run seed` (production:
+  `db:indexes:prod` before `seed:prod`; Docker Compose runs its `db-indexes` service before `seed`).
+  With `MONGODB_AUTO_INDEX=false` nothing else builds the unique indexes, and seeding without them
+  leaves the uniqueness rules unenforced. `npm run db:indexes:check` lists existing duplicates first
 - Environment variables: the seeder sets `NODE_ENV` to `development` when unset, then loads
   `.env.${NODE_ENV}` from the service root, followed by a plain `.env` fallback:
 
@@ -49,6 +53,11 @@ dotenv.config(); // Load environment variables from .env file
 
 The process exits with code `0` on success and `1` on failure. Existing data is reported as
 `⏭️ Skipped (Already Exists)` — running `npm run seed` twice is safe.
+
+| Command                    | Script                                                                 | Effect                                                                                     |
+| -------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `npm run db:indexes`       | `tsx src/infrastructure/persistance/database/indexes/db-indexes.ts`    | Lists duplicates (then changes nothing); else normalizes emails, backfills `__v: 0`, builds missing indexes |
+| `npm run db:indexes:check` | same file with `--check`                                               | Audits for duplicates and lists missing indexes; changes nothing                           |
 
 ## What Gets Seeded
 
@@ -178,8 +187,9 @@ own `serviceName()` automatically — no separate manual step is needed.
 > **RULE**: Every seeder is **idempotent** — check for existing data first (e.g.
 > `getDefaultGroup()`), skip or per-item catch duplicate errors, and report what was skipped.
 > Detect a duplicate by its **type**, never by matching the message text — the domain service
-> throws `DomainServiceError` `'ALREADY_EXISTS'` for a duplicate unique value; rethrow everything
-> else:
+> throws `DomainServiceError` `'ALREADY_EXISTS'` for a duplicate unique value, either from its own
+> check (with a specific message) or from a unique index when another writer won the race (with a
+> generic message); rethrow everything else:
 >
 > ```typescript
 > try {
@@ -208,7 +218,7 @@ own `serviceName()` automatically — no separate manual step is needed.
      a DomainServiceError of type 'ALREADY_EXISTS' and rethrow anything else
 ☐ 5. Wire seed{Feature}() into runAllSeeders() and clear{Feature}() into clearAllSeeders()
      in seeder.ts, respecting dependency order (seed: dependencies first; clear: reverse)
-☐ 6. Run npm run seed twice — second run must skip cleanly
+☐ 6. Run npm run db:indexes, then npm run seed twice — second run must skip cleanly
 ```
 
 ## Related Documents

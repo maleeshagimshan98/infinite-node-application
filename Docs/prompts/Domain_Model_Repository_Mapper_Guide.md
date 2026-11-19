@@ -85,6 +85,7 @@ Every domain model consists of two interfaces and two classes:
 // src/domain/user/models/user-group.ts
 export interface INewUserGroup {
   id?: string;
+  version?: number;
   name: string;
   description: string;
   discount: number;
@@ -93,10 +94,12 @@ export interface INewUserGroup {
 
 export interface IUserGroup extends INewUserGroup {
   id: string;
+  version: number;
 }
 
 export class NewUserGroup extends DomainEntity {
   protected _id?: string;
+  protected _version?: number;
   protected _name: string;
   protected _description: string;
   protected _discount: number;
@@ -107,6 +110,9 @@ export class NewUserGroup extends DomainEntity {
     if (data.id) {
       this._id = data.id;
     }
+    if (data.version !== undefined) {
+      this._version = NewUserGroup.checkVersion(data.version);
+    }
     this._name = data.name;
     this._description = data.description;
     this._discount = data.discount;
@@ -116,19 +122,30 @@ export class NewUserGroup extends DomainEntity {
   get id(): string | undefined {
     return this._id;
   }
-  // ... remaining getters/setters omitted
+
+  get version(): number | undefined {
+    return this._version;
+  }
+  // ... remaining getters/setters omitted (no setter for version)
 }
 
 export class UserGroup extends NewUserGroup {
   protected _id: string;
+  protected _version: number;
 
   constructor(data: IUserGroup) {
     super(data);
     this._id = data.id;
+    // Redeclared fields are reset after super() returns, so assign it here, as _id is.
+    this._version = UserGroup.checkVersion(data.version);
   }
 
   get id(): string {
     return this._id;
+  }
+
+  get version(): number {
+    return this._version;
   }
 }
 
@@ -143,6 +160,28 @@ export default UserGroup;
 
 This is why `X extends NewX` only overrides `_id` to a required `string`: the creation context and
 the persisted context are the same model with different identity guarantees.
+
+> **RULE**: Every root domain model has a **version**, following the `id` pattern: optional on
+> `INewX` / `NewX` (a new entity has none yet; in an update payload it is the version the client read),
+> required on `IX` / `X` (the version the entity was read at). It counts the entity's updates, and
+> `BaseRepository.update()` writes only while the stored version still equals it.
+
+- **Read-only.** Expose a `version` getter and never a setter: only the repository advances it. Because
+  it has no setter, `Object.assign(entity, { version })` throws a `TypeError` — services take `version`
+  out of an update payload first.
+- **Validated.** Assign it through `DomainEntity.checkVersion()`, which throws `DomainEntityError` unless
+  it is an integer ≥ 0. `X`'s constructor checks it too, so an `X` built from untyped JSON (e.g. a cache)
+  without a version fails instead of carrying `undefined`.
+- **Assigned again in `X`.** `tsconfig` targets ESNext, so class fields use define semantics: a
+  `protected _version: number` redeclared in `X` is reset to `undefined` after `super()` returns.
+- **Per root document.** Sub-documents have no version of their own: changing an embedded entry bumps
+  its root's version. A `User`'s version does not change when its populated `Role` changes.
+
+> **RULE**: An entity that stores an email normalizes it with `normalizeEmail()`
+> (`@/domain/base/normalize-email`: trimmed, lowercase) in its constructor and setter, because the
+> unique indexes on emails compare exact strings. The schema path declares the same normalization
+> (`{ type: String, lowercase: true, trim: true }`), so a write that bypasses the domain model stores
+> it normalized too, and `db:indexes` audits it (The Schema, below).
 
 ### Property Naming
 
@@ -250,10 +289,15 @@ private initValues<T, K>(values: Record<string, T>, classRef: new (value: T) => 
 > `Types.ObjectId` — the type MongoDB actually stores and Mongoose hydrates on read. Sub-documents
 > may or may not have an `_id` property, depending on whether the embedded entity needs identity.
 
+> **RULE**: A root document's interface declares Mongoose's version key as **`__v?: number`**, next
+> to `_id`. Mongoose sets it to 0 on every insert; the mapper reads it and never writes it, and only
+> `BaseRepository.update()` advances it. Sub-documents have no `__v`.
+
 ```typescript
 // src/infrastructure/persistance/database/repositories/mongoose/user-groups/user-group.model.ts
 export interface INewUserGroupSchema {
   _id?: Types.ObjectId;
+  __v?: number;
   name: string;
   description: string;
   discount: number;
@@ -290,8 +334,27 @@ export const UserGroupSchema: Schema = new Schema<INewUserGroupSchema>({
   default: { type: Boolean, required: true },
 });
 
+UserGroupSchema.index({ name: 1 }, { unique: true });
+// At most one default group; any number of non-default ones.
+UserGroupSchema.index({ default: 1 }, { unique: true, partialFilterExpression: { default: true } });
+
 export const UserGroupModel = mongoose.model<INewUserGroupSchema>('user-group', UserGroupSchema);
 ```
+
+> **RULE**: Every uniqueness rule a domain service checks has a matching **unique index** on the
+> root schema; a rule without one is a bug. The service's `findOne` pre-check gives the specific
+> message, but two concurrent requests can both pass it — only the index stops the second insert
+> (`RepositoryError` `DUPLICATE_KEY` → `ALREADY_EXISTS`). Declare every index with `schema.index()`
+> (not `unique: true` on the field), so plain and conditional rules look the same, and use a
+> `partialFilterExpression` when the rule is conditional (one default, one pending code per email).
+> A partial "one default" index requires the write order "unset the old default, then set the new one".
+
+> **NOTE**: Indexes are built by `npm run db:indexes`, which first lists any existing duplicates and
+> then changes nothing; `db:indexes:check` only audits. A unique key whose schema path is `lowercase` /
+> `trim` is compared normalized, so `Jane@X.com` and `jane@x.com` are listed as duplicates. Values such
+> a path stores un-normalized (written before normalization existed) are reported, and normalized when
+> the run applies its changes, so lookups by email find them again. Production sets
+> `MONGODB_AUTO_INDEX=false` and runs `db:indexes:prod` before each rollout.
 
 ### Root Documents vs Sub-Documents
 
@@ -369,7 +432,7 @@ export abstract class BaseMapper<DBSchema, DomainModel, NewDomainModel> implemen
 ```
 
 > **Exception**: the casts through `Record<string, unknown>` in `toFilter` above are pre-approved
-> under this project's Type Assertions Policy (`CLAUDE.md` §24 / `AGENTS.md`) — they bridge the
+> under this project's type assertions rule (`CLAUDE.md` §12.6) — they bridge the
 > generic `NewDomainModel`/`DBSchema` relationship at a base-class boundary TS can't verify
 > structurally. Don't add further assertions elsewhere in a mapper without asking first.
 
@@ -382,6 +445,13 @@ export abstract class BaseMapper<DBSchema, DomainModel, NewDomainModel> implemen
 > narrows optional → required for a hydrated read. Never create a separate interface for it, and
 > always call `.toString()` on `_id` — never assign it directly.
 
+> **RULE**: `toDomain` reads the version with `version: this.toVersion(data.__v, data._id)`.
+> `BaseMapper.toVersion()` throws `PersistanceError` for a document without `__v` (only a document
+> this application never wrote lacks one; `db:indexes` backfills them). **`toPersistence` never writes
+> `__v`** — a `$set.__v` next to the repository's `$inc.__v` makes MongoDB reject the update. A type
+> guard for a populated ref (e.g. `UserMapper.isPopulatedRole()`) uses the schema's alias, which carries
+> `__v?` along with the other fields.
+
 ### Flat Mapper Example
 
 ```typescript
@@ -390,6 +460,7 @@ export class UserGroupMapper extends BaseMapper<INewUserGroupSchema, UserGroup, 
   toDomain(data: INewUserGroupSchema & { _id: Types.ObjectId }): UserGroup {
     return new UserGroup({
       id: data._id.toString(),
+      version: this.toVersion(data.__v, data._id),
       name: data.name,
       description: data.description,
       discount: data.discount,
@@ -448,6 +519,13 @@ export default UserGroupRepository;
 > **NOTE**: Domain services and controllers depend on `IUserGroupRepository` (the interface in
 > `application/interfaces/repositories/`), never on the concrete repository class.
 
+> **RULE**: `update(id, item)` takes the **entity as read** (`DomainModel`, not `NewDomainModel`:
+> `IBaseRepository<DomainModel extends IVersionedEntity, NewDomainModel>`) and is a conditional write:
+> `findOneAndUpdate({ _id: id, __v: item.version }, { $set: toPersistence(item), $inc: { __v: 1 } })`.
+> It returns the entity at its new version, `null` when no document has the id, and throws
+> `RepositoryError` `VERSION_CONFLICT` when the document has moved past `item.version`. Read the
+> entity, change it, and update it with the version you read; never update a `NewX` built from input.
+
 ### Repository Errors
 
 Every inherited method runs inside `BaseRepository`'s `protected wrapDatabaseErrors(operation, fn)`,
@@ -459,6 +537,7 @@ so no raw Mongoose / MongoDB error leaves a repository:
 | Malformed ObjectId — `CastError`, or the mapper's `new Types.ObjectId()` (`BSONError`) | `RepositoryError` `INVALID_ID`               |
 | Not a database error (e.g. a mapper's `DomainEntityError`)                             | The same error, unchanged                    |
 | E11000 duplicate key                                                                   | `RepositoryError` `DUPLICATE_KEY`            |
+| `update()` of a document that moved past `item.version`                                | `RepositoryError` `VERSION_CONFLICT`         |
 | Database unreachable (network, server selection, connection not open)                  | `InfrastructureError` `CONNECTION_ERROR`     |
 | Any other database failure                                                             | `PersistanceError` (`DATABASE_ERROR`)        |
 
@@ -473,7 +552,8 @@ so no raw Mongoose / MongoDB error leaves a repository:
 > ```
 >
 > Domain services never handle these directly: `wrapInfrastructureErrors()` maps `DUPLICATE_KEY` →
-> `ALREADY_EXISTS` and `INVALID_ID` → `VALIDATION_ERROR` with client-safe messages.
+> `ALREADY_EXISTS`, `INVALID_ID` → `VALIDATION_ERROR` and `VERSION_CONFLICT` → `CONFLICT` (409) with
+> client-safe messages.
 
 ---
 
@@ -681,21 +761,25 @@ toPersistence(data: NewOrder): INewOrderSchema {
 
 ```
 ☐ 1.  Domain model (INewX, IX, NewX extends DomainEntity, X extends NewX) — src/domain/{feature}/models/
+      with a read-only version (optional on INewX/NewX, required on IX/X, checkVersion(), no setter)
 ☐ 2.  Domain invariants validated in constructors/setters → DomainEntityError
 ☐ 3.  Decide sub-documents: child domain model / class-instance property → sub-document model;
       primitive or Record<string, primitive> → plain schema field. Unclear? Ask the owner.
-☐ 4.  Persistence model interface: INew{Model}Schema ONLY, optional _id typed Types.ObjectId, snake_case names
-      (sub-documents: _id optional or absent as needed)
-☐ 5.  Schema with the same property names as the interface; { timestamps: true } on the root
+☐ 4.  Persistence model interface: INew{Model}Schema ONLY, optional _id typed Types.ObjectId, __v?: number on
+      the root, snake_case names (sub-documents: _id optional or absent as needed, no __v)
+☐ 5.  Schema with the same property names as the interface; { timestamps: true } on the root;
+      a schema.index({ … }, { unique: true }) for every uniqueness rule (partial when conditional)
 ☐ 6.  model() on the ROOT document only — sub-document files export their Schema only
 ☐ 7.  Sub-document mappers extend BaseSubDocumentMapper<DBSchema, DomainModel, NewDomainModel>
       (DBSchema = persistence model interface, DomainModel = constructor interface, NewDomainModel = child class)
 ☐ 8.  Root mapper extends BaseMapper; holds sub-document mappers as private readonly fields;
-      toDomain uses the & { _id } intersection and ._id.toString(); toPersistence omits _id when id is falsy
-      and converts via new Types.ObjectId(data.id) when present
+      toDomain uses the & { _id } intersection and ._id.toString(), and version: this.toVersion(data.__v, data._id);
+      toPersistence omits _id when id is falsy, converts via new Types.ObjectId(data.id) when present,
+      and never writes __v
 ☐ 9.  Repository interface in application/interfaces/repositories/; class extends BaseRepository;
       no CRUD duplication; custom query methods run inside this.wrapDatabaseErrors(); export default
-☐ 10. JSDoc on every non-trivial method; npm run lint clean; npx tsc --noEmit passes
+☐ 10. JSDoc on every non-trivial method; npm run lint clean; npx tsc --noEmit passes;
+      a new index is built with npm run db:indexes (after db:indexes:check reports no duplicates)
 ☐ 11. Route, controller, domain/application service, and validator are the remaining pieces of
       this resource's file set — see Docs/prompts/API_Resource_Guide.md for those steps, and
       Docs/prompts/Database_Seeding_Guide.md if the resource needs seeded default data
@@ -709,6 +793,7 @@ toPersistence(data: NewOrder): INewOrderSchema {
 > - **Persistence model/schema** — add/remove/rename the corresponding schema field and its type
 > - **Persistence mapper** — update `toDomain`/`toPersistence` for the field
 > - **Persistence repository** — update any custom queries, filters, or indexes that reference the field
+>   (a field that becomes unique gets a unique index on the schema)
 > - **Validator** — update the express-validator schema for the field
 > - **Controller** — update request/response shape (DTOs, serialized fields) that exposes the field
 > - **Seeder** — update default/bootstrap data to match the new shape, if the resource has a seeder
@@ -725,4 +810,4 @@ toPersistence(data: NewOrder): INewOrderSchema {
 - `./Database_Seeding_Guide.md` — initializing the database with default data
 - `Docs/architecture/infrastructure-layer-pattern.md` — where these artifacts sit
   in the infrastructure layer, DI registration, drivers and factories
-- Root `CLAUDE.md` and `AGENTS.md` — the condensed rule set these patterns belong to
+- Root `CLAUDE.md` — the rule set these patterns belong to (`AGENTS.md` points to it)

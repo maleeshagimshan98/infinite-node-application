@@ -20,6 +20,21 @@
       "key": "authToken",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "userVersion",
+      "value": "0",
+      "type": "string"
+    },
+    {
+      "key": "resourceVersion",
+      "value": "0",
+      "type": "string"
+    },
+    {
+      "key": "roleVersion",
+      "value": "0",
+      "type": "string"
     }
   ],
   "item": [
@@ -410,6 +425,9 @@
                   "    if (jsonData.data && jsonData.data.id) {",
                   "        pm.environment.set('userId', jsonData.data.id);",
                   "    }",
+                  "    if (jsonData.data && typeof jsonData.data.version === 'number') {",
+                  "        pm.environment.set('userVersion', jsonData.data.version);",
+                  "    }",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -488,9 +506,25 @@
               "host": ["{{baseUrl}}"],
               "path": ["{{apiPrefix}}", "users", "{{userId}}"]
             },
-            "description": "Get a single user by its id"
+            "description": "Get a single user by its id. Stores its `version` in `{{userVersion}}` for Update User."
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data && typeof jsonData.data.version === 'number') {",
+                  "        pm.environment.set('userVersion', jsonData.data.version);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Update User",
@@ -509,16 +543,32 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"active\"\n}"
+              "raw": "{\n  \"version\": {{userVersion}},\n  \"status\": \"active\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}{{apiPrefix}}/users/{{userId}}",
               "host": ["{{baseUrl}}"],
               "path": ["{{apiPrefix}}", "users", "{{userId}}"]
             },
-            "description": "Update a user by its id"
+            "description": "Update a user by its id. The body must carry the `version` of the user you read: Create, Get By Id and Update store it in `{{userVersion}}`. A stale version is answered with 409 (CONFLICT) and nothing changes; read the user again and retry."
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data && typeof jsonData.data.version === 'number') {",
+                  "        pm.environment.set('userVersion', jsonData.data.version);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Delete User",
@@ -556,6 +606,9 @@
                   "    const jsonData = pm.response.json();",
                   "    if (jsonData.data && jsonData.data.id) {",
                   "        pm.environment.set('resourceId', jsonData.data.id);",
+                  "    }",
+                  "    if (jsonData.data && typeof jsonData.data.version === 'number') {",
+                  "        pm.environment.set('resourceVersion', jsonData.data.version);",
                   "    }",
                   "}"
                 ],
@@ -635,9 +688,25 @@
               "host": ["{{baseUrl}}"],
               "path": ["{{apiPrefix}}", "auth", "resources", "{{resourceId}}"]
             },
-            "description": "Get a single resource by its id"
+            "description": "Get a single resource by its id. Stores its `version` in `{{resourceVersion}}` for Update Resource."
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data && typeof jsonData.data.version === 'number') {",
+                  "        pm.environment.set('resourceVersion', jsonData.data.version);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Update Resource",
@@ -656,16 +725,32 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Updated order management resource\"\n}"
+              "raw": "{\n  \"version\": {{resourceVersion}},\n  \"description\": \"Updated order management resource\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}{{apiPrefix}}/auth/resources/{{resourceId}}",
               "host": ["{{baseUrl}}"],
               "path": ["{{apiPrefix}}", "auth", "resources", "{{resourceId}}"]
             },
-            "description": "Update a resource by its id"
+            "description": "Update a resource by its id. The body must carry the `version` of the resource you read: Create, Get By Id and Update store it in `{{resourceVersion}}`. A stale version is answered with 409 (CONFLICT) and nothing changes; read the resource again and retry."
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data && typeof jsonData.data.version === 'number') {",
+                  "        pm.environment.set('resourceVersion', jsonData.data.version);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Delete Resource",
@@ -703,6 +788,9 @@
                   "    const jsonData = pm.response.json();",
                   "    if (jsonData.data && jsonData.data.id) {",
                   "        pm.environment.set('roleId', jsonData.data.id);",
+                  "    }",
+                  "    if (jsonData.data && typeof jsonData.data.version === 'number') {",
+                  "        pm.environment.set('roleVersion', jsonData.data.version);",
                   "    }",
                   "}"
                 ],
@@ -782,9 +870,25 @@
               "host": ["{{baseUrl}}"],
               "path": ["{{apiPrefix}}", "auth", "roles", "{{roleId}}"]
             },
-            "description": "Get a single role by its id"
+            "description": "Get a single role by its id. Stores its `version` in `{{roleVersion}}` for Update Role."
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data && typeof jsonData.data.version === 'number') {",
+                  "        pm.environment.set('roleVersion', jsonData.data.version);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Update Role",
@@ -803,16 +907,32 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Can manage and review orders\",\n  \"resource_permissions\": [\n    {\n      \"resource_id\": \"{{resourceId}}\",\n      \"permission\": {\n        \"read\": true,\n        \"write\": true,\n        \"update\": true,\n        \"delete\": true\n      }\n    }\n  ]\n}"
+              "raw": "{\n  \"version\": {{roleVersion}},\n  \"description\": \"Can manage and review orders\",\n  \"resource_permissions\": [\n    {\n      \"resource_id\": \"{{resourceId}}\",\n      \"permission\": {\n        \"read\": true,\n        \"write\": true,\n        \"update\": true,\n        \"delete\": true\n      }\n    }\n  ]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}{{apiPrefix}}/auth/roles/{{roleId}}",
               "host": ["{{baseUrl}}"],
               "path": ["{{apiPrefix}}", "auth", "roles", "{{roleId}}"]
             },
-            "description": "Update a role by its id"
+            "description": "Update a role by its id. The body must carry the `version` of the role you read: Create, Get By Id and Update store it in `{{roleVersion}}`. A stale version is answered with 409 (CONFLICT) and nothing changes; read the role again and retry."
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data && typeof jsonData.data.version === 'number') {",
+                  "        pm.environment.set('roleVersion', jsonData.data.version);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Delete Role",

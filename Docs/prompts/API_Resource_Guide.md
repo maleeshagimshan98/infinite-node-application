@@ -292,8 +292,8 @@ MongoDB (via Mongoose)
 
 **Interface Naming Convention**:
 
-- `INewModel`: Used for **user input/creation** - `id` is optional (`id?: string`)
-- `IModel`: Used for **database entities** - `id` is required (`id: string`)
+- `INewModel`: Used for **user input/creation** - `id` and `version` are optional (`id?: string`, `version?: number`)
+- `IModel`: Used for **database entities** - `id` and `version` are required (`id: string`, `version: number`)
 
 **Class Structure**:
 
@@ -325,6 +325,7 @@ type ModelStatus = 'active' | 'inactive' | 'pending';
 
 export interface INewModel {
   id?: string;
+  version?: number; // in an update payload: the version the client read
   name: string;
   status: ModelStatus;
   // ... other fields
@@ -332,10 +333,12 @@ export interface INewModel {
 
 export interface IModel extends INewModel {
   id: string;
+  version: number;
 }
 
 export class NewModel extends DomainEntity {
   protected _id?: string;
+  protected _version?: number;
   protected _name: string;
   protected _status: ModelStatus;
 
@@ -343,6 +346,9 @@ export class NewModel extends DomainEntity {
     super();
     if (data.id) {
       this._id = data.id;
+    }
+    if (data.version !== undefined) {
+      this._version = NewModel.checkVersion(data.version); // DomainEntityError unless an integer >= 0
     }
     this._name = data.name;
     this._status = data.status;
@@ -354,6 +360,11 @@ export class NewModel extends DomainEntity {
   // Getters
   get id(): string | undefined {
     return this._id;
+  }
+
+  // Read-only: no setter. Only BaseRepository.update() advances the version.
+  get version(): number | undefined {
+    return this._version;
   }
 
   get name(): string {
@@ -382,15 +393,22 @@ export class NewModel extends DomainEntity {
 
 export class Model extends NewModel {
   protected _id: string;
+  protected _version: number;
 
   constructor(data: IModel) {
     super(data);
     this._id = data.id;
+    // Redeclared fields are reset after super() returns (ESNext class fields), so assign it here, as _id is.
+    this._version = Model.checkVersion(data.version);
   }
 
   // Override id getter to return required string
   get id(): string {
     return this._id;
+  }
+
+  get version(): number {
+    return this._version;
   }
 
   // Business logic methods
@@ -410,6 +428,8 @@ export default Model;
 - `NewModel`: Class for creation (id is optional) — **must extend `DomainEntity`**
 - `Model`: Class for existing entities (id is required, extends NewModel)
 - Use protected fields with getters/setters
+- **Every root model has a read-only `version`** (Mongoose's `__v`): optional on `INewModel` / `NewModel`, required on `IModel` / `Model`, never a setter — only `BaseRepository.update()` advances it
+- An email field is stored trimmed and in lowercase: `normalizeEmail()` (`@/domain/base/normalize-email`) in the constructor and setter
 - Add business logic methods to domain models
 - **Throw `DomainEntityError`** (from `@/domain/base/DomainEntityError`) for invariant violations in constructors and setters — **never use plain `Error` inside domain models**
 - `DomainEntityError` is distinct from `DomainServiceError`: entity-level invariants (e.g. field value constraints) belong in the model; business rule violations (e.g. not-found, already-exists) belong in the service
@@ -459,6 +479,7 @@ type ModelStatus = 'active' | 'inactive' | 'pending';
 
 export interface INewModelSchema {
   _id?: Types.ObjectId;
+  __v?: number; // Mongoose's version key: the mapper reads it, only BaseRepository writes it
   name: string;
   status: ModelStatus;
   // ... other fields
@@ -478,12 +499,16 @@ export const ModelSchema = new Schema<INewModelSchema>(
   { timestamps: true }, // Adds createdAt and updatedAt
 );
 
+// One unique index per uniqueness rule the domain service checks (here: unique names)
+ModelSchema.index({ name: 1 }, { unique: true });
+
 export const ModelModel = model('model', ModelSchema);
 ```
 
 **Conventions**:
 
-- Use `INew{Model}Schema` interface for TypeScript typing
+- Use `INew{Model}Schema` interface for TypeScript typing, with `__v?: number` next to `_id`
+- **Every uniqueness rule the domain service checks needs a `schema.index({ … }, { unique: true })`** — with a `partialFilterExpression` when the rule is conditional (e.g. `{ default: 1 }` partial on `{ default: true }` for "one default"). Without it, two concurrent requests both pass the service's check and both insert. Build it with `npm run db:indexes` (`db:indexes:check` lists existing duplicates first)
 - Use `timestamps: true` for automatic date tracking
 - Define enums explicitly in schema for validation
 - Model export is not strictly required for auto-registration, but schema and mappers are used by repositories
@@ -495,6 +520,7 @@ export const ModelModel = model('model', ModelSchema);
 ```typescript
 export interface INewModelSchema {
   _id?: Types.ObjectId; // optional — omitted on fresh creates
+  __v?: number; // optional — Mongoose's version key
   name: string;
   status: ModelStatus;
   // ... fields
@@ -554,6 +580,7 @@ export class ModelMapper extends BaseMapper<INewModelSchema, Model, NewModel> {
   toDomain(data: INewModelSchema & { _id: Types.ObjectId }): Model {
     return new Model({
       id: data._id.toString(),
+      version: this.toVersion(data.__v, data._id),
       name: data.name,
       status: data.status,
       // ... other fields
@@ -580,7 +607,8 @@ export class ModelMapper extends BaseMapper<INewModelSchema, Model, NewModel> {
 **Conventions**:
 
 - `toDomain()`: Converts database schema (`INewModelSchema & { _id: Types.ObjectId }`) to domain model (`Model` with required id); always call `.toString()` on `_id` — never assign directly
-- `toPersistence()`: Converts domain model (`NewModel`) to database schema (`INewModelSchema`)
+- `toDomain()` reads the version with `this.toVersion(data.__v, data._id)` (`PersistanceError` for a document without `__v`)
+- `toPersistence()`: Converts domain model (`NewModel`) to database schema (`INewModelSchema`); it **never writes `__v`** — only `BaseRepository.update()` does
 - Handle `id` vs `_id` mapping (domain uses `id`, MongoDB uses `_id`)
 - Check if `data.id` exists to determine if `_id` should be included in persistence object; when included, convert with `new Types.ObjectId(data.id)` — never assign the raw string (requires a value import of `Types`)
 - Concrete mappers **must extend `BaseMapper`**, not implement `IBaseMapper` directly — `toFilter` is inherited and must not be overridden
@@ -649,7 +677,7 @@ export default ModelRepository;
 - `findOne(filter: Partial<NewModel>, sort?: Record<string, 1 | -1>, transactionOptions?: TransactionOptions): Promise<Model | null>`
 - `find(filter: Partial<NewModel>, limit?: number, offset?: number, sort?: Record<string, 1 | -1>, transactionOptions?: TransactionOptions): Promise<Model[]>`
 - `count(filter: Partial<NewModel>, transactionOptions?: TransactionOptions): Promise<number>`
-- `update(id: string, item: NewModel, transactionOptions?: TransactionOptions): Promise<Model | null>`
+- `update(id: string, item: Model, transactionOptions?: TransactionOptions): Promise<Model | null>` — a conditional write: only while the stored version equals `item.version`, advancing it by one. Returns the model at its new version, `null` for an unknown id, or throws `RepositoryError` `VERSION_CONFLICT` for a stale version. Pass the model you read and changed, never a `NewModel`
 - `delete(id: string, transactionOptions?: TransactionOptions): Promise<Model | null>`
 
 `TransactionOptions` is `{ session?: unknown }`, imported from `@/application/interfaces/infrastructure/database-mapper.interface`.
@@ -758,22 +786,23 @@ export class ModelService extends BaseDomainService {
    * Update a model by ID.
    *
    * @param {string} id - Model ID
-   * @param {Partial<INewModel>} data - Fields to update
+   * @param {Partial<INewModel>} data - Fields to update, and the `version` of the model the client read
    * @param {TransactionOptions} transactionOptions - Optional transaction session
-   * @returns {Promise<Model>} The updated model
+   * @returns {Promise<Model>} The updated model, at its new version
    * @throws {DomainServiceError} NOT_FOUND when the model does not exist
+   * @throws {DomainServiceError} CONFLICT when `data.version` is stale, or the model changed during the update
    */
   async update(id: string, data: Partial<INewModel>, transactionOptions?: TransactionOptions): Promise<Model> {
     return this.wrapInfrastructureErrors<Model>(async () => {
+      // `version` has no setter, so Object.assign() would throw a TypeError on it: take it out first.
+      const { version, ...changes } = data;
       const existing = await this.getById(id, transactionOptions);
+      // CONFLICT before any side effect; a no-op when no version is given (internal callers).
+      this.assertVersion(existing, version, 'Model');
 
-      const updated = new NewModel({
-        id: existing.id,
-        name: data.name ?? existing.name,
-        status: data.status ?? existing.status,
-      });
-
-      const result = await this.modelRepository.update(id, updated, transactionOptions);
+      Object.assign(existing, changes);
+      // Writes only while the stored version is still existing.version — atomic with the check above.
+      const result = await this.modelRepository.update(id, existing, transactionOptions);
       if (!result) {
         throw new DomainServiceError('Model not found', 'NOT_FOUND');
       }
@@ -810,7 +839,8 @@ export default ModelService;
 - `'AUTHENTICATION_ERROR'` → 401 response
 - `'USER_PERMISSION_ERROR'` → 403 response
 - `'NOT_FOUND'` → 404 response
-- `'ALREADY_EXISTS'` → 400 response — use it for a duplicate unique value (name, email); callers such as the seeders check this type, never the message text
+- `'ALREADY_EXISTS'` → 400 response — use it for a duplicate unique value (name, email); callers such as the seeders check this type, never the message text. A matching unique index (Step 2) also raises it, with a generic message, when a concurrent request wins the race
+- `'CONFLICT'` → 409 response — the record changed since the client read it (`assertVersion()`, or the repository's `VERSION_CONFLICT`); the client reloads and retries
 - `'VALIDATION_ERROR'` → 400 response (can include data) — other business-rule violations
 - `'INVALID_OPERATION'` → 400 response (can include data)
 - `'INCOMPLETE_MODEL'` → 400 response
@@ -823,6 +853,8 @@ export default ModelService;
 - Extend `BaseDomainService`
 - Inject repositories via constructor
 - **Always check model existence** when retrieving from repository
+- **`update()` takes the client's `version`**: destructure it out of the payload, call `this.assertVersion(entity, version, 'Name')` right after reading the entity and before any side effect, then `Object.assign()` the remaining changes onto the entity you read and pass that entity to `repository.update()`
+- Look up by email with `normalizeEmail(email)`
 - Throw `DomainServiceError` for business rule violations with appropriate error types
 - Service file must match pattern: `**/service/*.service.{ts,js}`
 - DomainServiceError is caught by `catchExceptionsWrapper()` in BaseController
@@ -979,6 +1011,12 @@ export const newModelValidator = (): Schema => {
 
 export const updateModelValidator = (): Schema => {
   return {
+    // Required: the version of the model the client read (from a GET); a stale one is answered with 409.
+    version: {
+      isInt: { options: { min: 0 } },
+      toInt: true,
+      errorMessage: 'version is required: the integer version of the model you read',
+    },
     name: {
       optional: true,
       isString: true,
@@ -1008,6 +1046,7 @@ export const updateModelValidator = (): Schema => {
 - Export function returning `Schema` object
 - Use `errorMessage` for custom error messages
 - Create separate validators for create/update operations
+- **Every update validator requires `version`** (`isInt` with `min: 0`, `toInt`); `matchedData()` hands it to the service inside `Partial<INewModel>`
 
 ---
 
@@ -1117,7 +1156,8 @@ export class ModelController extends BaseController {
   }
 
   /**
-   * Update model
+   * Update model. The body carries the `version` the client read; a stale one is answered with 409 (CONFLICT)
+   * and nothing changes.
    *
    * @param {Request} req - The incoming request object
    * @param {Response} res - The response object
@@ -1407,7 +1447,7 @@ Infrastructure services are accessible via dependency injection:
 import type { ICache } from '@/application/interfaces/infrastructure/cache.interface';
 import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 import type { IQueue } from '@/application/interfaces/infrastructure/queue.interface';
-import type { IEmail } from '@/application/interfaces/infrastructure/email.interface';
+import type { IEmailService } from '@/application/interfaces/infrastructure/email-service.interface';
 import type { IStorage } from '@/application/interfaces/infrastructure/storage.interface';
 
 export class MyService extends BaseDomainService {
@@ -1437,12 +1477,14 @@ export class MyService extends BaseDomainService {
 
 - `cache` (ICache) - Redis caching
 - `logger` (ILogger) - Winston logging
-- `queue` (IQueue) - BullMQ queue
-- `email` (IEmail) - SMTP email
+- `queue` (IQueue) - BullMQ queue; each `processJobs()` starts a worker with its own Redis connection — close it with
+  `closeWorkers(queueName)` once the queue no longer needs processing (in the worker's `shutdown()` at the latest), or
+  it keeps its connection and memory (see `CLAUDE.md` §11.5 Close every queue processor you start)
+- `emailService` (IEmailService) - SMTP email
 - `storage` (IStorage) - Local/cloud storage; `readFile()` returns `null` and `listFiles()` returns `[]` for a missing path
-- `notification` (INotification) - Notification service
+- `notification` (INotificationManager) - Notification service
 - `socket` (ISocket) - Socket.IO
-- `httpClient` (IHTTPClient) - External HTTP calls (see `CLAUDE.md` §18 for its error behaviour)
+- `httpClient` (IHTTPClient) - External HTTP calls (see `CLAUDE.md` §11.6 for its error behaviour)
 - `database_mapper` (IDatabaseMapper) - Database transactions; errors thrown inside the callback propagate unchanged
 
 > **Cache failures are recoverable.** `ICache` methods throw `InfrastructureError` `CACHE_ERROR`
@@ -1759,7 +1801,7 @@ export class MyServiceFactory implements IServiceFactory<IMyService> {
 
 If the service needs other infrastructure services, `create()` returns a **synchronous closure** instead (typed
 `Promise<IMyService | ServiceClosure<IMyService>>`), with each parameter named after a service's registration name —
-e.g. `return (queue: IQueue, logger: ILogger): IMyService => new MyService(driver, queue, logger);`. See CLAUDE.md §14.
+e.g. `return (queue: IQueue, logger: ILogger): IMyService => new MyService(driver, queue, logger);`. See `CLAUDE.md` §11.2.
 
 #### Step 7: Create Index Export
 
@@ -1826,6 +1868,29 @@ router.get(
   },
 );
 ```
+
+**PermissionMiddleware**: Lets a request through only when the user's role grants an action on a named resource;
+answers 403 otherwise. Place it right after `UserValidatorMiddleware`, which loads `req.user` with its role and the
+role's resources.
+
+```typescript
+import { PermissionMiddleware } from '../middleware/PermissionMiddleware';
+import { EMAIL_LOG_RESOURCE_NAME } from '@/domain/app/email/models/email';
+
+router.get(
+  '/',
+  UserValidatorMiddleware(loginApplicationServiceProvider),
+  PermissionMiddleware(EMAIL_LOG_RESOURCE_NAME, 'read'), // 'read' | 'write' | 'update' | 'delete'
+  (req: AuthenticatedRequest, res: Response) => {
+    container.resolve<EmailLogController>('emailLogController').getAll(req, res);
+  },
+);
+```
+
+- It fails closed: no `req.user`, no role, or a role without the flag on that resource → 403.
+- Export the resource name as a constant from the feature's domain model and add it to `resource.seeder.ts`, so a
+  fresh seed grants it to the `Administrator` role. An existing database needs the resource created
+  (`POST /auth/resources`) and granted to a role (`PUT /auth/roles/:id`) once.
 
 ---
 
@@ -1916,6 +1981,7 @@ type PostStatus = 'draft' | 'published' | 'archived';
 
 export interface INewPost {
   id?: string;
+  version?: number;
   title: string;
   content: string;
   authorId: string;
@@ -1925,10 +1991,12 @@ export interface INewPost {
 
 export interface IPost extends INewPost {
   id: string;
+  version: number;
 }
 
 export class NewPost extends DomainEntity {
   protected _id?: string;
+  protected _version?: number;
   protected _title: string;
   protected _content: string;
   protected _authorId: string;
@@ -1940,6 +2008,9 @@ export class NewPost extends DomainEntity {
     if (data.id) {
       this._id = data.id;
     }
+    if (data.version !== undefined) {
+      this._version = NewPost.checkVersion(data.version);
+    }
     this._title = data.title;
     this._content = data.content;
     this._authorId = data.authorId;
@@ -1949,6 +2020,9 @@ export class NewPost extends DomainEntity {
 
   get id(): string | undefined {
     return this._id;
+  }
+  get version(): number | undefined {
+    return this._version;
   }
   get title(): string {
     return this._title;
@@ -1988,14 +2062,20 @@ export class NewPost extends DomainEntity {
 
 export class Post extends NewPost {
   protected _id: string;
+  protected _version: number;
 
   constructor(data: IPost) {
     super(data);
     this._id = data.id;
+    this._version = Post.checkVersion(data.version);
   }
 
   get id(): string {
     return this._id;
+  }
+
+  get version(): number {
+    return this._version;
   }
 
   isPublished(): boolean {
@@ -2023,6 +2103,7 @@ type PostStatus = 'draft' | 'published' | 'archived';
 
 export interface INewPostSchema {
   _id?: Types.ObjectId;
+  __v?: number;
   title: string;
   content: string;
   authorId: string;
@@ -2070,6 +2151,7 @@ export class PostMapper extends BaseMapper<INewPostSchema, Post, NewPost> {
   toDomain(data: INewPostSchema & { _id: Types.ObjectId }): Post {
     return new Post({
       id: data._id.toString(),
+      version: this.toVersion(data.__v, data._id),
       title: data.title,
       content: data.content,
       authorId: data.authorId,
@@ -2248,6 +2330,7 @@ export class PostService extends BaseDomainService {
    * @returns {Promise<Post>} The published post
    * @throws {DomainServiceError} NOT_FOUND when the post does not exist
    * @throws {DomainServiceError} USER_PERMISSION_ERROR when the requester is not the author
+   * @throws {DomainServiceError} CONFLICT when the post changed during the update
    */
   async publish(id: string, authorId: string, transactionOptions?: TransactionOptions): Promise<Post> {
     return this.wrapInfrastructureErrors<Post>(async () => {
@@ -2258,16 +2341,8 @@ export class PostService extends BaseDomainService {
       }
 
       post.publish();
-      const updated = new NewPost({
-        id: post.id,
-        title: post.title,
-        content: post.content,
-        authorId: post.authorId,
-        status: post.status,
-        tags: post.tags,
-      });
-
-      const result = await this.postRepository.update(id, updated, transactionOptions);
+      // The post as read: the update writes only while it is still at post.version.
+      const result = await this.postRepository.update(id, post, transactionOptions);
       if (!result) {
         throw new DomainServiceError('Post not found', 'NOT_FOUND');
       }
@@ -2279,12 +2354,13 @@ export class PostService extends BaseDomainService {
    * Update a post, restricted to the post's author.
    *
    * @param {string} id - Post ID
-   * @param {Partial<INewPost>} data - Fields to update
+   * @param {Partial<INewPost>} data - Fields to update, and the `version` of the post the client read
    * @param {string} authorId - ID of the requesting user
    * @param {TransactionOptions} transactionOptions - Optional transaction session
-   * @returns {Promise<Post>} The updated post
+   * @returns {Promise<Post>} The updated post, at its new version
    * @throws {DomainServiceError} NOT_FOUND when the post does not exist
    * @throws {DomainServiceError} USER_PERMISSION_ERROR when the requester is not the author
+   * @throws {DomainServiceError} CONFLICT when `data.version` is stale, or the post changed during the update
    */
   async update(
     id: string,
@@ -2293,22 +2369,17 @@ export class PostService extends BaseDomainService {
     transactionOptions?: TransactionOptions,
   ): Promise<Post> {
     return this.wrapInfrastructureErrors<Post>(async () => {
+      const { version, ...changes } = data; // no setter for version: Object.assign() would throw on it
       const existing = await this.getById(id, transactionOptions);
+      this.assertVersion(existing, version, 'Post');
 
       if (existing.authorId !== authorId) {
         throw new DomainServiceError('You are not authorized to update this post', 'USER_PERMISSION_ERROR');
       }
 
-      const updated = new NewPost({
-        id: existing.id,
-        title: data.title ?? existing.title,
-        content: data.content ?? existing.content,
-        authorId: existing.authorId,
-        status: data.status ?? existing.status,
-        tags: data.tags ?? existing.tags,
-      });
+      Object.assign(existing, { ...changes, authorId: existing.authorId });
 
-      const result = await this.postRepository.update(id, updated, transactionOptions);
+      const result = await this.postRepository.update(id, existing, transactionOptions);
       if (!result) {
         throw new DomainServiceError('Post not found', 'NOT_FOUND');
       }
@@ -2378,6 +2449,11 @@ export const newPostValidator = (): Schema => {
 
 export const updatePostValidator = (): Schema => {
   return {
+    version: {
+      isInt: { options: { min: 0 } },
+      toInt: true,
+      errorMessage: 'version is required: the integer version of the post you read',
+    },
     title: {
       optional: true,
       isString: true,
@@ -2738,7 +2814,7 @@ You've completed the step-by-step implementation. **Now validate everything**:
    - [ ] Exports as default
    - [ ] Does NOT create workaround interfaces
    - [ ] If you added any type assertion (`as`, `<Type>`, or `!`) → confirm it's one of the
-         pre-approved exceptions in the Type Assertions Policy (`CLAUDE.md` §24 / `AGENTS.md`), or
+         pre-approved exceptions in the type assertions rule (`CLAUDE.md` §12.6), or
          **ASK** the user first
 
 4. **Service Files** (`*.service.ts`):
@@ -2928,7 +3004,8 @@ MongoDB driver failures become `PersistanceError` (`DATABASE_ERROR`).
 | `'AUTHENTICATION_ERROR'`  | 401         | Invalid credentials, token expired                                                              |
 | `'USER_PERMISSION_ERROR'` | 403         | User not authorized for action                                                                  |
 | `'NOT_FOUND'`             | 404         | Resource doesn't exist                                                                          |
-| `'ALREADY_EXISTS'`        | 400         | Duplicate resource (e.g., email exists)                                                         |
+| `'ALREADY_EXISTS'`        | 400         | Duplicate resource (e.g., email exists) — from the service check or a unique index              |
+| `'CONFLICT'`              | 409         | The record changed since the client read it (stale `version`); reload and retry                 |
 | `'VALIDATION_ERROR'`      | 400         | Business rule validation failed                                                                 |
 | `'INVALID_OPERATION'`     | 400         | Operation not allowed in current state                                                          |
 | `'INCOMPLETE_MODEL'`      | 400         | Required fields missing                                                                         |
@@ -3118,7 +3195,7 @@ try {
 }
 ```
 
-Rules (full list in `CLAUDE.md` §14):
+Rules (full list in `CLAUDE.md` §11 Infrastructure services):
 
 - The `try` wraps the driver call only — serialize or validate caller input **before** it, so a
   caller's mistake surfaces as its own error instead of a `CACHE_ERROR`.
