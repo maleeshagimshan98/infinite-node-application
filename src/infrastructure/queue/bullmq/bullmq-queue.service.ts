@@ -18,25 +18,27 @@ import type { Queue, Job as BullMQJob } from 'bullmq';
  * Provides queue functionality using BullMQ with Redis as the backing store.
  * Supports job creation, processing, and status tracking.
  *
+ * Every `processJobs()` call starts a BullMQ Worker with its own Redis connection. Close it with
+ * `closeWorkers()` once the queue no longer needs processing, or it keeps its connection and memory.
+ *
  * @class BullMQQueueService
  * @implements {IQueue}
  *
  * @example
  * ```typescript
- * const queueDriver = queueService.service(); // BullMQ Queue instance
  * const queueService = new BullMQQueueService(queueDriver);
+ * queueService.newQueue('reports');
  *
  * // Add a job to the queue
- * const jobId = await queueService.addJob({ email: 'user@example.com', action: 'send-welcome-email' });
+ * const job = await queueService.addJob('reports', { userId: '123', task: 'generate-report' });
  *
- * // Process jobs from the queue
- * await queueService.processJobs(async (job) => {
- *   console.log('Processing job:', job.id, job.data);
- *   // Perform job logic
+ * // Process jobs from the queue: starts a Worker
+ * await queueService.processJobs('reports', async (job) => {
+ *   await generateReport(job.data);
  * });
  *
- * // Check job status
- * const status = await queueService.getJobStatus(jobId);
+ * // Stop processing once it is no longer needed: closes the Worker after its running jobs finish
+ * await queueService.closeWorkers('reports');
  * ```
  */
 export class BullMQQueueService implements IQueue {
@@ -144,14 +146,15 @@ export class BullMQQueueService implements IQueue {
    * @param {string} queueName - The name of the queue to add the job to
    * @param {T} data - The job data payload
    * @param {JobOptions} options - Optional job configuration (delay, priority, attempts, etc.)
-   * @returns {Promise<string>} The unique job ID
+   * @returns {Promise<Job<T>>} The queued job
    * @throws {QueueError} If the queue doesn't exist or the job cannot be added
    *
    * @example
    * ```typescript
-   * const jobId = await queueService.addJob(
+   * const job = await queueService.addJob(
+   *   'reports',
    *   { userId: '123', task: 'generate-report' },
-   *   { delay: 5000, priority: 10, attempts: 3 }
+   *   { delay: 5000, priority: 10, attempts: 3 },
    * );
    * ```
    */
@@ -214,13 +217,15 @@ export class BullMQQueueService implements IQueue {
    * @param {string} queueName - The name of the queue to process
    * @param {(job: Job<T>) => Promise<void>} processor - The job processing function
    * @returns {Promise<void>}
-   * @throws {QueueError} If the Worker cannot be created or fails to become ready
+   * @throws {QueueError} If the Worker cannot be created or fails to become ready; a Worker that was created is
+   *   closed first, so the caller has nothing to close
    */
   async processJobs<T>(queueName: string, processor: (job: Job<T>) => Promise<void>): Promise<void> {
     const driverConfig = this.driver.config();
+    let worker: Worker<T> | undefined;
 
     try {
-      const worker = new Worker<T>(
+      worker = new Worker<T>(
         queueName,
         async (job: BullMQJob<T>) => {
           const queueJob: Job<T> = {
@@ -266,6 +271,9 @@ export class BullMQQueueService implements IQueue {
       }
       this.workers.get(queueName)?.push(worker);
     } catch (e: unknown) {
+      // The worker never became ready, so it has no jobs to wait for.
+      // A close failure must not hide why it failed to start.
+      await Promise.allSettled([worker?.close(true)]);
       throw new QueueError(
         `Failed to start worker for queue "${queueName}": ${e instanceof Error ? e.message : 'Unknown error'}`,
         { cause: e },
@@ -276,23 +284,31 @@ export class BullMQQueueService implements IQueue {
   /**
    * Closes the workers processing a queue, waiting for their in-flight jobs to finish
    *
-   * The workers are forgotten afterwards, so `shutdown()` does not close them again.
+   * Every worker is closed, even when another one fails to close. The closed workers are forgotten afterwards,
+   * so `shutdown()` does not close them again.
    *
    * @param {string} queueName - The name of the queue whose workers to close
    * @returns {Promise<void>}
-   * @throws {QueueError} If a worker fails to close
+   * @throws {QueueError} If a worker fails to close, once every other worker on the queue has been closed
    */
   async closeWorkers(queueName: string): Promise<void> {
-    const workers = this.workers.get(queueName) ?? [];
-    this.workers.delete(queueName);
-    try {
-      for (const worker of workers) {
-        await worker.close();
-      }
-    } catch (e: unknown) {
+    const workers = [...(this.workers.get(queueName) ?? [])];
+    const results = await Promise.allSettled(workers.map((worker) => worker.close()));
+
+    // Forget only the workers closed here: one started on this queue meanwhile stays tracked for shutdown().
+    const started = this.workers.get(queueName)?.filter((worker) => !workers.includes(worker)) ?? [];
+    if (started.length > 0) {
+      this.workers.set(queueName, started);
+    } else {
+      this.workers.delete(queueName);
+    }
+
+    const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+    if (failure) {
+      const reason: unknown = failure.reason;
       throw new QueueError(
-        `Failed to close workers for queue "${queueName}": ${e instanceof Error ? e.message : 'Unknown error'}`,
-        { cause: e },
+        `Failed to close workers for queue "${queueName}": ${reason instanceof Error ? reason.message : 'Unknown error'}`,
+        { cause: reason },
       );
     }
   }

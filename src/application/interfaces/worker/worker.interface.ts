@@ -10,9 +10,12 @@
  *
  * Lifecycle:
  *   1. InfiniteNodeWorker resolves all IWorker instances from the DI container
- *   2. Calls init() on each — registers the BullMQ processor and begins consuming jobs
- *   3. On shutdown (SIGTERM / SIGINT), calls shutdown() on each — drains in-flight jobs
- *      before the process exits
+ *   2. Calls init() on each — starts the queue processors with IQueue.processJobs()
+ *   3. On shutdown (SIGTERM / SIGINT), calls shutdown() on each — closes them with IQueue.closeWorkers(),
+ *      which waits for in-flight jobs, before the process exits
+ *
+ * Every queue init() processes must be closed in shutdown(): an open worker keeps its Redis connection
+ * and memory.
  *
  * Naming convention:
  *   - File:  src/application/workers/{feature}/{name}.worker.ts
@@ -21,17 +24,22 @@
  *
  * @example
  * ```typescript
- * export class ErpRecordImportWorker extends BaseApplicationService implements IWorker {
+ * const QUEUE_NAME = 'erp-batch-records';
+ *
+ * export class ErpRecordImportWorker implements IWorker {
+ *   constructor(
+ *     private readonly queue: IQueue,
+ *     private readonly erpRecordService: ErpRecordService,
+ *   ) {}
+ *
  *   workerName(): string { return 'erp-record-import'; }
  *
  *   async init(): Promise<void> {
- *     await this.queueService.processJobs('erp-batch-records', async (job) => {
- *       await this.processRecord(job.data);
- *     });
+ *     await this.queue.processJobs<IErpRecord>(QUEUE_NAME, (job) => this.erpRecordService.import(job.data));
  *   }
  *
  *   async shutdown(): Promise<void> {
- *     await this.bullmqWorker.close();
+ *     await this.queue.closeWorkers(QUEUE_NAME);
  *   }
  * }
  * export default ErpRecordImportWorker;
@@ -47,7 +55,7 @@ export interface IWorker {
   workerName(): string;
 
   /**
-   * Start the worker — register the BullMQ processor and begin consuming jobs.
+   * Start the worker — start each queue processor with IQueue.processJobs() and begin consuming jobs.
    *
    * Called once by InfiniteNodeWorker after infrastructure and DI are fully initialized.
    *
@@ -58,9 +66,9 @@ export interface IWorker {
   /**
    * Gracefully stop the worker.
    *
-   * Must call BullMQ Worker.close() (or equivalent) to drain in-flight jobs
-   * before resolving. Called by InfiniteNodeWorker during the HIGH-priority
-   * shutdown phase, before infrastructure services are disconnected.
+   * Must call IQueue.closeWorkers(queueName) for every queue init() processes, which waits for the
+   * in-flight jobs before resolving. Never close a BullMQ Worker directly. Called by InfiniteNodeWorker
+   * during the HIGH-priority shutdown phase, before infrastructure services are disconnected.
    *
    * @returns {Promise<void>}
    */

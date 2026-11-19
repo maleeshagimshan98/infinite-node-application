@@ -112,6 +112,16 @@ implements `IInfrastructureManager` (`@/application/interfaces/infrastructure/in
 | `src/infrastructure/persistance/database/repositories/**/*.repository.ts` | `CustomerRepository`      | `customerRepository`      |
 | `src/presentation/http/controllers/**/*.controller.ts`                    | `CustomerController`      | `customerController`      |
 
+`autoRegisterWorkerComponents()` does the same in the worker process (`InfiniteNodeWorker`): the service and
+repository globs, no controllers, plus the workers:
+
+| Glob pattern                             | Example class | DI token      |
+| ---------------------------------------- | ------------- | ------------- |
+| `src/application/workers/**/*.worker.ts` | `EmailWorker` | `emailWorker` |
+
+`InfiniteNodeWorker` starts every registration whose name ends in `Worker` and that implements `IWorker` (§14 Queue
+workers).
+
 **CRITICAL: Every auto-registered class MUST have `export default ClassName;` at the bottom of the file.**
 
 Constructor parameters must match DI token names exactly (CLASSIC injection mode).
@@ -641,6 +651,50 @@ single dependency, `HTTPClientService` for one breaker per host (§18).
   breaker per call target returns only those that are not closed, as `HTTPClientService` does. The
   health check adds them as `circuit_breakers`; the public response drops their names and the
   controller logs them instead. Breaker state never changes the service's health status.
+
+### Queue workers
+
+A queue worker consumes queues in the worker process (`src/worker.ts`). It implements `IWorker`
+(`@/application/interfaces/worker/worker.interface`: `workerName()`, `init()`, `shutdown()`), lives in
+`src/application/workers/{feature}/{name}.worker.ts` and ends with `export default ClassName;` (§4). `EmailWorker` is
+the reference:
+
+```typescript
+export class EmailWorker implements IWorker {
+  constructor(
+    private readonly queue: IQueue,
+    private readonly emailService: IEmailService,
+  ) {}
+
+  async init(): Promise<void> {
+    await this.queue.processJobs<IEmailJobData>(this.emailService.emailQueueName(), (job) =>
+      this.emailService.deliverQueuedEmail(job),
+    );
+  }
+
+  async shutdown(): Promise<void> {
+    await this.queue.closeWorkers(this.emailService.emailQueueName());
+  }
+}
+```
+
+- **Close every processor you start.** Each `queue.processJobs(queueName, processor)` starts a BullMQ worker with its
+  own Redis connection, which the queue service keeps until it is closed. Call `queue.closeWorkers(queueName)` once
+  the queue no longer needs processing: in `shutdown()` for every queue `init()` processes, and right after the work
+  is done wherever a processor runs for a limited time. Reason: an open worker keeps polling Redis and taking jobs,
+  and the queue service keeps a reference to it, so its connection and memory are never freed.
+- **`closeWorkers()` waits for the jobs in flight**, then forgets the workers, so the queue service's own
+  `shutdown()` does not close them again. It has no timeout of its own: keep jobs shorter than the `workers` shutdown
+  hook (10 s). Never close a BullMQ `Worker` directly; a worker sees only `IQueue`.
+- **It closes every worker on the queue.** Two `processJobs()` calls on one queue start two workers, and both close.
+  Never call it for a queue another component still processes.
+- **A worker that fails to close** throws `QueueError` (`QUEUE_ERROR`) once every other worker on the queue is closed.
+  `InfiniteNodeWorker` logs it and still shuts down the other workers.
+- **A worker that fails to start is already closed.** `processJobs()` force-closes it before throwing `QueueError`,
+  so there is nothing to pass to `closeWorkers()`.
+- **Shutdown order:** `InfiniteNodeWorker` calls every worker's `shutdown()` in the HIGH phase, before
+  `InfrastructureManager.shutdown()` disconnects Redis and the database in the MEDIUM phase, so in-flight jobs finish
+  while their dependencies are still up.
 
 ### Email drivers
 
