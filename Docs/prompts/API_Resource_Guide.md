@@ -726,6 +726,7 @@ export class ModelService extends BaseDomainService {
    * @param {TransactionOptions} transactionOptions - Optional transaction session
    * @returns {Promise<Model>} The newly created model
    * @throws {DomainServiceError} ALREADY_EXISTS when a model with the same name exists
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async create(data: INewModel, transactionOptions?: TransactionOptions): Promise<Model> {
     return this.wrapInfrastructureErrors<Model>(async () => {
@@ -746,6 +747,8 @@ export class ModelService extends BaseDomainService {
    * @param {TransactionOptions} transactionOptions - Optional transaction session
    * @returns {Promise<Model>} The found model
    * @throws {DomainServiceError} NOT_FOUND when the model does not exist
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getById(id: string, transactionOptions?: TransactionOptions): Promise<Model> {
     return this.wrapInfrastructureErrors<Model>(async () => {
@@ -763,6 +766,7 @@ export class ModelService extends BaseDomainService {
    * @param {number} limit - Maximum number of items to return
    * @param {number} offset - Number of items to skip
    * @returns {Promise<Model[]>} Array of models
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getAll(limit?: number, offset?: number): Promise<Model[]> {
     return this.wrapInfrastructureErrors<Model[]>(async () => {
@@ -775,6 +779,7 @@ export class ModelService extends BaseDomainService {
    *
    * @param {Partial<INewModel>} filter - Optional filter criteria
    * @returns {Promise<number>} Total count
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async count(filter: Partial<INewModel> = {}): Promise<number> {
     return this.wrapInfrastructureErrors<number>(async () => {
@@ -791,6 +796,8 @@ export class ModelService extends BaseDomainService {
    * @returns {Promise<Model>} The updated model, at its new version
    * @throws {DomainServiceError} NOT_FOUND when the model does not exist
    * @throws {DomainServiceError} CONFLICT when `data.version` is stale, or the model changed during the update
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async update(id: string, data: Partial<INewModel>, transactionOptions?: TransactionOptions): Promise<Model> {
     return this.wrapInfrastructureErrors<Model>(async () => {
@@ -817,6 +824,8 @@ export class ModelService extends BaseDomainService {
    * @param {TransactionOptions} transactionOptions - Optional transaction session
    * @returns {Promise<Model>} The deleted model
    * @throws {DomainServiceError} NOT_FOUND when the model does not exist, or when the delete itself fails
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async delete(id: string, transactionOptions?: TransactionOptions): Promise<Model> {
     return this.wrapInfrastructureErrors<Model>(async () => {
@@ -1417,20 +1426,25 @@ exports, and how to register the seeder by hand, in dependency order, in
    - Use `public` (or omit) for API surface
    - Use `readonly` for immutable properties
 
-6. **JSDoc Comments**:
-   - Document all public methods
-   - Include `@param`, `@returns`, `@throws`
+6. **JSDoc Comments** (CLAUDE.md §12.5; the `jsdoc/*` lint rules enforce the shape):
+   - Document every method and function, private helpers included; getters, setters and constructors are exempt
+   - A summary, a blank line, then `@param {Type} name - description` → `@returns {Type}` → `@throws {Type} CODE when …`
+   - One `@throws` per error type the method can surface, including the ones its calls let through; a domain-service
+     method inside `wrapInfrastructureErrors()` always lists `INFRASTRUCTURE_ERROR`
    - Provide usage examples for complex APIs
 
    ```typescript
    /**
-    * Create a new user
+    * Create a new user.
     *
     * @param {INewUser} userData - User registration data
-    * @returns {Promise<User>}
-    * @throws {DomainServiceError}
+    * @param {TransactionOptions} [transactionOptions] - Optional transaction session
+    * @returns {Promise<User>} The created user
+    * @throws {DomainServiceError} ALREADY_EXISTS when the email is already associated with another account.
+    * @throws {DomainServiceError} VALIDATION_ERROR when the given role_id / ug_id is malformed or does not exist.
+    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
     */
-   async create(userData: INewUser): Promise<User> {
+   async create(userData: INewUser, transactionOptions?: TransactionOptions): Promise<User> {
      // Implementation
    }
    ```
@@ -1703,8 +1717,8 @@ export class MyService implements IMyService {
    *
    * @param {Record<string, unknown>} payload - The payload to send.
    * @returns {Promise<void>}
-   * @throws {TypeError} If `payload` cannot be serialized (caller error, propagates unchanged).
-   * @throws {InfrastructureError} NETWORK_ERROR if the external service call fails.
+   * @throws {TypeError} when `payload` cannot be serialized (caller error, propagates unchanged).
+   * @throws {InfrastructureError} NETWORK_ERROR when the external service call fails.
    */
   async doSomething(payload: Record<string, unknown>): Promise<void> {
     // Caller-dependent work goes BEFORE the try: a bad payload is the caller's error, not a service failure.
@@ -1724,7 +1738,7 @@ export class MyService implements IMyService {
    * Read a value from the external service.
    *
    * @returns {Promise<string>} The value.
-   * @throws {InfrastructureError} NETWORK_ERROR if the external service call fails.
+   * @throws {InfrastructureError} NETWORK_ERROR when the external service call fails.
    */
   async getSomething(): Promise<string> {
     try {
@@ -2246,6 +2260,7 @@ export class PostService extends BaseDomainService {
    * @param {INewPost} data - Post creation data
    * @param {TransactionOptions} transactionOptions - Optional transaction session
    * @returns {Promise<Post>} The newly created post
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async create(data: INewPost, transactionOptions?: TransactionOptions): Promise<Post> {
     return this.wrapInfrastructureErrors<Post>(async () => {
@@ -2261,6 +2276,8 @@ export class PostService extends BaseDomainService {
    * @param {TransactionOptions} transactionOptions - Optional transaction session
    * @returns {Promise<Post>} The found post
    * @throws {DomainServiceError} NOT_FOUND when the post does not exist
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getById(id: string, transactionOptions?: TransactionOptions): Promise<Post> {
     return this.wrapInfrastructureErrors<Post>(async () => {
@@ -2278,6 +2295,7 @@ export class PostService extends BaseDomainService {
    * @param {number} limit - Maximum number of posts to return
    * @param {number} offset - Number of posts to skip
    * @returns {Promise<Post[]>} Array of posts
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getAll(limit?: number, offset?: number): Promise<Post[]> {
     return this.wrapInfrastructureErrors<Post[]>(async () => {
@@ -2290,6 +2308,7 @@ export class PostService extends BaseDomainService {
    *
    * @param {Partial<INewPost>} filter - Optional filter criteria
    * @returns {Promise<number>} Total count
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async count(filter: Partial<INewPost> = {}): Promise<number> {
     return this.wrapInfrastructureErrors<number>(async () => {
@@ -2302,6 +2321,7 @@ export class PostService extends BaseDomainService {
    *
    * @param {string} authorId - Author user ID
    * @returns {Promise<Post[]>} Array of the author's posts
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getByAuthor(authorId: string): Promise<Post[]> {
     return this.wrapInfrastructureErrors<Post[]>(async () => {
@@ -2314,6 +2334,7 @@ export class PostService extends BaseDomainService {
    *
    * @param {number} limit - Maximum number of posts to return
    * @returns {Promise<Post[]>} Array of published posts
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getPublished(limit?: number): Promise<Post[]> {
     return this.wrapInfrastructureErrors<Post[]>(async () => {
@@ -2331,6 +2352,8 @@ export class PostService extends BaseDomainService {
    * @throws {DomainServiceError} NOT_FOUND when the post does not exist
    * @throws {DomainServiceError} USER_PERMISSION_ERROR when the requester is not the author
    * @throws {DomainServiceError} CONFLICT when the post changed during the update
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async publish(id: string, authorId: string, transactionOptions?: TransactionOptions): Promise<Post> {
     return this.wrapInfrastructureErrors<Post>(async () => {
@@ -2361,6 +2384,8 @@ export class PostService extends BaseDomainService {
    * @throws {DomainServiceError} NOT_FOUND when the post does not exist
    * @throws {DomainServiceError} USER_PERMISSION_ERROR when the requester is not the author
    * @throws {DomainServiceError} CONFLICT when `data.version` is stale, or the post changed during the update
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async update(
     id: string,
@@ -2396,6 +2421,8 @@ export class PostService extends BaseDomainService {
    * @returns {Promise<Post>} The deleted post
    * @throws {DomainServiceError} NOT_FOUND when the post does not exist, or when the delete itself fails
    * @throws {DomainServiceError} USER_PERMISSION_ERROR when the requester is not the author
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async delete(id: string, authorId: string, transactionOptions?: TransactionOptions): Promise<Post> {
     return this.wrapInfrastructureErrors<Post>(async () => {

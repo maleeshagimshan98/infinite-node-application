@@ -778,7 +778,8 @@ toPersistence(data: NewOrder): INewOrderSchema {
       and never writes __v
 ☐ 9.  Repository interface in application/interfaces/repositories/; class extends BaseRepository;
       no CRUD duplication; custom query methods run inside this.wrapDatabaseErrors(); export default
-☐ 10. JSDoc on every non-trivial method; npm run lint clean; npx tsc --noEmit passes;
+☐ 10. JSDoc on every method (CLAUDE.md §12.5): mappers list @throws {PersistanceError} for a missing __v and
+      {BSONError} for a malformed id; npm run lint clean (it runs the jsdoc/* rules); npx tsc --noEmit passes;
       a new index is built with npm run db:indexes (after db:indexes:check reports no duplicates)
 ☐ 11. Route, controller, domain/application service, and validator are the remaining pieces of
       this resource's file set — see Docs/prompts/API_Resource_Guide.md for those steps, and
