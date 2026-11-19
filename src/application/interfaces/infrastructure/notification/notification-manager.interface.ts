@@ -4,7 +4,9 @@
 
 import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
 
-export interface INotification extends IBaseInfrastructureService {
+import type { INewNotification } from './notification.interface';
+
+export interface INotificationManager extends IBaseInfrastructureService {
   serviceName(): 'notification';
   singleton(): true;
   deferred(): false;
@@ -25,4 +27,12 @@ export interface INotification extends IBaseInfrastructureService {
    * @returns {Promise<void>} resolving when broadcast is complete
    */
   broadcastNotification(message: Record<string, unknown>): Promise<void>;
+
+  /**
+   * Queue a notification to be logged and sent
+   *
+   * @param {INewNotification} notification - The notification to send; the service sets its id, status and provider
+   * @returns {Promise<void>} resolving once the notification is queued
+   */
+  enqueueNotification(notification: INewNotification): Promise<void>;
 }

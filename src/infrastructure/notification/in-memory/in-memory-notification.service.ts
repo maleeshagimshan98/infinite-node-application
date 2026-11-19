@@ -2,7 +2,8 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { INotification } from '@/application/interfaces/infrastructure/notification.interface';
+import type { INotificationManager } from '@/application/interfaces/infrastructure/notification/notification-manager.interface';
+import type { INewNotification } from '@/application/interfaces/infrastructure/notification/notification.interface';
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 
 import type { InMemoryNotificationDriver } from './driver/in-memory-notification.driver';
@@ -14,7 +15,7 @@ import type { InMemoryNotificationDriver } from './driver/in-memory-notification
  * This implementation serves as a placeholder and should be replaced with real providers in production.
  *
  * @class InMemoryNotificationService
- * @implements {INotification}
+ * @implements {INotificationManager}
  *
  * @example
  * ```typescript
@@ -26,7 +27,7 @@ import type { InMemoryNotificationDriver } from './driver/in-memory-notification
  * await notificationService.broadcastNotification({ title: 'Announcement', body: 'System maintenance' });
  * ```
  */
-export class InMemoryNotificationService implements INotification {
+export class InMemoryNotificationService implements INotificationManager {
   /**
    * The notification driver instance
    * @private
@@ -155,5 +156,16 @@ export class InMemoryNotificationService implements INotification {
         'NOTIFICATION_ERROR',
       );
     }
+  }
+
+  /**
+   * Rejects every notification: the in-memory driver has no queue to put it on
+   *
+   * @param {INewNotification} _notification - The notification to queue
+   * @returns {Promise<void>} Never resolves; always rejects
+   * @throws {InfrastructureError} NOTIFICATION_ERROR always
+   */
+  async enqueueNotification(_notification: INewNotification): Promise<void> {
+    throw new InfrastructureError('The in-memory notification driver cannot queue notifications', 'NOTIFICATION_ERROR');
   }
 }
