@@ -1116,8 +1116,6 @@ Run `npm test` too; a pull request records all of these.
 - **Push notifications:** sent directly through AWS SNS. No SMS driver, no queueing, no logging (notification manager
   planned).
 - **Notification log:** built, not wired; no endpoints yet.
-- **Account recovery:** `/auth/forgot-password` and `/auth/reset-password` exist, but no email is sent although the
-  response says "Password reset code sent".
 - **OpenTelemetry:** phases 1–4 built (`src/app/core/telemetry/`); 5–7 not started
   (`Docs/plans/OpenTelemetry_Implementation_Plan.md`).
 - **Default role / group switch:** unique indexes allow only one default, but switching it is not one transaction: a

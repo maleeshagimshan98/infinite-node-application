@@ -2,17 +2,17 @@ import { matchedData } from 'express-validator';
 
 import { BaseController } from '@/presentation/http/controllers/base.controller';
 import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
-import type { AccountRecoveryService } from '@/domain/auth/service/account-recovery.service';
+import type { AccountRecoveryApplicationService } from '@/application/services/auth/account-recovery.application.service';
 import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 
 import type { Request, Response } from 'express';
 
 export class AccountRecoveryController extends BaseController {
-  private accountRecoveryService: AccountRecoveryService;
+  private accountRecoveryApplicationService: AccountRecoveryApplicationService;
 
-  constructor(accountRecoveryService: AccountRecoveryService, logger: ILogger) {
+  constructor(accountRecoveryApplicationService: AccountRecoveryApplicationService, logger: ILogger) {
     super(logger);
-    this.accountRecoveryService = accountRecoveryService;
+    this.accountRecoveryApplicationService = accountRecoveryApplicationService;
   }
 
   /**
@@ -25,7 +25,7 @@ export class AccountRecoveryController extends BaseController {
   async forgotPassword(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
       const { email } = matchedData(req);
-      await this.accountRecoveryService.forgotPassword(email);
+      await this.accountRecoveryApplicationService.forgotPassword(email);
 
       return ApiResponseUtils.apiOkResponse(201, false, null, 'Password reset code sent', null);
     });
@@ -43,7 +43,7 @@ export class AccountRecoveryController extends BaseController {
   async resetPassword(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
       const resetPasswordCred = matchedData(req);
-      await this.accountRecoveryService.resetPassword(
+      await this.accountRecoveryApplicationService.resetPassword(
         resetPasswordCred.email,
         resetPasswordCred.verification_code,
         resetPasswordCred.password,

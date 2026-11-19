@@ -90,17 +90,21 @@ export class AccountRecoveryService extends BaseDomainService {
   }
 
   /**
-   * Initiate password reset process
+   * Initiate password reset process: cancel the user's old reset codes and issue a new one.
    *
    * @param {string} email - User email
    * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
-   * @returns {Promise<void>}
+   * @returns {Promise<{ userId: string; email: string; rawCode: string }>} The user's id and stored email, and the
+   * new reset code, which the caller must deliver to the user out-of-band (e.g. email).
    * @throws {DomainServiceError} NOT_FOUND if user doesn't exist
    * @throws {DomainServiceError} CONFLICT if an old reset code is concurrently changed mid-cancellation.
    * @throws {DomainServiceError} ALREADY_EXISTS if a concurrent request issued an active reset code for the email first.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
-  async forgotPassword(email: string, transactionOptions?: TransactionOptions): Promise<void> {
+  async forgotPassword(
+    email: string,
+    transactionOptions?: TransactionOptions,
+  ): Promise<{ userId: string; email: string; rawCode: string }> {
     return this.wrapInfrastructureErrors(async () => {
       const address = normalizeEmail(email);
       const user = await this.userService.getByEmail(address, transactionOptions);
@@ -111,14 +115,16 @@ export class AccountRecoveryService extends BaseDomainService {
 
       await this.cancelOldResetCodes(address, transactionOptions);
 
+      const rawCode = this.generateResetCode();
       const passwordResetCode = new NewPasswordResetCode({
         email: address,
-        code: this.generateResetCode(),
+        code: rawCode,
         valid_till: new Date(new Date().getTime() + 0.5 * 60 * 60 * 1000),
         status: 'active',
       });
 
       await this.passwordResetCodeRepository.create(passwordResetCode, transactionOptions);
+      return { userId: user.id, email: user.email, rawCode };
     });
   }
 

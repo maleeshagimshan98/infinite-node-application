@@ -47,10 +47,12 @@ How the application sends email and keeps the email log. The core rules for ever
 **Why:** Only the queued path is logged and retried.
 **Use cases:**
 
-- a user-facing flow (signup, verification) → `enqueueEmail()`, and log a queueing failure without failing the flow
+- a user-facing flow (signup, verification, password reset) → `enqueueEmail()` after the transaction commits, and log
+  a queueing failure without failing the flow
 - the caller needs to know the email was delivered → it can't; `IEmailService` only says the email was handed off
 
-**Reference:** `src/application/services/auth/signup.application.service.ts` (`sendVerificationEmail()`)
+**Reference:** `src/application/services/auth/signup.application.service.ts` (`sendVerificationEmail()`),
+`src/application/services/auth/account-recovery.application.service.ts` (`sendPasswordResetEmail()`)
 
 ### 2. Queue first, log second
 
