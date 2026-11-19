@@ -126,6 +126,7 @@ function mockRepository(): jest.Mocked<IEmailRepository> {
     findById: jest.fn(),
     findOne: jest.fn(),
     find: jest.fn(),
+    findNewestFirst: jest.fn(),
     count: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),

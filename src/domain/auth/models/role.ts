@@ -13,6 +13,9 @@ export interface IPermission {
   delete: boolean;
 }
 
+/** One of the actions a role can be granted on a resource. */
+export type PermissionAction = keyof IPermission;
+
 /** Write-time shape: which resource (by id) gets which permission flags. */
 export interface INewResourcePermission {
   resource_id: string;
@@ -98,6 +101,20 @@ export class NewRole extends DomainEntity {
    */
   get resources(): IResourcePermission[] {
     return this._resources;
+  }
+
+  /**
+   * Check whether this role grants an action on a resource.
+   *
+   * Only the populated `resources` are read, because they carry the resource names: a role loaded without population
+   * grants nothing, so a missing populate denies access instead of allowing it.
+   *
+   * @param {string} resourceName - The resource's name, e.g. `email-logs`.
+   * @param {PermissionAction} action - The action to check.
+   * @returns {boolean} True when the role has the action's flag set on the named resource.
+   */
+  hasPermission(resourceName: string, action: PermissionAction): boolean {
+    return this._resources.some((rp) => rp.resource.name === resourceName && rp.permission[action]);
   }
 
   // Setters

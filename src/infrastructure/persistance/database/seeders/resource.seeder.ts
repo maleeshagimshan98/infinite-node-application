@@ -2,6 +2,7 @@ import { container } from '@/app/core/service.container';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import type { ResourceService } from '@/domain/auth/service/resource.service';
 import type { INewResource } from '@/domain/auth/models/resource';
+import { EMAIL_LOG_RESOURCE_NAME } from '@/domain/app/email/models/email';
 
 // No `default` flag exists on Resource to key idempotency off, so a canonical seeded resource
 // name is used as the existence check instead — mirroring user-group.seeder.ts's shape otherwise.
@@ -26,6 +27,7 @@ export async function seedResources(): Promise<boolean> {
       { name: 'roles', description: 'RBAC roles' },
       { name: 'resources', description: 'RBAC resources' },
       { name: 'user-groups', description: 'Customer groups' },
+      { name: EMAIL_LOG_RESOURCE_NAME, description: 'Email log records' },
     ];
 
     const createdResources = [];

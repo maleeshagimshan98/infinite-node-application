@@ -2,7 +2,7 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { Role } from '@/domain/auth/models/role';
+import type { PermissionAction, Role } from '@/domain/auth/models/role';
 
 import { DomainEntity } from '../../base/DomainEntity';
 import { DomainEntityError } from '../../base/DomainEntityError';
@@ -99,6 +99,17 @@ export class NewUser extends DomainEntity {
 
   set role_id(value: string) {
     this._role_id = value;
+  }
+
+  /**
+   * Check whether the user's role grants an action on a resource.
+   *
+   * @param {string} resourceName - The resource's name, e.g. `email-logs`.
+   * @param {PermissionAction} action - The action to check.
+   * @returns {boolean} True when the user has a populated role that grants the action; false without a role.
+   */
+  hasPermission(resourceName: string, action: PermissionAction): boolean {
+    return this._role?.hasPermission(resourceName, action) ?? false;
   }
 }
 

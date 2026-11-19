@@ -7,6 +7,9 @@ import { DomainEntityError } from '@/domain/base/DomainEntityError';
 
 export type EmailStatus = 'pending' | 'sent' | 'failed';
 
+/** The RBAC resource a role needs `read` on to read the email log through the API. */
+export const EMAIL_LOG_RESOURCE_NAME = 'email-logs';
+
 export interface INewEmail {
   id?: string;
   user_id: string;
