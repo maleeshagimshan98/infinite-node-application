@@ -183,15 +183,16 @@ export class BullMQQueueService implements IQueue {
   /**
    * Retry all failed jobs on the given queue.
    *
-   * Creates a temporary Queue instance if the queue is not already registered
-   * (e.g. external queues owned by another service).
-   *
    * @param {string} queueName - The name of the queue
    * @returns {Promise<void>}
+   * @throws {QueueError} If the queue with the given name is not available
    * @throws {QueueError} If the failed jobs cannot be retried
    */
   async retryJobs(queueName: string): Promise<void> {
-    const queue = this.queues.get(queueName) ?? QueueDriver.newQueue(queueName, this.driver.config());
+    const queue = this.queues.get(queueName);
+    if (!queue) {
+      throw new QueueError(`Queue not found: ${queueName}`);
+    }
     try {
       await queue.retryJobs({ state: 'failed' });
       // Close the temporary queue instance if it wasn't already tracked
