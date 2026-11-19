@@ -109,8 +109,13 @@ export interface IWinstonConfig extends IDriverConfig {
  *
  * @remarks
  * Environment variables:
+ * - INSTANCE_TYPE: Set to WORKER by the worker process (src/app/worker.ts), which selects the
+ *   WINSTON_APP_WORKER_* file names; any other value (APP, or unset) selects WINSTON_LOG_FILE_NAME and
+ *   WINSTON_ERROR_LOG_FILE_NAME
  * - WINSTON_LOG_FILE_NAME: Application log file pattern
  * - WINSTON_ERROR_LOG_FILE_NAME: Error log file pattern
+ * - WINSTON_APP_WORKER_LOG_FILE_NAME: Worker log file pattern
+ * - WINSTON_APP_WORKER_ERROR_LOG_FILE_NAME: Worker error log file pattern
  * - WINSTON_LOG_DATE_PATTERN: Date pattern for file rotation
  * - WINSTON_LOG_ZIPPED_ARCHIVE: Whether to compress archived logs
  * - WINSTON_LOG_MAX_SIZE: Maximum size per log file in bytes
@@ -119,8 +124,13 @@ export interface IWinstonConfig extends IDriverConfig {
  * - WINSTON_LOG_FORMAT: Default log format
  */
 export const winstonConfig = (): IWinstonConfig => {
-  const applicationLogFileName = process.env.WINSTON_LOG_FILE_NAME || './logs/application-%DATE%.log';
-  const errorLogFileName = process.env.WINSTON_ERROR_LOG_FILE_NAME || './logs/error-%DATE%.log';
+  const isWorker = process.env.INSTANCE_TYPE === 'WORKER';
+  const applicationLogFileName = isWorker
+    ? process.env.WINSTON_APP_WORKER_LOG_FILE_NAME || './logs/worker-%DATE%.log'
+    : process.env.WINSTON_LOG_FILE_NAME || './logs/application-%DATE%.log';
+  const errorLogFileName = isWorker
+    ? process.env.WINSTON_APP_WORKER_ERROR_LOG_FILE_NAME || './logs/worker-error-%DATE%.log'
+    : process.env.WINSTON_ERROR_LOG_FILE_NAME || './logs/error-%DATE%.log';
 
   return {
     driverName: 'logger',

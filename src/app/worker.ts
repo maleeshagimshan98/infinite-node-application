@@ -32,7 +32,8 @@ import type { ShutdownManager } from './core/shutdown/shutdown.manager';
  * It intentionally has no HTTP server, Express middleware, or routes.
  *
  * Startup sequence:
- *   1. InfrastructureManager.init() — boots DB, queue, logger, cache, etc.
+ *   0. constructor — sets INSTANCE_TYPE=WORKER, so the logger writes to the worker's log files
+ *   1. InfrastructureManager.initForWorker() — boots DB, queue, logger, cache, etc.
  *   2. autoRegisterWorkerComponents() — loads services, repos, and workers into Awilix
  *   3. resolveWorkers() — collects all IWorker instances from the container
  *   4. worker.init() on each — registers BullMQ processors; queues begin consuming
@@ -73,6 +74,8 @@ class InfiniteNodeWorker {
   private workers: IWorker[] = [];
 
   constructor(shutdownManager?: ShutdownManager) {
+    // Read by winstonConfig() when initForWorker() builds the logger: the worker writes to its own log files.
+    process.env.INSTANCE_TYPE = 'WORKER';
     this.shutdownManager = shutdownManager;
     this.container = container;
     this.infrastructureManager = new InfrastructureManager();

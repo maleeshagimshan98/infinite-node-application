@@ -113,8 +113,6 @@ services:
       REDIS_SERVER_HOST: redis
       REDIS_SERVER_URL: redis://redis:6379
       REDIS_SOCKET_HOST: redis
-      WINSTON_LOG_FILE_NAME: ./logs/worker-%DATE%.log
-      WINSTON_ERROR_LOG_FILE_NAME: ./logs/worker-error-%DATE%.log
       # No telemetry backend in this stack — docker-compose.observability.yml turns it on
       OTEL_SDK_DISABLED: 'true'
     command: ['dumb-init', 'npm', 'run', 'worker:start']

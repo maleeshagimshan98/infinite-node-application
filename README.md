@@ -113,6 +113,9 @@ RATE_LIMIT_MAX=100
 
 # Logging (Winston)
 WINSTON_LOG_FILE_NAME=./logs/application-%DATE%.log
+# Used by the worker process instead (it sets INSTANCE_TYPE=WORKER itself)
+WINSTON_APP_WORKER_LOG_FILE_NAME=./logs/worker-%DATE%.log
+WINSTON_APP_WORKER_ERROR_LOG_FILE_NAME=./logs/worker-error-%DATE%.log
 WINSTON_LOG_DATE_PATTERN=YYYY-MM-DD
 WINSTON_LOG_LEVEL=info
 ```
