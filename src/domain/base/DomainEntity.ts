@@ -2,12 +2,29 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import { DomainEntityError } from './DomainEntityError';
+
 /**
  * Base class for all domain entities
  * Provides automatic JSON serialization by reading getters
  * and mapping them to clean property names without underscores
  */
 export abstract class DomainEntity {
+  /**
+   * Check an entity's version: the number of times it has been updated, which the repository uses to reject an
+   * update made from a stale read. Only the repository advances it, so no entity has a setter for it.
+   *
+   * @param {unknown} version - The version read from the database, or sent back by a client.
+   * @returns {number} The version, unchanged.
+   * @throws {DomainEntityError} When the version is not an integer >= 0.
+   */
+  protected static checkVersion(version: unknown): number {
+    if (typeof version !== 'number' || !Number.isInteger(version) || version < 0) {
+      throw new DomainEntityError(`An entity's version must be an integer >= 0, got ${String(version)}`);
+    }
+    return version;
+  }
+
   /**
    * Convert domain entity to JSON object
    * Automatically serializes all getters to clean property names

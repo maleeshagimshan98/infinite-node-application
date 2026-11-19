@@ -10,6 +10,8 @@ import type { Types } from 'mongoose';
 
 export interface INewLoginRecordSchema {
   _id?: Types.ObjectId;
+  // Mongoose's version key: 0 on insert; only BaseRepository.update() advances it. Mappers read it, never write it.
+  __v?: number;
   user_id: string;
   token: string;
   refresh_token: string;
@@ -21,7 +23,7 @@ export interface INewLoginRecordSchema {
 export const loginRecordSchema = new Schema<INewLoginRecordSchema>(
   {
     user_id: { type: String, required: true },
-    token: { type: String, required: true, unique: true },
+    token: { type: String, required: true },
     refresh_token: { type: String, required: true },
     access_token_valid_till: { type: Date, required: true },
     refresh_token_valid_till: { type: Date, required: true },
@@ -29,5 +31,7 @@ export const loginRecordSchema = new Schema<INewLoginRecordSchema>(
   },
   { timestamps: true },
 );
+
+loginRecordSchema.index({ token: 1 }, { unique: true });
 
 export const LoginRecordModel = mongoose.model('login_record', loginRecordSchema);

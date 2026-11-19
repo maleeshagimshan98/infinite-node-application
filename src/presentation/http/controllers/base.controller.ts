@@ -115,6 +115,9 @@ class BaseController {
     if (serviceException.type === 'ALREADY_EXISTS') {
       return ApiResponseUtils.apiErrorResponse(400, serviceException.message);
     }
+    if (serviceException.type === 'CONFLICT') {
+      return ApiResponseUtils.apiErrorResponse(409, serviceException.message);
+    }
     if (serviceException.type === 'VALIDATION_ERROR') {
       return ApiResponseUtils.apiErrorResponse(400, serviceException.message, serviceException.data);
     }

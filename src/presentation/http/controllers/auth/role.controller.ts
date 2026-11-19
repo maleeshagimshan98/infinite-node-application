@@ -75,7 +75,8 @@ export class RoleController extends BaseController {
   }
 
   /**
-   * Update a role by its id.
+   * Update a role by its id. The body carries the `version` of the role the client read: a stale version is answered
+   * with 409 (CONFLICT) and nothing changes, and the response carries the new version.
    *
    * @param {Request} req - The incoming request object.
    * @param {Response} res - The response object.

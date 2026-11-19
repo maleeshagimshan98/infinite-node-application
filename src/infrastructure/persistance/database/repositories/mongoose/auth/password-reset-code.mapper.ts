@@ -25,6 +25,7 @@ export class PasswordResetCodeMapper extends BaseMapper<
   toDomain(data: IPasswordResetCodeSchema & { _id: Types.ObjectId }): PasswordResetCode {
     return new PasswordResetCode({
       id: data._id.toString(),
+      version: this.toVersion(data.__v, data._id),
       email: data.email,
       code: data.code,
       valid_till: data.valid_till,

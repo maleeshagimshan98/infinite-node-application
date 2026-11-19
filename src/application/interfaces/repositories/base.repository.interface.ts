@@ -5,14 +5,22 @@
 import type { TransactionOptions } from '@/application/interfaces/infrastructure/database-mapper.interface';
 
 /**
+ * An entity read from the database: it carries the version it was read at, the number of times it has been updated.
+ * `update()` writes only while the stored version still equals it.
+ */
+export interface IVersionedEntity {
+  readonly version: number;
+}
+
+/**
  * Base repository interface for data persistence operations.
  * Filters use domain model types — infrastructure-specific field names are translated
  * internally by the concrete repository via the mapper's `toFilter` method.
  *
- * @template DomainModel - The existing domain model (id required).
- * @template NewDomainModel - The new domain model used for creation (id optional).
+ * @template DomainModel - The existing domain model (id and version required).
+ * @template NewDomainModel - The new domain model used for creation (id and version optional).
  */
-export interface IBaseRepository<DomainModel, NewDomainModel> {
+export interface IBaseRepository<DomainModel extends IVersionedEntity, NewDomainModel> {
   /**
    * Create a new entity
    * @param item - New domain model instance to persist
@@ -76,13 +84,15 @@ export interface IBaseRepository<DomainModel, NewDomainModel> {
   count(filter: Partial<NewDomainModel>, transactionOptions?: TransactionOptions): Promise<number>;
 
   /**
-   * Update an entity by ID
+   * Update an entity by ID, only while the stored version still equals `item.version`. The update advances the
+   * stored version by one, in the same write.
    * @param id - Entity identifier
-   * @param item - Updated new domain model instance
+   * @param item - The entity as read and then changed; its `version` is the version it was read at
    * @param transactionOptions - Optional database transaction session
-   * @returns The updated domain model, or null if not found
+   * @returns The updated domain model with its new version, or null if no entity has the ID
+   * @throws RepositoryError VERSION_CONFLICT when the entity was updated after `item` was read (a stale version)
    */
-  update(id: string, item: NewDomainModel, transactionOptions?: TransactionOptions): Promise<DomainModel | null>;
+  update(id: string, item: DomainModel, transactionOptions?: TransactionOptions): Promise<DomainModel | null>;
 
   /**
    * Delete an entity by ID

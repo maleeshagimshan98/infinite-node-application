@@ -18,6 +18,8 @@ const EMAIL_LOG_TTL_SECONDS = Math.round(
 
 export interface INewEmailSchema {
   _id?: Types.ObjectId;
+  // Mongoose's version key: 0 on insert; only BaseRepository.update() advances it. Mappers read it, never write it.
+  __v?: number;
   // Optional only here: the inherited toFilter() runs partial filters through EmailMapper.toPersistence(), which
   // must then leave user_id out. The schema below still requires it.
   user_id?: Types.ObjectId;

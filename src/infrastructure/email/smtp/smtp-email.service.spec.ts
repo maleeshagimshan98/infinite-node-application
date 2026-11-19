@@ -64,7 +64,7 @@ function emailJob(attemptsMade: number): Job<IEmailJobData> {
  * @returns {Email} The pending email.
  */
 function pendingEmail(): Email {
-  return new Email({ ...jobData, status: 'pending' });
+  return new Email({ ...jobData, version: 0, status: 'pending' });
 }
 
 /**
@@ -419,7 +419,9 @@ describe('SMTPEmailService', () => {
 
     it('does not send an email that is no longer pending', async () => {
       const { service, repository, logger } = createService();
-      repository.findById.mockResolvedValue(new Email({ ...jobData, body: '', status: 'sent', sent_on: new Date() }));
+      repository.findById.mockResolvedValue(
+        new Email({ ...jobData, version: 1, body: '', status: 'sent', sent_on: new Date() }),
+      );
       const sendMail = jest.spyOn(transporter, 'sendMail');
 
       await service.deliverQueuedEmail(emailJob(0));

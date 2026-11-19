@@ -11,6 +11,7 @@ import type { IRoleRepository } from '@/application/interfaces/repositories/auth
 import type { IUserGroupRepository } from '@/application/interfaces/repositories/user-groups/user-group.repository.interface';
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
+import { normalizeEmail } from '@/domain/base/normalize-email';
 import type { TransactionOptions } from '@/application/interfaces/infrastructure/database-mapper.interface';
 
 /**
@@ -59,15 +60,15 @@ export class UserService extends BaseDomainService {
   }
 
   /**
-   * Get a user by its email.
+   * Get a user by its email. The email is matched trimmed and in lowercase, as it is stored.
    *
-   * @param {string} email - The user's email.
+   * @param {string} email - The user's email, in any case.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<User | null>} The matching user, or null if none exists.
    */
   async getByEmail(email: string, transactionOptions?: TransactionOptions): Promise<User | null> {
     return this.wrapInfrastructureErrors(async () => {
-      return await this.userRepository.findOne({ email }, undefined, transactionOptions);
+      return await this.userRepository.findOne({ email: normalizeEmail(email) }, undefined, transactionOptions);
     });
   }
 
@@ -149,36 +150,43 @@ export class UserService extends BaseDomainService {
    * a new one is supplied.
    *
    * @param {string} id - The user id.
-   * @param {Partial<INewUser>} data - The fields to update.
+   * @param {Partial<INewUser>} data - The fields to update, and the `version` of the user the caller read. Without a
+   * version (internal callers such as signup and account recovery) the update applies to the user as it is read here.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
-   * @returns {Promise<User>} The updated user.
+   * @returns {Promise<User>} The updated user, with its new version.
    * @throws {DomainServiceError} NOT_FOUND when no user exists with the given id.
+   * @throws {DomainServiceError} CONFLICT when `data.version` is not the user's current version, or the user changed
+   * during the update.
    * @throws {DomainServiceError} ALREADY_EXISTS when renaming to an email already used by another account.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed, or the given role_id/ug_id is malformed or does not exist.
    */
   async update(id: string, data: Partial<INewUser>, transactionOptions?: TransactionOptions): Promise<User> {
     return this.wrapInfrastructureErrors(async () => {
+      // `version` is the version the caller read, not a field to change: it has no setter, so Object.assign() would
+      // throw a TypeError on it.
+      const { version, ...changes } = data;
       const existingUser = await this.getById(id, transactionOptions);
+      this.assertVersion(existingUser, version, 'User');
 
-      if (data.email && data.email !== existingUser.email) {
-        const duplicateUser = await this.getByEmail(data.email, transactionOptions);
+      if (changes.email !== undefined && normalizeEmail(changes.email) !== existingUser.email) {
+        const duplicateUser = await this.getByEmail(changes.email, transactionOptions);
         if (duplicateUser) {
           throw new DomainServiceError(
-            `The User with the email equal to ${data.email} already exists.`,
+            `The User with the email equal to ${changes.email} already exists.`,
             'ALREADY_EXISTS',
           );
         }
       }
 
       await this.assertRoleAndGroupExist(
-        data.role_id ?? existingUser.role_id,
-        data.ug_id ?? existingUser.ug_id,
+        changes.role_id ?? existingUser.role_id,
+        changes.ug_id ?? existingUser.ug_id,
         transactionOptions,
       );
 
-      const updatePayload: Partial<INewUser> = { ...data };
-      if (data.password) {
-        updatePayload.password = await argon2.hash(data.password);
+      const updatePayload: Omit<Partial<INewUser>, 'version'> = { ...changes };
+      if (changes.password) {
+        updatePayload.password = await argon2.hash(changes.password);
       }
 
       Object.assign(existingUser, updatePayload);

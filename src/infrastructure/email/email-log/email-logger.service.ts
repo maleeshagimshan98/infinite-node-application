@@ -99,11 +99,12 @@ export class EmailLoggerService {
   }
 
   /**
-   * Save a logged email's current state, e.g. after `markSent()` or `markFailed()`.
+   * Save a logged email's current state, e.g. after `markSent()` or `markFailed()`. The save succeeds only while the
+   * stored record is still at the version `email` was read at.
    *
-   * @param {Email} email - The email to save.
-   * @returns {Promise<Email | null>} The saved email, or null when there is none with its id.
-   * @throws {RepositoryError} INVALID_ID for a malformed id or user_id.
+   * @param {Email} email - The email to save, as read and then changed.
+   * @returns {Promise<Email | null>} The saved email with its new version, or null when there is none with its id.
+   * @throws {RepositoryError} VERSION_CONFLICT when the record was updated after `email` was read; INVALID_ID for a malformed id or user_id.
    * @throws {InfrastructureError} CONNECTION_ERROR when the database cannot be reached.
    * @throws {PersistanceError} For any other database failure (e.g. schema validation).
    */

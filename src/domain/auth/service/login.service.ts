@@ -238,6 +238,7 @@ export class LoginService extends BaseDomainService {
    * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
    * @returns {Promise<void>}
    * @throws {DomainServiceError} NOT_FOUND — if the login record no longer exists.
+   * @throws {DomainServiceError} CONFLICT — if the login record was updated after `loginRecord` was read.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR — if a database error occurs.
    */
   async expireLoginRecord(loginRecord: LoginRecord, transactionOptions?: TransactionOptions): Promise<void> {
@@ -261,6 +262,7 @@ export class LoginService extends BaseDomainService {
    * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
    * @returns {Promise<void>}
    * @throws {DomainServiceError} NOT_FOUND — if the login record no longer exists.
+   * @throws {DomainServiceError} CONFLICT — if the login record was updated after `loginRecord` was read.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR — if a database error occurs.
    */
   async revokeLoginRecord(loginRecord: LoginRecord, transactionOptions?: TransactionOptions): Promise<void> {

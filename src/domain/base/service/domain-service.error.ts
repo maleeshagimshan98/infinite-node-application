@@ -10,6 +10,7 @@ export type ServiceErrorType =
   | 'INCOMPLETE_MODEL'
   | 'NOT_FOUND'
   | 'ALREADY_EXISTS'
+  | 'CONFLICT'
   | 'UNKNOWN_ERROR'
   | 'INFRASTRUCTURE_ERROR';
 

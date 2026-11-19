@@ -109,6 +109,9 @@ export class LoginApplicationService extends BaseApplicationService {
   /**
    * Resolve a login record for a raw access token, preferring the cache and falling back to the DB.
    *
+   * A cached record without a valid `version` was cached before login records had one. It cannot be updated (every
+   * update needs the version it was read at), so it is evicted and the record is read from the database instead.
+   *
    * @param {string} token - The raw JWT access token.
    * @returns {Promise<LoginRecord | null>} The matching login record, or null if none matched.
    * @throws {Error} If the cache read fails with something other than an InfrastructureError (unexpected).
@@ -123,10 +126,25 @@ export class LoginApplicationService extends BaseApplicationService {
       }
       this.logger.logError('Cache read failed for login record, falling back to database', { error: e.message });
     }
-    if (cached) {
+    if (cached && this.hasValidVersion(cached)) {
       return this.toLoginRecord(cached);
     }
+    if (cached) {
+      await this.evictLoginRecord(token);
+    }
     return this.loginService.getLoginRecordByToken(token);
+  }
+
+  /**
+   * Check whether a cached login record carries a version: an integer >= 0. The cache returns parsed JSON, so the
+   * field can be missing at runtime even though `ILoginRecord` requires it.
+   *
+   * @param {ILoginRecord} cached - The plain object read back from the cache.
+   * @returns {boolean} True when `version` is an integer >= 0.
+   */
+  private hasValidVersion(cached: ILoginRecord): boolean {
+    const version: unknown = cached.version;
+    return typeof version === 'number' && Number.isInteger(version) && version >= 0;
   }
 
   /**
@@ -141,19 +159,21 @@ export class LoginApplicationService extends BaseApplicationService {
 
   /**
    * Run a login-record state mutation (expire/revoke) that may target a record whose cached copy
-   * outlived its database row. If the record no longer exists, the mutation now fails with a
-   * NOT_FOUND domain error; surface it as an authentication error so the failed update is visible
-   * to the caller instead of passing silently. Any other error propagates unchanged.
+   * outlived its database row, or changed after it was read. If the record no longer exists, the
+   * mutation fails with a NOT_FOUND domain error; if it changed since it was read (e.g. a concurrent
+   * refresh already rotated the session, or a password reset revoked it), it fails with CONFLICT.
+   * Either way the session is no longer the one the caller presented, so surface it as an
+   * authentication error instead of passing silently. Any other error propagates unchanged.
    *
    * @param {() => Promise<void>} op - The login-record mutation to run.
    * @returns {Promise<void>}
-   * @throws {DomainServiceError} AUTHENTICATION_ERROR — when `op` fails because the record no longer exists.
+   * @throws {DomainServiceError} AUTHENTICATION_ERROR — when `op` fails because the record no longer exists or changed since it was read.
    */
   private async mutateLoginRecord(op: () => Promise<void>): Promise<void> {
     try {
       await op();
     } catch (e: unknown) {
-      if (e instanceof DomainServiceError && e.type === 'NOT_FOUND') {
+      if (e instanceof DomainServiceError && (e.type === 'NOT_FOUND' || e.type === 'CONFLICT')) {
         throw this.authError(INVALID_TOKEN_MESSAGE);
       }
       throw e;

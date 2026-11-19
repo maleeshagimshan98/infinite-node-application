@@ -58,6 +58,12 @@ export const newUserValidator = (): Schema => {
 
 export const updateUserValidator = (): Schema => {
   return {
+    // The version of the user the client read (from a GET); a stale one is rejected with 409 and nothing changes.
+    version: {
+      isInt: { options: { min: 0 } },
+      toInt: true,
+      errorMessage: 'version is required: the integer version of the user you read',
+    },
     email: {
       optional: true,
       isEmail: true,

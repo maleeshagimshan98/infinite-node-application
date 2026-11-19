@@ -4,11 +4,14 @@
 
 import { DomainEntity } from '../../base/DomainEntity';
 import { DomainEntityError } from '../../base/DomainEntityError';
+import { normalizeEmail } from '../../base/normalize-email';
 
 type EmailVerificationCodeStatus = 'pending' | 'verified' | 'expired';
 
 export interface INewEmailVerificationCode {
   id?: string;
+  /** Set on a verification code read from the database. */
+  version?: number;
   user_id: string;
   email: string;
   code: string;
@@ -19,10 +22,12 @@ export interface INewEmailVerificationCode {
 
 export interface IEmailVerificationCode extends INewEmailVerificationCode {
   id: string;
+  version: number;
 }
 
 export class NewEmailVerificationCode extends DomainEntity {
   protected _id?: string;
+  protected _version?: number;
   protected _user_id: string;
   protected _email: string;
   protected _code: string;
@@ -35,8 +40,11 @@ export class NewEmailVerificationCode extends DomainEntity {
     if (data.id) {
       this._id = data.id;
     }
+    if (data.version !== undefined) {
+      this._version = NewEmailVerificationCode.checkVersion(data.version);
+    }
     this._user_id = data.user_id;
-    this._email = data.email;
+    this._email = normalizeEmail(data.email);
     this._code = data.code;
     this._status = data.status;
     this._valid_till = data.valid_till;
@@ -50,10 +58,17 @@ export class NewEmailVerificationCode extends DomainEntity {
     return this._id;
   }
 
+  get version(): number | undefined {
+    return this._version;
+  }
+
   get user_id(): string {
     return this._user_id;
   }
 
+  /**
+   * The email address, trimmed and in lowercase (normalizeEmail()).
+   */
   get email(): string {
     return this._email;
   }
@@ -84,7 +99,7 @@ export class NewEmailVerificationCode extends DomainEntity {
   }
 
   set email(value: string) {
-    this._email = value;
+    this._email = normalizeEmail(value);
   }
 
   set code(value: string) {
@@ -106,15 +121,22 @@ export class NewEmailVerificationCode extends DomainEntity {
 
 export class EmailVerificationCode extends NewEmailVerificationCode {
   protected _id: string;
+  protected _version: number;
 
   constructor(data: IEmailVerificationCode) {
     super(data);
     this._id = data.id;
+    // Redeclared fields are reset after super() returns, so assign it here, as _id is.
+    this._version = EmailVerificationCode.checkVersion(data.version);
   }
 
   // Override id getter to return required string
   get id(): string {
     return this._id;
+  }
+
+  get version(): number {
+    return this._version;
   }
 
   // All other getters and setters are inherited from NewEmailVerificationCode

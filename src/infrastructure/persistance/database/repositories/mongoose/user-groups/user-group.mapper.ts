@@ -21,6 +21,7 @@ export class UserGroupMapper extends BaseMapper<INewUserGroupSchema, UserGroup, 
   toDomain(data: INewUserGroupSchema & { _id: Types.ObjectId }): UserGroup {
     return new UserGroup({
       id: data._id.toString(),
+      version: this.toVersion(data.__v, data._id),
       name: data.name,
       description: data.description,
       discount: data.discount,

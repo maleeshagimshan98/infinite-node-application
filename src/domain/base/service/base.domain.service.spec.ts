@@ -12,6 +12,10 @@ class TestDomainService extends BaseDomainService {
   run<T>(fn: () => Promise<T>, onError?: (error: InfrastructureError) => void): Promise<T> {
     return this.wrapInfrastructureErrors(fn, onError);
   }
+
+  checkVersion(version: number, expectedVersion: number | undefined): void {
+    this.assertVersion({ version }, expectedVersion, 'Role');
+  }
 }
 
 describe('BaseDomainService.wrapInfrastructureErrors', () => {
@@ -25,6 +29,7 @@ describe('BaseDomainService.wrapInfrastructureErrors', () => {
   it.each([
     ['DUPLICATE_KEY', 'ALREADY_EXISTS'],
     ['INVALID_ID', 'VALIDATION_ERROR'],
+    ['VERSION_CONFLICT', 'CONFLICT'],
   ] as const)('maps a %s RepositoryError to %s with a client-safe message', async (repositoryType, serviceType) => {
     const thrown = await service
       .run(async () => {
@@ -37,17 +42,36 @@ describe('BaseDomainService.wrapInfrastructureErrors', () => {
     expect(thrown).not.toMatchObject({ message: expect.stringContaining('E11000') });
   });
 
-  it('does not report a RepositoryError to onError', async () => {
-    const onError = jest.fn();
-
-    await service
+  it('maps a VERSION_CONFLICT RepositoryError to CONFLICT with the fixed reload message', async () => {
+    const thrown = await service
       .run(async () => {
-        throw new RepositoryError(driverMessage, 'DUPLICATE_KEY');
-      }, onError)
-      .catch(() => undefined);
+        throw new RepositoryError(
+          'user.update failed: version 3 of 64b7f0c2a1b2c3d4e5f60719 is stale',
+          'VERSION_CONFLICT',
+        );
+      })
+      .catch((e: unknown) => e);
 
-    expect(onError).not.toHaveBeenCalled();
+    expect(thrown).toMatchObject({
+      type: 'CONFLICT',
+      message: 'The record was changed by another request. Reload it and try again.',
+    });
   });
+
+  it.each([['DUPLICATE_KEY'], ['VERSION_CONFLICT']] as const)(
+    'does not report a %s RepositoryError to onError',
+    async (repositoryType) => {
+      const onError = jest.fn();
+
+      await service
+        .run(async () => {
+          throw new RepositoryError(driverMessage, repositoryType);
+        }, onError)
+        .catch(() => undefined);
+
+      expect(onError).not.toHaveBeenCalled();
+    },
+  );
 
   it('maps an InfrastructureError to INFRASTRUCTURE_ERROR carrying data.type, after calling onError', async () => {
     const error = new InfrastructureError('Mongo down', 'CONNECTION_ERROR');
@@ -73,5 +97,29 @@ describe('BaseDomainService.wrapInfrastructureErrors', () => {
         throw error;
       }),
     ).rejects.toBe(error);
+  });
+});
+
+describe('BaseDomainService.assertVersion', () => {
+  const service = new TestDomainService();
+
+  it('passes when the expected version is the current version', () => {
+    expect(() => service.checkVersion(3, 3)).not.toThrow();
+  });
+
+  it('skips the check when no version is expected', () => {
+    expect(() => service.checkVersion(3, undefined)).not.toThrow();
+  });
+
+  it.each([[2], [4]])('throws CONFLICT when the caller read version %i of version 3', (expectedVersion) => {
+    let thrown: unknown;
+    try {
+      service.checkVersion(3, expectedVersion);
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown).toBeInstanceOf(DomainServiceError);
+    expect(thrown).toMatchObject({ type: 'CONFLICT', message: expect.stringContaining('Role') });
   });
 });

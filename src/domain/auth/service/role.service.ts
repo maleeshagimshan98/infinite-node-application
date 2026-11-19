@@ -131,29 +131,36 @@ export class RoleService extends BaseDomainService {
    * Update a role by its id.
    *
    * @param {string} id - The role id.
-   * @param {Partial<INewRole>} data - The fields to update.
+   * @param {Partial<INewRole>} data - The fields to update, and the `version` of the role the caller read. Without a
+   * version the update applies to the role as it is read here.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
-   * @returns {Promise<Role>} The updated role.
+   * @returns {Promise<Role>} The updated role, with its new version.
    * @throws {DomainServiceError} NOT_FOUND when no role exists with the given id, or a
    * resource_permissions entry references a resource id that does not exist.
+   * @throws {DomainServiceError} CONFLICT when `data.version` is not the role's current version (checked before any
+   * write), or the role or the current default role changed during the update.
    * @throws {DomainServiceError} ALREADY_EXISTS when renaming to a name already used by another role.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
    */
   async update(id: string, data: Partial<INewRole>, transactionOptions?: TransactionOptions): Promise<Role> {
     return this.wrapInfrastructureErrors(async () => {
+      // `version` is the version the caller read, not a field to change: it has no setter, so Object.assign() would
+      // throw a TypeError on it.
+      const { version, ...changes } = data;
       const existingRole = await this.getById(id, transactionOptions);
+      this.assertVersion(existingRole, version, 'Role');
 
-      if (data.name && data.name !== existingRole.name) {
-        const duplicateRole = await this.getByName(data.name, transactionOptions);
+      if (changes.name && changes.name !== existingRole.name) {
+        const duplicateRole = await this.getByName(changes.name, transactionOptions);
         if (duplicateRole) {
           throw new DomainServiceError(
-            `The Role with the name equal to ${data.name} already exists.`,
+            `The Role with the name equal to ${changes.name} already exists.`,
             'ALREADY_EXISTS',
           );
         }
       }
 
-      if (data.default === true) {
+      if (changes.default === true) {
         const currentDefault = await this.getDefaultRole(transactionOptions);
         if (currentDefault && currentDefault.id !== id) {
           currentDefault.default = false;
@@ -167,11 +174,11 @@ export class RoleService extends BaseDomainService {
         }
       }
 
-      if (data.resource_permissions) {
-        await this.validateResourcePermissions(data.resource_permissions, transactionOptions);
+      if (changes.resource_permissions) {
+        await this.validateResourcePermissions(changes.resource_permissions, transactionOptions);
       }
 
-      Object.assign(existingRole, data);
+      Object.assign(existingRole, changes);
       const updatedRole = await this.roleRepository.update(id, existingRole, transactionOptions);
 
       if (!updatedRole) {

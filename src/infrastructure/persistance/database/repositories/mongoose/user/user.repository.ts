@@ -20,8 +20,8 @@ export class UserRepository extends BaseRepository<INewUserSchema, User, NewUser
   /**
    * Populate a user's role_id and, one level further, each of that role's granted
    * resource_permissions entries — the full User → Role → Resources chain RBAC checks need.
-   * This is the maximum depth this codebase permits via .populate(); see the Population Strategy
-   * rule in CLAUDE.md/AGENTS.md.
+   * This is the maximum depth this codebase permits via .populate(); see CLAUDE.md §6.6 (populate
+   * at most two levels deep).
    *
    * @returns {(string | PopulateOptions)[]} Mongoose population paths/options.
    */

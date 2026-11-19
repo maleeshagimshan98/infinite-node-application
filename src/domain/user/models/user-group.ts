@@ -6,6 +6,8 @@ import { DomainEntity } from '../../base/DomainEntity';
 
 export interface INewUserGroup {
   id?: string;
+  /** Set on a user group read from the database; in an update payload, the version the caller read. */
+  version?: number;
   name: string;
   description: string;
   discount: number;
@@ -14,10 +16,12 @@ export interface INewUserGroup {
 
 export interface IUserGroup extends INewUserGroup {
   id: string;
+  version: number;
 }
 
 export class NewUserGroup extends DomainEntity {
   protected _id?: string;
+  protected _version?: number;
   protected _name: string;
   protected _description: string;
   protected _discount: number;
@@ -28,6 +32,9 @@ export class NewUserGroup extends DomainEntity {
     if (data.id) {
       this._id = data.id;
     }
+    if (data.version !== undefined) {
+      this._version = NewUserGroup.checkVersion(data.version);
+    }
     this._name = data.name;
     this._description = data.description;
     this._discount = data.discount;
@@ -37,6 +44,10 @@ export class NewUserGroup extends DomainEntity {
   // Getters
   get id(): string | undefined {
     return this._id;
+  }
+
+  get version(): number | undefined {
+    return this._version;
   }
 
   get name(): string {
@@ -79,15 +90,22 @@ export class NewUserGroup extends DomainEntity {
 
 export class UserGroup extends NewUserGroup {
   protected _id: string;
+  protected _version: number;
 
   constructor(data: IUserGroup) {
     super(data);
     this._id = data.id;
+    // Redeclared fields are reset after super() returns, so assign it here, as _id is.
+    this._version = UserGroup.checkVersion(data.version);
   }
 
   // Override id getter to return required string
   get id(): string {
     return this._id;
+  }
+
+  get version(): number {
+    return this._version;
   }
 }
 

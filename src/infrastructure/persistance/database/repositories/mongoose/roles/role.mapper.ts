@@ -50,6 +50,7 @@ export class RoleMapper extends BaseMapper<INewRoleSchema, Role, NewRole> {
 
     return new Role({
       id: data._id.toString(),
+      version: this.toVersion(data.__v, data._id),
       name: data.name,
       ...(data.description !== undefined && { description: data.description }),
       default: data.default,

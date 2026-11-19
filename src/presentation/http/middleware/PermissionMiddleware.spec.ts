@@ -30,13 +30,15 @@ function userWith(permission?: IPermission): User {
     permission &&
     new Role({
       id: 'role-1',
+      version: 0,
       name: 'Administrator',
       default: false,
       resource_permissions: [{ resource_id: 'resource-1', permission }],
-      resources: [{ resource: new Resource({ id: 'resource-1', name: 'email-logs' }), permission }],
+      resources: [{ resource: new Resource({ id: 'resource-1', version: 0, name: 'email-logs' }), permission }],
     });
   return new User({
     id: 'user-1',
+    version: 0,
     email: 'admin@example.com',
     password: 'hash',
     status: 'active',

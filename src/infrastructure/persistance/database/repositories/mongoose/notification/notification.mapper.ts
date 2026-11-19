@@ -22,6 +22,7 @@ export class NotificationMapper extends BaseMapper<INewNotificationSchema, Notif
   toDomain(data: INewNotificationSchema & { _id: Types.ObjectId }): Notification {
     return new Notification({
       id: data._id.toString(),
+      version: this.toVersion(data.__v, data._id),
       triggered_by: data.triggered_by,
       triggered_on: data.triggered_on,
       topic: data.topic,

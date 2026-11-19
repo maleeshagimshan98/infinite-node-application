@@ -100,11 +100,12 @@ export class NotificationLoggerService {
   }
 
   /**
-   * Save a logged notification's current state, e.g. after `markSent()` or `markFailed()`.
+   * Save a logged notification's current state, e.g. after `markSent()` or `markFailed()`. The save succeeds only
+   * while the stored record is still at the version `notification` was read at.
    *
-   * @param {Notification} notification - The notification to save.
-   * @returns {Promise<Notification | null>} The saved notification, or null when there is none with its id.
-   * @throws {RepositoryError} INVALID_ID for a malformed id.
+   * @param {Notification} notification - The notification to save, as read and then changed.
+   * @returns {Promise<Notification | null>} The saved notification with its new version, or null when there is none with its id.
+   * @throws {RepositoryError} VERSION_CONFLICT when the record was updated after `notification` was read; INVALID_ID for a malformed id.
    * @throws {InfrastructureError} CONNECTION_ERROR when the database cannot be reached.
    * @throws {PersistanceError} For any other database failure (e.g. schema validation).
    */

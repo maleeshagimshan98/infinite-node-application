@@ -16,15 +16,18 @@ import mongoose from 'mongoose';
  *
  * Uses MONGODB_TEST_URI environment variable or defaults to local test database.
  *
+ * @param {string} [dbName] - A database of its own for this test file, instead of the URI's. Jest runs test files in
+ * parallel, and `clearTestDB()` empties every collection, so a test file whose data would collide with another's
+ * (e.g. the same collections) uses its own database.
  * @returns {Promise<void>}
  */
-export const connectToTestDB = async (): Promise<void> => {
+export const connectToTestDB = async (dbName?: string): Promise<void> => {
   // Get MongoDB URI from environment variable or use default test database
   const uri = process.env.MONGODB_TEST_URI || 'mongodb://localhost:27017/infinite-node-application-test';
 
   // Only connect if not already connected
   if (mongoose.connection.readyState === 0) {
-    await mongoose.connect(uri);
+    await mongoose.connect(uri, dbName ? { dbName } : {});
   }
 };
 

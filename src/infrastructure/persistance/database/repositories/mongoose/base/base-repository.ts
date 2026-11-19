@@ -2,7 +2,10 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { IBaseRepository } from '@/application/interfaces/repositories/base.repository.interface';
+import type {
+  IBaseRepository,
+  IVersionedEntity,
+} from '@/application/interfaces/repositories/base.repository.interface';
 import type { TransactionOptions } from '@/application/interfaces';
 import { InfrastructureError } from '@/infrastructure/core/errors/infrastructure.error';
 import { RepositoryError } from '@/infrastructure/core/errors/repository.error';
@@ -34,11 +37,13 @@ type MongooseModel<DBModel> = Model<
 /**
  * BaseRepository provides common CRUD operations for any schema type DBModel (model schema interface) and DomainModel (domain model).
  * It uses a Mongoose model for database interactions and a mapper to convert between persistence and domain models.
+ * DomainModel is an entity read from the database: a NewDomainModel that also carries its version.
  */
-export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> implements IBaseRepository<
-  DomainModel,
-  NewDomainModel
-> {
+export abstract class BaseRepository<
+  DBModel,
+  DomainModel extends NewDomainModel & IVersionedEntity,
+  NewDomainModel,
+> implements IBaseRepository<DomainModel, NewDomainModel> {
   /**
    * mongoose model instance for the schema DBModel
    *
@@ -72,7 +77,7 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
    * [{ path: 'role_id', populate: { path: 'resource_permissions.resource_id' } }]). The default
    * ([]) disables population — every repository that doesn't override this (LoginRecord,
    * PasswordResetCode, UserGroup) behaves exactly as before this hook was introduced. Never nest
-   * a 3rd level here — see the Population Strategy rule in CLAUDE.md/AGENTS.md.
+   * a 3rd level here — see CLAUDE.md §6.6 (populate at most two levels deep).
    *
    * @returns {(string | PopulateOptions)[]} Mongoose population paths/options.
    */
@@ -319,26 +324,32 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
   }
 
   /**
-   * Update a document by its ID with the provided partial item data
+   * Update a document by its ID, only while its stored version (`__v`) still equals `item.version`, and advance the
+   * version in the same write. An update made from a stale read therefore fails instead of overwriting the changes
+   * made since. The stored document is replaced by `item`'s fields (`$set`), not merged with a partial update.
    *
    * @param {string} id - The ID of the document to update
-   * @param {NewDomainModel} item - The partial data to update the document with
+   * @param {DomainModel} item - The entity as read and then changed; its `version` is the version it was read at
    * @param {TransactionOptions | undefined} transactionOptions - Optional MongoDB session for transaction support
-   * @returns {Promise<DomainModel | null>} Resolves to the updated document, or null if no document with the given ID is found
-   * @throws {RepositoryError} INVALID_ID for a malformed `id` or id in `item`; DUPLICATE_KEY for a unique index violation.
+   * @returns {Promise<DomainModel | null>} Resolves to the updated document with its new version, or null if no document with the given ID is found
+   * @throws {RepositoryError} VERSION_CONFLICT when the document was updated after `item` was read; INVALID_ID for a malformed `id` or id in `item`; DUPLICATE_KEY for a unique index violation.
    * @throws {InfrastructureError} CONNECTION_ERROR when the database cannot be reached.
    * @throws {PersistanceError} For any other database failure (e.g. schema validation).
    */
   public async update(
     id: string,
-    item: NewDomainModel,
+    item: DomainModel,
     transactionOptions?: TransactionOptions,
   ): Promise<DomainModel | null> {
     return this.wrapDatabaseErrors('update', async () => {
+      const session =
+        transactionOptions && transactionOptions.session
+          ? (transactionOptions.session as mongoose.mongo.ClientSession)
+          : null;
       const persistenceData = this.mapper.toPersistence(item);
-      let query = this.mongooseModel.findByIdAndUpdate(
-        id,
-        { $set: persistenceData as unknown as Record<string, unknown> },
+      let query = this.mongooseModel.findOneAndUpdate(
+        { _id: id, __v: item.version },
+        { $set: persistenceData as unknown as Record<string, unknown>, $inc: { __v: 1 } },
         { new: true, runValidators: true },
       );
 
@@ -347,17 +358,20 @@ export abstract class BaseRepository<DBModel, DomainModel, NewDomainModel> imple
         query = query.populate(paths);
       }
 
-      const model = await query
-        .session(
-          transactionOptions && transactionOptions.session
-            ? (transactionOptions.session as mongoose.mongo.ClientSession)
-            : null,
-        )
-        .exec();
-      if (!model) {
-        return null;
+      const model = await query.session(session).exec();
+      if (model) {
+        return this.mapper.toDomain(model);
       }
-      return this.mapper.toDomain(model);
+      // Nothing matched: either no document has this id, or it has moved past item.version. Only this failure path
+      // pays for the extra read.
+      if (await this.mongooseModel.exists({ _id: id }).session(session)) {
+        throw new RepositoryError(
+          `${this.mongooseModel.modelName}.update failed: version ${item.version} of ${id} is stale`,
+          'VERSION_CONFLICT',
+          { id, version: item.version },
+        );
+      }
+      return null;
     });
   }
 

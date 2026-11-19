@@ -8,6 +8,7 @@ import type { User } from '@/domain/user/models/user';
 import type { UserService } from '@/domain/user/service/user.service';
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
+import { normalizeEmail } from '@/domain/base/normalize-email';
 import { NewEmailVerificationCode, type EmailVerificationCode } from '@/domain/auth/models/email-verification-code';
 import type { IEmailVerificationCodeRepository } from '@/application/interfaces/repositories/auth/email-verification-code.repository.interface';
 import type { TransactionOptions } from '@/application/interfaces/infrastructure/database-mapper.interface';
@@ -57,10 +58,11 @@ export class SignupService extends BaseDomainService {
   /**
    * Expire every pending email verification code for an email address.
    *
-   * @param {string} email - The email address whose pending codes should be invalidated.
+   * @param {string} email - The email address whose pending codes should be invalidated, already normalized.
    * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations.
    * @returns {Promise<void>}
    * @throws {DomainServiceError} NOT_FOUND if a code is concurrently deleted mid-invalidation.
+   * @throws {RepositoryError} VERSION_CONFLICT if a code is concurrently changed mid-invalidation (the caller's wrapInfrastructureErrors maps it to CONFLICT).
    */
   private async invalidatePendingCodes(email: string, transactionOptions?: TransactionOptions): Promise<void> {
     const codes: EmailVerificationCode[] = await this.emailVerificationCodeRepository.find(
@@ -95,6 +97,8 @@ export class SignupService extends BaseDomainService {
    * @returns {Promise<{ record: EmailVerificationCode; rawCode: string }>} The persisted record and the raw
    * (unhashed) code — the raw code is never stored and must be delivered to the user out-of-band (e.g. email).
    * @throws {DomainServiceError} NOT_FOUND if a pending code is concurrently deleted mid-invalidation.
+   * @throws {DomainServiceError} CONFLICT if a pending code is concurrently changed mid-invalidation.
+   * @throws {DomainServiceError} ALREADY_EXISTS if a concurrent request issued a pending code for the email first.
    */
   async createVerificationCode(
     userId: string,
@@ -102,12 +106,13 @@ export class SignupService extends BaseDomainService {
     transactionOptions?: TransactionOptions,
   ): Promise<{ record: EmailVerificationCode; rawCode: string }> {
     return this.wrapInfrastructureErrors(async () => {
-      await this.invalidatePendingCodes(email, transactionOptions);
+      const address = normalizeEmail(email);
+      await this.invalidatePendingCodes(address, transactionOptions);
 
       const rawCode = this.generateCode();
       const newCode = new NewEmailVerificationCode({
         user_id: userId,
-        email,
+        email: address,
         code: this.hashCode(rawCode),
         status: 'pending',
         valid_till: new Date(Date.now() + VERIFICATION_CODE_TTL_MS),
@@ -127,17 +132,19 @@ export class SignupService extends BaseDomainService {
    * @returns {Promise<void>}
    * @throws {DomainServiceError} NOT_FOUND if the user does not exist, or no matching pending code is found.
    * @throws {DomainServiceError} VALIDATION_ERROR if the matching code has expired.
+   * @throws {DomainServiceError} CONFLICT if the code or the user changed concurrently (e.g. a concurrent verification).
    */
   async verifyEmail(email: string, code: string, transactionOptions?: TransactionOptions): Promise<void> {
     return this.wrapInfrastructureErrors(async () => {
-      const user: User | null = await this.userService.getByEmail(email, transactionOptions);
+      const address = normalizeEmail(email);
+      const user: User | null = await this.userService.getByEmail(address, transactionOptions);
 
       if (!user) {
         throw new DomainServiceError(`The User with the email equal to ${email} could not be found.`, 'NOT_FOUND');
       }
 
       const record = await this.emailVerificationCodeRepository.findOne(
-        { email, code: this.hashCode(code), status: 'pending' },
+        { email: address, code: this.hashCode(code), status: 'pending' },
         {},
         transactionOptions,
       );
@@ -163,7 +170,7 @@ export class SignupService extends BaseDomainService {
         );
       }
 
-      await this.invalidatePendingCodes(email, transactionOptions);
+      await this.invalidatePendingCodes(address, transactionOptions);
 
       if (!user.isActive()) {
         user.activate();
@@ -185,13 +192,15 @@ export class SignupService extends BaseDomainService {
    * @returns {Promise<{ userId: string; rawCode: string }>} The user's id and the raw (unhashed) code.
    * @throws {DomainServiceError} NOT_FOUND if the user does not exist, or no pending verification code exists for the email.
    * @throws {DomainServiceError} INVALID_OPERATION if the user's email is already verified.
+   * @throws {DomainServiceError} ALREADY_EXISTS if a concurrent resend issued a new pending code first.
    */
   async resendVerificationCode(
     email: string,
     transactionOptions?: TransactionOptions,
   ): Promise<{ userId: string; rawCode: string }> {
     return this.wrapInfrastructureErrors(async () => {
-      const user: User | null = await this.userService.getByEmail(email, transactionOptions);
+      const address = normalizeEmail(email);
+      const user: User | null = await this.userService.getByEmail(address, transactionOptions);
 
       if (!user) {
         throw new DomainServiceError(`The User with the email equal to ${email} could not be found.`, 'NOT_FOUND');
@@ -202,7 +211,7 @@ export class SignupService extends BaseDomainService {
       }
 
       const existingCode = await this.emailVerificationCodeRepository.findOne(
-        { email, status: 'pending' },
+        { email: address, status: 'pending' },
         {},
         transactionOptions,
       );
@@ -210,7 +219,7 @@ export class SignupService extends BaseDomainService {
         throw new DomainServiceError(`No pending email verification code found for ${email}.`, 'NOT_FOUND');
       }
 
-      const { rawCode } = await this.createVerificationCode(user.id, email, transactionOptions);
+      const { rawCode } = await this.createVerificationCode(user.id, address, transactionOptions);
       return { userId: user.id, rawCode };
     });
   }

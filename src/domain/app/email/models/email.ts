@@ -12,6 +12,8 @@ export const EMAIL_LOG_RESOURCE_NAME = 'email-logs';
 
 export interface INewEmail {
   id?: string;
+  /** Set on an email read from the database. */
+  version?: number;
   user_id: string;
   sent_on?: Date;
   to: string[];
@@ -26,6 +28,7 @@ export interface INewEmail {
 
 export interface IEmail extends INewEmail {
   id: string;
+  version: number;
 }
 
 /**
@@ -36,6 +39,7 @@ export interface IEmail extends INewEmail {
  */
 export class NewEmail extends DomainEntity {
   protected _id?: string;
+  protected _version?: number;
   protected _user_id: string;
   protected _sent_on?: Date;
   protected _to: string[];
@@ -52,6 +56,9 @@ export class NewEmail extends DomainEntity {
     this.validate(data);
     if (data.id) {
       this._id = data.id;
+    }
+    if (data.version !== undefined) {
+      this._version = NewEmail.checkVersion(data.version);
     }
     this._user_id = data.user_id;
     if (data.sent_on) {
@@ -97,6 +104,10 @@ export class NewEmail extends DomainEntity {
 
   get id(): string | undefined {
     return this._id;
+  }
+
+  get version(): number | undefined {
+    return this._version;
   }
 
   /**
@@ -157,14 +168,21 @@ export class NewEmail extends DomainEntity {
 
 export class Email extends NewEmail {
   protected _id: string;
+  protected _version: number;
 
   constructor(data: IEmail) {
     super(data);
     this._id = data.id;
+    // Redeclared fields are reset after super() returns, so assign it here, as _id is.
+    this._version = Email.checkVersion(data.version);
   }
 
   get id(): string {
     return this._id;
+  }
+
+  get version(): number {
+    return this._version;
   }
 
   /**

@@ -3,11 +3,10 @@
  */
 
 import { DomainEntityError } from '@/domain/base/DomainEntityError';
-import type { INotification } from '@/application/interfaces/infrastructure/notification/notification.interface';
 
 import { NewNotification, Notification } from './notification';
 
-import type { INewNotificationRecord } from './notification';
+import type { INewNotificationRecord, INotificationRecord } from './notification';
 
 const pending: INewNotificationRecord = {
   triggered_by: 'order-service',
@@ -25,7 +24,7 @@ const pending: INewNotificationRecord = {
  * @returns {Notification} A pending notification with an id.
  */
 function loggedPending(): Notification {
-  const data: INotification = { ...pending, id: '64b7f0c2a1b2c3d4e5f60719' };
+  const data: INotificationRecord = { ...pending, id: '64b7f0c2a1b2c3d4e5f60719', version: 0 };
   return new Notification(data);
 }
 

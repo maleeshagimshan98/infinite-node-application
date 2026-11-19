@@ -100,28 +100,35 @@ export class ResourceService extends BaseDomainService {
    * Update a resource by its id.
    *
    * @param {string} id - The resource id.
-   * @param {Partial<INewResource>} data - The fields to update.
+   * @param {Partial<INewResource>} data - The fields to update, and the `version` of the resource the caller read.
+   * Without a version the update applies to the resource as it is read here.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
-   * @returns {Promise<Resource>} The updated resource.
+   * @returns {Promise<Resource>} The updated resource, with its new version.
    * @throws {DomainServiceError} NOT_FOUND when no resource exists with the given id.
+   * @throws {DomainServiceError} CONFLICT when `data.version` is not the resource's current version, or the resource
+   * changed during the update.
    * @throws {DomainServiceError} ALREADY_EXISTS when renaming to a name already used by another resource.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
    */
   async update(id: string, data: Partial<INewResource>, transactionOptions?: TransactionOptions): Promise<Resource> {
     return this.wrapInfrastructureErrors(async () => {
+      // `version` is the version the caller read, not a field to change: it has no setter, so Object.assign() would
+      // throw a TypeError on it.
+      const { version, ...changes } = data;
       const existingResource = await this.getById(id, transactionOptions);
+      this.assertVersion(existingResource, version, 'Resource');
 
-      if (data.name && data.name !== existingResource.name) {
-        const duplicateResource = await this.getByName(data.name, transactionOptions);
+      if (changes.name && changes.name !== existingResource.name) {
+        const duplicateResource = await this.getByName(changes.name, transactionOptions);
         if (duplicateResource) {
           throw new DomainServiceError(
-            `The Resource with the name equal to ${data.name} already exists.`,
+            `The Resource with the name equal to ${changes.name} already exists.`,
             'ALREADY_EXISTS',
           );
         }
       }
 
-      Object.assign(existingResource, data);
+      Object.assign(existingResource, changes);
       const updatedResource = await this.resourceRepository.update(id, existingResource, transactionOptions);
 
       if (!updatedResource) {

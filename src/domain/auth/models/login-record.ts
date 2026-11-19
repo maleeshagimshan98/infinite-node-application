@@ -8,6 +8,8 @@ export type LoginRecordStatus = 'active' | 'expired' | 'revoked';
 
 export interface INewLoginRecord {
   id?: string;
+  /** Set on a login record read from the database. */
+  version?: number;
   user_id: string;
   token: string;
   refresh_token: string;
@@ -18,10 +20,12 @@ export interface INewLoginRecord {
 
 export interface ILoginRecord extends INewLoginRecord {
   id: string;
+  version: number;
 }
 
 export class NewLoginRecord extends DomainEntity {
   protected _id?: string;
+  protected _version?: number;
   protected _user_id: string;
   protected _token: string;
   protected _refresh_token: string;
@@ -34,6 +38,9 @@ export class NewLoginRecord extends DomainEntity {
     if (data.id) {
       this._id = data.id;
     }
+    if (data.version !== undefined) {
+      this._version = NewLoginRecord.checkVersion(data.version);
+    }
     this._user_id = data.user_id;
     this._token = data.token;
     this._refresh_token = data.refresh_token;
@@ -44,6 +51,10 @@ export class NewLoginRecord extends DomainEntity {
 
   get id(): string | undefined {
     return this._id;
+  }
+
+  get version(): number | undefined {
+    return this._version;
   }
 
   get user_id(): string {
@@ -97,14 +108,21 @@ export class NewLoginRecord extends DomainEntity {
 
 export class LoginRecord extends NewLoginRecord {
   protected _id: string;
+  protected _version: number;
 
   constructor(data: ILoginRecord) {
     super(data);
     this._id = data.id;
+    // Redeclared fields are reset after super() returns, so assign it here, as _id is.
+    this._version = LoginRecord.checkVersion(data.version);
   }
 
   get id(): string {
     return this._id;
+  }
+
+  get version(): number {
+    return this._version;
   }
 
   /**

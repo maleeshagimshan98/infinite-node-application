@@ -27,6 +27,7 @@ export class EmailMapper extends BaseMapper<INewEmailSchema, Email, NewEmail> {
     }
     return new Email({
       id: data._id.toString(),
+      version: this.toVersion(data.__v, data._id),
       user_id: data.user_id.toString(),
       ...(data.sent_on && { sent_on: data.sent_on }),
       to: data.to,

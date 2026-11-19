@@ -4,6 +4,7 @@
 
 import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
+import { normalizeEmail } from '@/domain/base/normalize-email';
 import type { UserService } from '@/domain/user/service/user.service';
 import { NewPasswordResetCode, type PasswordResetCode } from '@/domain/auth/models/password-reset-code';
 import type { LoginRecord } from '@/domain/auth/models/login-record';
@@ -51,11 +52,12 @@ export class AccountRecoveryService extends BaseDomainService {
    * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
    * @returns {Promise<void>}
    * @throws {DomainServiceError} NOT_FOUND if a reset code is concurrently deleted mid-cancellation.
+   * @throws {DomainServiceError} CONFLICT if a reset code is concurrently changed mid-cancellation.
    */
   async cancelOldResetCodes(email: string, transactionOptions?: TransactionOptions): Promise<void> {
     return this.wrapInfrastructureErrors(async () => {
       const resetCodes: PasswordResetCode[] = await this.passwordResetCodeRepository.find(
-        { email },
+        { email: normalizeEmail(email) },
         undefined,
         undefined,
         {},
@@ -93,19 +95,22 @@ export class AccountRecoveryService extends BaseDomainService {
    * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
    * @returns {Promise<void>}
    * @throws {DomainServiceError} NOT_FOUND if user doesn't exist
+   * @throws {DomainServiceError} CONFLICT if an old reset code is concurrently changed mid-cancellation.
+   * @throws {DomainServiceError} ALREADY_EXISTS if a concurrent request issued an active reset code for the email first.
    */
   async forgotPassword(email: string, transactionOptions?: TransactionOptions): Promise<void> {
     return this.wrapInfrastructureErrors(async () => {
-      const user = await this.userService.getByEmail(email, transactionOptions);
+      const address = normalizeEmail(email);
+      const user = await this.userService.getByEmail(address, transactionOptions);
 
       if (!user) {
         throw new DomainServiceError(`The User with the email equal to ${email} could not be found.`, 'NOT_FOUND');
       }
 
-      await this.cancelOldResetCodes(email, transactionOptions);
+      await this.cancelOldResetCodes(address, transactionOptions);
 
       const passwordResetCode = new NewPasswordResetCode({
-        email: email,
+        email: address,
         code: this.generateResetCode(),
         valid_till: new Date(new Date().getTime() + 0.5 * 60 * 60 * 1000),
         status: 'active',
@@ -125,6 +130,7 @@ export class AccountRecoveryService extends BaseDomainService {
    * @returns {Promise<void>}
    * @throws {DomainServiceError} NOT_FOUND if reset code or user doesn't exist
    * @throws {DomainServiceError} VALIDATION_ERROR if the reset code has expired.
+   * @throws {DomainServiceError} CONFLICT if the reset code, the user or the login record changed concurrently (e.g. a concurrent reset with the same code).
    */
   async resetPassword(
     email: string,
@@ -133,9 +139,10 @@ export class AccountRecoveryService extends BaseDomainService {
     transactionOptions?: TransactionOptions,
   ): Promise<void> {
     return this.wrapInfrastructureErrors(async () => {
+      const address = normalizeEmail(email);
       const passwordResetCode = await this.passwordResetCodeRepository.findOne(
         {
-          email: email,
+          email: address,
           code: verificationCode,
           status: 'active',
         },
@@ -157,7 +164,7 @@ export class AccountRecoveryService extends BaseDomainService {
         );
       }
 
-      const user = await this.userService.getByEmail(email, transactionOptions);
+      const user = await this.userService.getByEmail(address, transactionOptions);
 
       if (!user) {
         throw new DomainServiceError(`The User with the email equal to ${email} could not be found.`, 'NOT_FOUND');

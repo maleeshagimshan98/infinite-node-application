@@ -31,6 +31,7 @@ export class EmailLogController extends BaseController {
   private toSafeEmail(email: Email): Record<string, unknown> {
     return {
       id: email.id,
+      version: email.version,
       user_id: email.user_id,
       to: email.to,
       cc: email.cc,

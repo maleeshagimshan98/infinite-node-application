@@ -4,3 +4,4 @@
 
 export { DomainEntity } from './DomainEntity';
 export { DomainEntityError } from './DomainEntityError';
+export { normalizeEmail } from './normalize-email';

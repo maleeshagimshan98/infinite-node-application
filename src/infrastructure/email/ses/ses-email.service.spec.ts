@@ -312,7 +312,7 @@ describe('SESEmailService', () => {
 
   it('logs a queued email as pending, sends it through SES, then marks it sent', async () => {
     const { service, repository } = createService();
-    const pending = (): Email => new Email({ ...jobData, status: 'pending' });
+    const pending = (): Email => new Email({ ...jobData, version: 0, status: 'pending' });
     repository.findById.mockResolvedValue(null);
     repository.create.mockResolvedValue(pending());
     repository.update.mockResolvedValue(pending());

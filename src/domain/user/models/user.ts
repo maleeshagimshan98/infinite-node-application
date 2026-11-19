@@ -6,11 +6,14 @@ import type { PermissionAction, Role } from '@/domain/auth/models/role';
 
 import { DomainEntity } from '../../base/DomainEntity';
 import { DomainEntityError } from '../../base/DomainEntityError';
+import { normalizeEmail } from '../../base/normalize-email';
 
 type UserStatus = 'pending_verification' | 'active' | 'suspended';
 
 export interface INewUser {
   id?: string;
+  /** Set on a user read from the database; in an update payload, the version the caller read. */
+  version?: number;
   email: string;
   password: string;
   status: UserStatus;
@@ -21,10 +24,12 @@ export interface INewUser {
 
 export interface IUser extends INewUser {
   id: string;
+  version: number;
 }
 
 export class NewUser extends DomainEntity {
   protected _id?: string;
+  protected _version?: number;
   protected _email: string;
   protected _password: string;
   protected _status: UserStatus;
@@ -37,7 +42,10 @@ export class NewUser extends DomainEntity {
     if (data.id) {
       this._id = data.id;
     }
-    this._email = data.email;
+    if (data.version !== undefined) {
+      this._version = NewUser.checkVersion(data.version);
+    }
+    this._email = normalizeEmail(data.email);
     this._password = data.password;
     this._status = data.status;
     this._ug_id = data.ug_id;
@@ -52,6 +60,13 @@ export class NewUser extends DomainEntity {
     return this._id;
   }
 
+  get version(): number | undefined {
+    return this._version;
+  }
+
+  /**
+   * The email address, trimmed and in lowercase (normalizeEmail()).
+   */
   get email(): string {
     return this._email;
   }
@@ -82,7 +97,7 @@ export class NewUser extends DomainEntity {
   }
 
   set email(value: string) {
-    this._email = value;
+    this._email = normalizeEmail(value);
   }
 
   set password(value: string) {
@@ -115,15 +130,22 @@ export class NewUser extends DomainEntity {
 
 export class User extends NewUser {
   protected _id: string;
+  protected _version: number;
 
   constructor(data: IUser) {
     super(data);
     this._id = data.id;
+    // Redeclared fields are reset after super() returns, so assign it here, as _id is.
+    this._version = User.checkVersion(data.version);
   }
 
   // Override id getter to return required string
   get id(): string {
     return this._id;
+  }
+
+  get version(): number {
+    return this._version;
   }
 
   // All other getters and setters are inherited from NewUser

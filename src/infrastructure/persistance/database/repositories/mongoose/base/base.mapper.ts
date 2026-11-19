@@ -2,6 +2,8 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import { PersistanceError } from '../../../errors/persistance.error';
+
 import type { Types } from 'mongoose';
 import type { IBaseMapper } from './base.mapper.interface';
 
@@ -25,6 +27,23 @@ export abstract class BaseMapper<DBSchema, DomainModel, NewDomainModel> implemen
    * @returns {DBSchema} The persistence-ready schema object.
    */
   abstract toPersistence(data: NewDomainModel): DBSchema;
+
+  /**
+   * Read a document's version key (`__v`) for the domain model's `version`. Mappers read `__v` this way and never
+   * write it: only BaseRepository advances it.
+   *
+   * @param {number | undefined} version - The document's stored `__v`.
+   * @param {Types.ObjectId} id - The document's id, for the error message.
+   * @returns {number} The stored version.
+   * @throws {PersistanceError} When the document has no `__v`. Mongoose sets it on every insert and `db:indexes`
+   * backfills it, so only a document this application never wrote can lack one.
+   */
+  protected toVersion(version: number | undefined, id: Types.ObjectId): number {
+    if (typeof version !== 'number') {
+      throw new PersistanceError(`Document ${id.toString()} has no version (__v); run db:indexes to backfill it`);
+    }
+    return version;
+  }
 
   /**
    * Translate a partial domain-model filter into a persistence filter by reusing the persistence mapper.

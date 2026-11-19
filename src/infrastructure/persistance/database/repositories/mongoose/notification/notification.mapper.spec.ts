@@ -7,6 +7,7 @@ import { Types } from 'mongoose';
 import { NewNotification, Notification } from '@/domain/app/notification/models/notification';
 import { DomainEntityError } from '@/domain/base/DomainEntityError';
 
+import { PersistanceError } from '../../../errors/persistance.error';
 import { NotificationMapper } from './notification.mapper';
 
 import type { INewNotificationSchema } from './notification.model';
@@ -26,6 +27,7 @@ const fields = {
 
 const stored: INewNotificationSchema & { _id: Types.ObjectId } = {
   _id: new Types.ObjectId(NOTIFICATION_ID),
+  __v: 2,
   ...fields,
 };
 
@@ -37,7 +39,14 @@ describe('NotificationMapper', () => {
       const notification = mapper.toDomain(stored);
 
       expect(notification).toBeInstanceOf(Notification);
-      expect(notification.toJSON()).toEqual({ id: NOTIFICATION_ID, ...fields });
+      expect(notification.toJSON()).toEqual({ id: NOTIFICATION_ID, version: 2, ...fields });
+    });
+
+    it('throws a PersistanceError for a stored notification without a version key', () => {
+      const unversioned = { ...stored };
+      delete unversioned.__v;
+
+      expect(() => mapper.toDomain(unversioned)).toThrow(PersistanceError);
     });
 
     it('throws a DomainEntityError for a stored notification that breaks an invariant', () => {
@@ -54,11 +63,15 @@ describe('NotificationMapper', () => {
     });
 
     it('converts the id of a logged notification to an ObjectId', () => {
-      const persisted = mapper.toPersistence(new Notification({ ...fields, id: NOTIFICATION_ID, status: 'sent' }));
+      const persisted = mapper.toPersistence(
+        new Notification({ ...fields, id: NOTIFICATION_ID, version: 1, status: 'sent' }),
+      );
 
       expect(persisted._id).toBeInstanceOf(Types.ObjectId);
       expect(persisted._id?.toString()).toBe(NOTIFICATION_ID);
       expect(persisted.status).toBe('sent');
+      // Only BaseRepository writes the version key.
+      expect(persisted).not.toHaveProperty('__v');
     });
   });
 

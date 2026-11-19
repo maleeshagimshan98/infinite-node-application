@@ -32,6 +32,7 @@ export class UserController extends BaseController {
   private toSafeUser(user: User): Record<string, unknown> {
     return {
       id: user.id,
+      version: user.version,
       email: user.email,
       status: user.status,
       ug_id: user.ug_id,
@@ -98,7 +99,8 @@ export class UserController extends BaseController {
   }
 
   /**
-   * Update a user by its id.
+   * Update a user by its id. The body carries the `version` of the user the client read: a stale version is answered
+   * with 409 (CONFLICT) and nothing changes, and the response carries the new version.
    *
    * @param {Request} req - The incoming request object.
    * @param {Response} res - The response object.

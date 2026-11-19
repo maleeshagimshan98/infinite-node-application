@@ -39,6 +39,12 @@ export const newRoleValidator = (): Schema => {
 
 export const updateRoleValidator = (): Schema => {
   return {
+    // The version of the role the client read (from a GET); a stale one is rejected with 409 and nothing changes.
+    version: {
+      isInt: { options: { min: 0 } },
+      toInt: true,
+      errorMessage: 'version is required: the integer version of the role you read',
+    },
     name: {
       optional: true,
       notEmpty: true,

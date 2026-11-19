@@ -4,11 +4,14 @@
 
 import { DomainEntity } from '../../base/DomainEntity';
 import { DomainEntityError } from '../../base/DomainEntityError';
+import { normalizeEmail } from '../../base/normalize-email';
 
 type PasswordResetCodeStatus = 'active' | 'used' | 'cancelled' | 'expired';
 
 export interface INewPasswordResetCode {
   id?: string;
+  /** Set on a reset code read from the database. */
+  version?: number;
   email: string;
   code: string;
   valid_till: Date;
@@ -17,10 +20,12 @@ export interface INewPasswordResetCode {
 
 export interface IPasswordResetCode extends INewPasswordResetCode {
   id: string;
+  version: number;
 }
 
 export class NewPasswordResetCode extends DomainEntity {
   protected _id?: string;
+  protected _version?: number;
   protected _email: string;
   protected _code: string;
   protected _valid_till: Date;
@@ -31,7 +36,10 @@ export class NewPasswordResetCode extends DomainEntity {
     if (data.id) {
       this._id = data.id;
     }
-    this._email = data.email;
+    if (data.version !== undefined) {
+      this._version = NewPasswordResetCode.checkVersion(data.version);
+    }
+    this._email = normalizeEmail(data.email);
     this._code = data.code;
     this._valid_till = data.valid_till;
     this._status = data.status;
@@ -42,6 +50,13 @@ export class NewPasswordResetCode extends DomainEntity {
     return this._id;
   }
 
+  get version(): number | undefined {
+    return this._version;
+  }
+
+  /**
+   * The email address, trimmed and in lowercase (normalizeEmail()).
+   */
   get email(): string {
     return this._email;
   }
@@ -64,7 +79,7 @@ export class NewPasswordResetCode extends DomainEntity {
   }
 
   set email(value: string) {
-    this._email = value;
+    this._email = normalizeEmail(value);
   }
 
   set code(value: string) {
@@ -82,15 +97,22 @@ export class NewPasswordResetCode extends DomainEntity {
 
 export class PasswordResetCode extends NewPasswordResetCode {
   protected _id: string;
+  protected _version: number;
 
   constructor(data: IPasswordResetCode) {
     super(data);
     this._id = data.id;
+    // Redeclared fields are reset after super() returns, so assign it here, as _id is.
+    this._version = PasswordResetCode.checkVersion(data.version);
   }
 
   // Override id getter to return required string
   get id(): string {
     return this._id;
+  }
+
+  get version(): number {
+    return this._version;
   }
 
   // All other getters and setters are inherited from NewPasswordResetCode

@@ -54,6 +54,7 @@ export class UserMapper extends BaseMapper<INewUserSchema, User, NewUser> {
   toDomain(data: INewUserSchema & { _id: Types.ObjectId }): User {
     const user = {
       id: data._id.toString(),
+      version: this.toVersion(data.__v, data._id),
       email: data.email,
       password: data.password,
       status: data.status,

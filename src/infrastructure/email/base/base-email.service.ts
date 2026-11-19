@@ -316,7 +316,8 @@ export abstract class BaseEmailService implements IEmailService {
   }
 
   /**
-   * Save a sent or failed email's status to the log, logging instead of throwing when that fails
+   * Save a sent or failed email's status to the log, logging instead of throwing when that fails. That includes a
+   * VERSION_CONFLICT: another run of the same job changed the record after this one read it.
    *
    * @param {Email} email - The email whose status changed
    * @returns {Promise<void>}

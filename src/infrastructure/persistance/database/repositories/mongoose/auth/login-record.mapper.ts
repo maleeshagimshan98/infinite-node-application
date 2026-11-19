@@ -21,6 +21,7 @@ export class LoginRecordMapper extends BaseMapper<INewLoginRecordSchema, LoginRe
   toDomain(data: INewLoginRecordSchema & { _id: Types.ObjectId }): LoginRecord {
     return new LoginRecord({
       id: data._id.toString(),
+      version: this.toVersion(data.__v, data._id),
       user_id: data.user_id,
       token: data.token,
       refresh_token: data.refresh_token,

@@ -21,6 +21,7 @@ export class ResourceMapper extends BaseMapper<INewResourceSchema, Resource, New
   toDomain(data: INewResourceSchema & { _id: Types.ObjectId }): Resource {
     return new Resource({
       id: data._id.toString(),
+      version: this.toVersion(data.__v, data._id),
       name: data.name,
       ...(data.description !== undefined && { description: data.description }),
     });

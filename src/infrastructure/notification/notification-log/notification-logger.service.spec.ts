@@ -48,7 +48,7 @@ describe('NotificationLoggerService', () => {
   beforeEach(() => {
     repository = mockRepository();
     service = new NotificationLoggerService(repository);
-    notification = new Notification({ ...pendingData, id: '64b7f0c2a1b2c3d4e5f60719' });
+    notification = new Notification({ ...pendingData, id: '64b7f0c2a1b2c3d4e5f60719', version: 0 });
   });
 
   it('newId returns a new ObjectId each time, without touching the repository', () => {

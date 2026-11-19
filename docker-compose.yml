@@ -76,6 +76,25 @@ services:
       "
     restart: 'no'
 
+  # One-shot job that audits the database for duplicates, backfills missing version keys and builds the
+  # schemas' indexes. Runs the `db:indexes:prod` npm script before anything writes: `.env.production` turns
+  # Mongoose autoIndex off, so the app never builds indexes itself. Exits non-zero (and blocks the app) when a
+  # unique index has duplicates; it lists them. Safe to re-run.
+  db-indexes:
+    # No build: block — reuses the image the `app` service already built/tagged.
+    image: ${APP_NAME}:local
+    container_name: ${APP_NAME}-db-indexes
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: mongodb://mongodb:27017/infinite-node-application?replicaSet=rs0
+    command: ['npm', 'run', 'db:indexes:prod']
+    depends_on:
+      mongodb-init:
+        condition: service_completed_successfully
+    restart: 'no'
+
   # One-shot job that seeds the database (default resources/roles/user groups/users).
   # Runs the `seed:prod` npm script (compiled seeder — the production image has no tsx/src).
   # Safe to re-run — each seeder skips records that already exist.
@@ -93,7 +112,7 @@ services:
       REDIS_SOCKET_HOST: redis
     command: ['npm', 'run', 'seed:prod']
     depends_on:
-      mongodb-init:
+      db-indexes:
         condition: service_completed_successfully
       redis:
         condition: service_healthy

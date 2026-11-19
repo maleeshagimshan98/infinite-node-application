@@ -25,6 +25,7 @@ export class EmailVerificationCodeMapper extends BaseMapper<
   toDomain(data: INewEmailVerificationCodeSchema & { _id: Types.ObjectId }): EmailVerificationCode {
     return new EmailVerificationCode({
       id: data._id.toString(),
+      version: this.toVersion(data.__v, data._id),
       user_id: data.user_id.toString(),
       email: data.email,
       code: data.code,

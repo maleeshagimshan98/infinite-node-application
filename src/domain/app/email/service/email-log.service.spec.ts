@@ -39,6 +39,7 @@ function mockRepository(): jest.Mocked<IEmailRepository> {
 function sentEmail(): Email {
   return new Email({
     id: EMAIL_ID,
+    version: 1,
     user_id: '65f1a2b3c4d5e6f708192a3c',
     sent_on: new Date('2026-01-01T00:00:00.000Z'),
     to: ['user@example.com'],

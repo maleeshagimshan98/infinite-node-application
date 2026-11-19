@@ -87,6 +87,14 @@ describe('BaseController error responses', () => {
     expect(response.getCode()).toBe(404);
     expect(response.getMessage()).toBe('Role x not found');
   });
+
+  it('answers a CONFLICT DomainServiceError with 409 and its message', async () => {
+    const message = 'The record was changed by another request. Reload it and try again.';
+    const response = await controller.run(new DomainServiceError(message, 'CONFLICT'));
+
+    expect(response.getCode()).toBe(409);
+    expect(response.getMessage()).toBe(message);
+  });
 });
 
 describe('BaseController exception logging', () => {

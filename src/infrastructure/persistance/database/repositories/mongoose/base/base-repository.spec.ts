@@ -7,6 +7,8 @@
  * NOTE: Ensure MongoDB is running and use a dedicated test database!
  */
 
+import { Types } from 'mongoose';
+
 import { NewResource, Resource } from '@/domain/auth/models/resource';
 import { NewRole, Role } from '@/domain/auth/models/role';
 import { NewUser, User } from '@/domain/user/models/user';
@@ -464,79 +466,100 @@ describe('BaseRepository', () => {
         password: 'password123',
         status: 'active',
         ug_id: 'ug-legacy',
+        __v: 0,
       });
 
       // Act & Assert
       await expect(userRepository.findById(insertedId.toString())).rejects.toBeInstanceOf(PersistanceError);
     });
-  });
 
-  describe('update', () => {
-    it('should update a user by their ID', async () => {
+    it('should map the stored __v to the version, for the user and its populated role', async () => {
       // Arrange
-      const newUser = new NewUser({
-        email: 'update@example.com',
-        password: 'oldPassword',
-        status: 'pending_verification',
-        ug_id: 'ug-update',
-        role_id: roleId,
-      });
-      const createdUser = await userRepository.create(newUser);
-      const userId = createdUser.id;
-
-      const updates = new NewUser({
-        email: createdUser.email,
+      const { insertedId } = await UserModel.collection.insertOne({
+        email: 'versioned@example.com',
+        password: 'password123',
         status: 'active',
-        password: 'newPassword',
-        ug_id: createdUser.ug_id,
-        role_id: roleId,
+        ug_id: 'ug-1',
+        role_id: new Types.ObjectId(roleId),
+        __v: 7,
       });
 
       // Act
-      const updatedUser = await userRepository.update(userId, updates);
+      const user = await userRepository.findById(insertedId.toString());
+
+      // Assert
+      expect(user?.version).toBe(7);
+      expect(user?.role?.version).toBe(0);
+      expect(user?.toJSON()).toMatchObject({ version: 7 });
+    });
+
+    it('should throw a PersistanceError when a stored user has no __v', async () => {
+      // Arrange - bypass Mongoose, which sets __v on every insert
+      const { insertedId } = await UserModel.collection.insertOne({
+        email: 'unversioned@example.com',
+        password: 'password123',
+        status: 'active',
+        ug_id: 'ug-1',
+        role_id: new Types.ObjectId(roleId),
+      });
+
+      // Act
+      const thrown = await userRepository.findById(insertedId.toString()).catch((e: unknown) => e);
+
+      // Assert
+      expect(thrown).toBeInstanceOf(PersistanceError);
+      expect(thrown).toMatchObject({ message: expect.stringContaining('no version (__v)') });
+    });
+  });
+
+  describe('update', () => {
+    /**
+     * Create a pending user to update.
+     *
+     * @param {string} email - The user's email.
+     * @returns {Promise<User>} The created user, at version 0.
+     */
+    const createUser = (email: string): Promise<User> =>
+      userRepository.create(
+        new NewUser({ email, password: 'password123', status: 'pending_verification', ug_id: 'ug-1', role_id: roleId }),
+      );
+
+    it('should update a user by their ID', async () => {
+      // Arrange
+      const user = await createUser('update@example.com');
+      user.status = 'active';
+      user.password = 'newPassword';
+
+      // Act
+      const updatedUser = await userRepository.update(user.id, user);
 
       // Assert
       expect(updatedUser).not.toBeNull();
       expect(updatedUser?.status).toBe('active');
       expect(updatedUser?.password).toBe('newPassword');
-      expect(updatedUser?.email).toBe(newUser.email); // Unchanged field
+      expect(updatedUser?.email).toBe('update@example.com'); // Unchanged field
     });
 
-    it('should update only the specified fields', async () => {
+    it('should keep the fields that were not changed', async () => {
       // Arrange
-      const newUser = new NewUser({
-        email: 'partial@example.com',
-        password: 'password123',
-        status: 'active',
-        ug_id: 'ug-partial',
-        role_id: roleId,
-      });
-      const createdUser = await userRepository.create(newUser);
-      const userId = createdUser.id;
-
-      const updates = new NewUser({
-        email: 'newemail@example.com',
-        password: newUser.password,
-        status: newUser.status,
-        ug_id: newUser.ug_id,
-        role_id: roleId,
-      });
+      const user = await createUser('partial@example.com');
+      user.email = 'newemail@example.com';
 
       // Act
-      const updatedUser = await userRepository.update(userId, updates);
+      const updatedUser = await userRepository.update(user.id, user);
 
       // Assert
-      expect(updatedUser).not.toBeNull();
       expect(updatedUser?.email).toBe('newemail@example.com');
-      expect(updatedUser?.password).toBe(newUser.password); // Unchanged
-      expect(updatedUser?.status).toBe(newUser.status); // Unchanged
-      expect(updatedUser?.ug_id).toBe(newUser.ug_id); // Unchanged
+      expect(updatedUser?.password).toBe('password123'); // Unchanged
+      expect(updatedUser?.status).toBe('pending_verification'); // Unchanged
+      expect(updatedUser?.ug_id).toBe('ug-1'); // Unchanged
     });
 
     it('should return null when updating a non-existent user', async () => {
       // Arrange
-      const nonExistentId = '507f1f77bcf86cd799439011';
-      const updates = new NewUser({
+      const ghost = new User({
+        id: '507f1f77bcf86cd799439011',
+        version: 0,
         email: 'test@example.com',
         password: 'password',
         status: 'active',
@@ -544,67 +567,98 @@ describe('BaseRepository', () => {
         role_id: roleId,
       });
 
+      // Act & Assert
+      await expect(userRepository.update(ghost.id, ghost)).resolves.toBeNull();
+    });
+
+    it('should return null when the user was deleted after it was read', async () => {
+      // Arrange
+      const user = await createUser('deleted@example.com');
+      await userRepository.delete(user.id);
+      user.status = 'active';
+
+      // Act & Assert
+      await expect(userRepository.update(user.id, user)).resolves.toBeNull();
+    });
+
+    it('should return a domain model, not a mongoose document', async () => {
+      // Arrange
+      const user = await createUser('convert@example.com');
+      user.status = 'active';
+
       // Act
-      const updatedUser = await userRepository.update(nonExistentId, updates);
+      const updatedUser = await userRepository.update(user.id, user);
 
       // Assert
-      expect(updatedUser).toBeNull();
-    });
-
-    it('should return updated document with new: true option', async () => {
-      // Arrange
-      const newUser = new NewUser({
-        email: 'return@example.com',
-        password: 'password123',
-        status: 'pending_verification',
-        ug_id: 'ug-return',
-        role_id: roleId,
-      });
-      const createdUser = await userRepository.create(newUser);
-      const userId = createdUser.id;
-
-      const updates = new NewUser({
-        email: createdUser.email,
-        password: createdUser.password,
-        status: 'active',
-        ug_id: createdUser.ug_id,
-        role_id: roleId,
-      });
-
-      // Act
-      const updatedUser = await userRepository.update(userId, updates);
-
-      // Assert - The returned user should have the updated status
-      expect(updatedUser).not.toBeNull();
-      expect(updatedUser?.status).toBe('active');
-    });
-
-    it('should convert mongoose document to domain model after update', async () => {
-      // Arrange
-      const newUser = new NewUser({
-        email: 'convert@example.com',
-        password: 'password123',
-        status: 'pending_verification',
-        ug_id: 'ug-convert',
-        role_id: roleId,
-      });
-      const createdUser = await userRepository.create(newUser);
-      const userId = createdUser.id;
-
-      const updates = new NewUser({
-        email: createdUser.email,
-        password: createdUser.password,
-        status: 'active',
-        ug_id: createdUser.ug_id,
-        role_id: roleId,
-      });
-
-      // Act
-      const updatedUser = await userRepository.update(userId, updates);
-
-      // Assert - Verify it's a domain model
       expect(updatedUser).toBeInstanceOf(User);
       expect((updatedUser as unknown as Record<string, unknown>)?.$__).toBeUndefined();
+    });
+
+    it('should create documents at version 0', async () => {
+      // Act
+      const user = await createUser('version0@example.com');
+
+      // Assert
+      expect(user.version).toBe(0);
+      expect((await userRepository.findById(user.id))?.version).toBe(0);
+    });
+
+    it('should advance the version by one and return the user at the new version', async () => {
+      // Arrange
+      const user = await createUser('next@example.com');
+      user.status = 'active';
+
+      // Act
+      const updatedUser = await userRepository.update(user.id, user);
+
+      // Assert
+      expect(updatedUser?.version).toBe(1);
+      expect((await userRepository.findById(user.id))?.version).toBe(1);
+    });
+
+    it('should throw a VERSION_CONFLICT RepositoryError for a stale version and leave the document unchanged', async () => {
+      // Arrange - `user` stays at version 0 after the first update moves the stored user to version 1
+      const user = await createUser('stale@example.com');
+      user.status = 'active';
+      await userRepository.update(user.id, user);
+      user.status = 'suspended';
+
+      // Act
+      const thrown = await userRepository.update(user.id, user).catch((e: unknown) => e);
+
+      // Assert
+      expect(thrown).toBeInstanceOf(RepositoryError);
+      expect(thrown).toMatchObject({ type: 'VERSION_CONFLICT' });
+      const stored = await userRepository.findById(user.id);
+      expect(stored?.status).toBe('active');
+      expect(stored?.version).toBe(1);
+    });
+
+    it('should let only one of two concurrent updates made from the same read succeed', async () => {
+      // Arrange
+      const created = await createUser('race@example.com');
+      const [first, second] = await Promise.all([
+        userRepository.findById(created.id),
+        userRepository.findById(created.id),
+      ]);
+      if (!first || !second) {
+        throw new Error('The user was not found');
+      }
+      first.status = 'active';
+      second.status = 'suspended';
+
+      // Act
+      const results = await Promise.allSettled([
+        userRepository.update(first.id, first),
+        userRepository.update(second.id, second),
+      ]);
+
+      // Assert
+      const rejected = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected');
+      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+      expect(rejected).toHaveLength(1);
+      expect(rejected[0]?.reason).toMatchObject({ type: 'VERSION_CONFLICT' });
+      expect((await userRepository.findById(created.id))?.version).toBe(1);
     });
   });
 
@@ -700,14 +754,8 @@ describe('BaseRepository', () => {
       expect(foundUser?.status).toBe('pending_verification');
 
       // Update
-      const updates = new NewUser({
-        email: createdUser.email,
-        password: createdUser.password,
-        status: 'active',
-        ug_id: createdUser.ug_id,
-        role_id: roleId,
-      });
-      const updatedUser = await userRepository.update(userId, updates);
+      createdUser.status = 'active';
+      const updatedUser = await userRepository.update(userId, createdUser);
       expect(updatedUser).not.toBeNull();
       expect(updatedUser?.status).toBe('active');
 

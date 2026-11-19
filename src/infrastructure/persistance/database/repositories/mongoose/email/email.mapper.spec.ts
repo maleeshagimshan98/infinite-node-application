@@ -17,6 +17,7 @@ const EMAIL_ID = '64b7f0c2a1b2c3d4e5f60719';
 
 const storedWithoutUser: INewEmailSchema & { _id: Types.ObjectId } = {
   _id: new Types.ObjectId(EMAIL_ID),
+  __v: 3,
   to: ['user@example.com'],
   cc: ['manager@example.com'],
   bcc: [],
@@ -41,6 +42,7 @@ describe('EmailMapper', () => {
       expect(email).toBeInstanceOf(Email);
       expect(email.toJSON()).toEqual({
         id: EMAIL_ID,
+        version: 3,
         user_id: USER_ID,
         sent_on: undefined,
         to: ['user@example.com'],
@@ -70,6 +72,13 @@ describe('EmailMapper', () => {
 
     it('throws a PersistanceError for a stored email without user_id', () => {
       expect(() => mapper.toDomain(storedWithoutUser)).toThrow(PersistanceError);
+    });
+
+    it('throws a PersistanceError for a stored email without a version key', () => {
+      const unversioned = { ...storedPending };
+      delete unversioned.__v;
+
+      expect(() => mapper.toDomain(unversioned)).toThrow(PersistanceError);
     });
   });
 
@@ -105,6 +114,7 @@ describe('EmailMapper', () => {
     it('converts the id of a stored email to an ObjectId', () => {
       const email = new Email({
         id: EMAIL_ID,
+        version: 2,
         user_id: USER_ID,
         to: ['user@example.com'],
         subject: 'Verify your email',
@@ -118,6 +128,8 @@ describe('EmailMapper', () => {
 
       expect(persisted._id).toBeInstanceOf(Types.ObjectId);
       expect(persisted._id?.toString()).toBe(EMAIL_ID);
+      // Only BaseRepository writes the version key.
+      expect(persisted).not.toHaveProperty('__v');
       expect(persisted.error_message).toBe('Mailbox unavailable');
     });
   });

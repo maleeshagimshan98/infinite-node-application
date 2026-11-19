@@ -20,6 +20,9 @@
     "seed:clear": "tsx src/infrastructure/persistance/database/seeders/seeder.ts --clear",
     "seed:prod": "node dist/infrastructure/persistance/database/seeders/seeder.js",
     "seed:prod:clear": "node dist/infrastructure/persistance/database/seeders/seeder.js --clear",
+    "db:indexes": "tsx src/infrastructure/persistance/database/indexes/db-indexes.ts",
+    "db:indexes:check": "tsx src/infrastructure/persistance/database/indexes/db-indexes.ts --check",
+    "db:indexes:prod": "node dist/infrastructure/persistance/database/indexes/db-indexes.js",
     "prepare": "husky install"
   },
   "lint-staged": {

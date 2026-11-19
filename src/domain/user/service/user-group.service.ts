@@ -127,10 +127,13 @@ export class UserGroupService extends BaseDomainService {
    * Update an existing user group.
    *
    * @param {string} id - The ID of the user group to update.
-   * @param {Partial<INewUserGroup>} updateData - The fields to update.
+   * @param {Partial<INewUserGroup>} updateData - The fields to update, and the `version` of the user group the caller
+   * read. Without a version the update applies to the group as it is read here.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<{ id: string; name: string }>} The updated user group's id and name.
    * @throws {DomainServiceError} NOT_FOUND when no user group exists with the given id, or the current default group could not be unset.
+   * @throws {DomainServiceError} CONFLICT when `updateData.version` is not the group's current version (checked before
+   * any write), or the group or the current default group changed during the update.
    * @throws {DomainServiceError} ALREADY_EXISTS when another user group already has the requested name.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
    */
@@ -140,23 +143,27 @@ export class UserGroupService extends BaseDomainService {
     transactionOptions?: TransactionOptions,
   ): Promise<{ id: string; name: string }> {
     return this.wrapInfrastructureErrors(async () => {
+      // `version` is the version the caller read, not a field to change: it has no setter, so Object.assign() would
+      // throw a TypeError on it.
+      const { version, ...changes } = updateData;
       const existingGroup = await this.getById(id, transactionOptions);
 
       if (!existingGroup) {
         throw new DomainServiceError(`The User Group with the id equal to ${id} could not be found.`, 'NOT_FOUND');
       }
+      this.assertVersion(existingGroup, version, 'User Group');
 
-      if (updateData.name && updateData.name !== existingGroup.name) {
-        const duplicateGroup = await this.getByName(updateData.name, transactionOptions);
+      if (changes.name && changes.name !== existingGroup.name) {
+        const duplicateGroup = await this.getByName(changes.name, transactionOptions);
         if (duplicateGroup) {
           throw new DomainServiceError(
-            `The User Group with the name equal to ${updateData.name} already exists.`,
+            `The User Group with the name equal to ${changes.name} already exists.`,
             'ALREADY_EXISTS',
           );
         }
       }
 
-      if (updateData.default === true) {
+      if (changes.default === true) {
         const currentDefault = await this.getDefaultGroup(transactionOptions);
         if (currentDefault && currentDefault.id !== id) {
           currentDefault.default = false;
@@ -174,7 +181,7 @@ export class UserGroupService extends BaseDomainService {
         }
       }
 
-      Object.assign(existingGroup, updateData);
+      Object.assign(existingGroup, changes);
       const updatedGroup = await this.userGroupRepository.update(id, existingGroup, transactionOptions);
 
       if (!updatedGroup) {
@@ -238,6 +245,7 @@ export class UserGroupService extends BaseDomainService {
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<{ id: string; name: string }>} The (now default) user group's id and name.
    * @throws {DomainServiceError} NOT_FOUND when no user group exists with the given id, or the current default group could not be unset.
+   * @throws {DomainServiceError} CONFLICT when the group or the current default group changed during the switch.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
    */
   async setAsDefault(id: string, transactionOptions?: TransactionOptions): Promise<{ id: string; name: string }> {

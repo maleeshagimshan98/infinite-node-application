@@ -16,6 +16,8 @@ export interface IPermissionSchema {
 
 export interface INewRoleSchema {
   _id?: Types.ObjectId;
+  // Mongoose's version key: 0 on insert; only BaseRepository.update() advances it. Mappers read it, never write it.
+  __v?: number;
   name: string;
   description?: string;
   default: boolean;
@@ -45,5 +47,9 @@ export const RoleSchema = new Schema<INewRoleSchema>(
   },
   { timestamps: true },
 );
+
+RoleSchema.index({ name: 1 }, { unique: true });
+// At most one default role; any number of non-default ones. Switching the default must unset the old one first.
+RoleSchema.index({ default: 1 }, { unique: true, partialFilterExpression: { default: true } });
 
 export const RoleModel = model<INewRoleSchema>('role', RoleSchema);

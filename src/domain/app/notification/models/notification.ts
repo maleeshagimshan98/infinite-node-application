@@ -23,7 +23,13 @@ export const NOTIFICATION_STATUSES: readonly INotificationStatus[] = ['pending',
  * Named apart from `INewNotification` (`notification.interface.ts`), which is what callers hand to
  * `INotificationManager.enqueueNotification()`.
  */
-export type INewNotificationRecord = Omit<INotification, 'id'> & { id?: string };
+export type INewNotificationRecord = Omit<INotification, 'id'> & { id?: string; version?: number };
+
+/**
+ * A logged notification as the repository reads it: the record plus its version, the number of times it has been
+ * updated. The version is a persistence concern, so `INotification` leaves it out.
+ */
+export type INotificationRecord = INotification & { version: number };
 
 /**
  * A record of one notification the application sent, or tried to send, on one channel. Sending the same
@@ -31,6 +37,7 @@ export type INewNotificationRecord = Omit<INotification, 'id'> & { id?: string }
  */
 export class NewNotification extends DomainEntity {
   protected _id?: string;
+  protected _version?: number;
   protected _triggered_by: string;
   protected _triggered_on: Date;
   protected _topic: string;
@@ -44,6 +51,9 @@ export class NewNotification extends DomainEntity {
     this.validate(data);
     if (data.id) {
       this._id = data.id;
+    }
+    if (data.version !== undefined) {
+      this._version = NewNotification.checkVersion(data.version);
     }
     this._triggered_by = data.triggered_by;
     this._triggered_on = data.triggered_on;
@@ -82,6 +92,10 @@ export class NewNotification extends DomainEntity {
 
   get id(): string | undefined {
     return this._id;
+  }
+
+  get version(): number | undefined {
+    return this._version;
   }
 
   /**
@@ -130,14 +144,21 @@ export class NewNotification extends DomainEntity {
  */
 export class Notification extends NewNotification implements INotification {
   protected _id: string;
+  protected _version: number;
 
-  constructor(data: INotification) {
+  constructor(data: INotificationRecord) {
     super(data);
     this._id = data.id;
+    // Redeclared fields are reset after super() returns, so assign it here, as _id is.
+    this._version = Notification.checkVersion(data.version);
   }
 
   get id(): string {
     return this._id;
+  }
+
+  get version(): number {
+    return this._version;
   }
 
   /**

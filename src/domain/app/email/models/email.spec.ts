@@ -23,7 +23,7 @@ const pending: INewEmail = {
  * @returns {Email} A pending email with an id.
  */
 function persistedPending(): Email {
-  const data: IEmail = { ...pending, id: '64b7f0c2a1b2c3d4e5f60719' };
+  const data: IEmail = { ...pending, id: '64b7f0c2a1b2c3d4e5f60719', version: 0 };
   return new Email(data);
 }
 

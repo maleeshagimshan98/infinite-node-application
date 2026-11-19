@@ -24,6 +24,7 @@ const TRANSPORT_ERROR = 'connect ECONNREFUSED 10.0.0.5:587';
 
 const PENDING = new Email({
   id: PENDING_ID,
+  version: 0,
   user_id: USER_ID,
   to: ['user@example.com'],
   subject: 'Verify your email',
@@ -34,6 +35,7 @@ const PENDING = new Email({
 
 const FAILED = new Email({
   id: FAILED_ID,
+  version: 1,
   user_id: USER_ID,
   to: ['user@example.com'],
   subject: 'Verify your email',
