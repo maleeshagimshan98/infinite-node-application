@@ -14,7 +14,7 @@ export const storageConfig = (): IFileSystemStorageConfig => ({
   driverName: 'storage',
   singleton: false,
   deferred: true,
-  optional: process.env.STORAGE_SERVICE_OPTIONAL === 'false',
+  optional: process.env.STORAGE_SERVICE_OPTIONAL === 'true',
   params: {
     rootPath: process.env.STORAGE_ROOT_PATH || './storage',
   },
