@@ -25,6 +25,11 @@ export const userValidator = (): Schema => {
   };
 };
 
+/**
+ * Validate a create-user request.
+ *
+ * @returns {Schema} The express-validator schema.
+ */
 export const newUserValidator = (): Schema => {
   return {
     email: {
@@ -56,6 +61,11 @@ export const newUserValidator = (): Schema => {
   };
 };
 
+/**
+ * Validate an update-user request, including the `version` the client read.
+ *
+ * @returns {Schema} The express-validator schema.
+ */
 export const updateUserValidator = (): Schema => {
   return {
     // The version of the user the client read (from a GET); a stale one is rejected with 409 and nothing changes.

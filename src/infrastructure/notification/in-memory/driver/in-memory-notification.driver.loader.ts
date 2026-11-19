@@ -9,6 +9,7 @@ import { InMemoryNotificationDriver } from './in-memory-notification.driver';
  * Loader function for the In-Memory Notification Driver
  *
  * @returns {Promise<InMemoryNotificationDriver>} The initialized In-Memory Notification Driver
+ * @throws {Error} when the driver cannot be initialized.
  */
 export const inMemoryNotificationDriverLoader = async (): Promise<InMemoryNotificationDriver> => {
   const driver = new InMemoryNotificationDriver(inMemoryNotificationConfig());

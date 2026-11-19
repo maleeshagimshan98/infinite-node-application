@@ -88,6 +88,12 @@ export class SignupApplicationService extends BaseApplicationService {
    * @returns {Promise<{ id: string; status: string }>} The created user's id and status.
    * @throws {DomainServiceError} UNKNOWN_ERROR when no default user group or default role is available.
    * @throws {DomainServiceError} ALREADY_EXISTS when the email is already associated with another account.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
+   * @throws {InfrastructureError} CONNECTION_ERROR when the database cannot be reached while running or committing
+   * the transaction.
+   * @throws {PersistanceError} when the database otherwise fails while running, committing or aborting the
+   * transaction.
+   * @throws {Error} when argon2 cannot hash the password.
    */
   async register(userData: INewUser, sendEmail: boolean = true): Promise<{ id: string; status: string }> {
     const { id, status, email, rawCode } = await this.dbTransaction(async ({ session }) => {
@@ -130,6 +136,9 @@ export class SignupApplicationService extends BaseApplicationService {
    * @throws {DomainServiceError} NOT_FOUND when no user exists with the given email, or no matching pending
    * code is found.
    * @throws {DomainServiceError} VALIDATION_ERROR when the matching code has expired.
+   * @throws {DomainServiceError} CONFLICT when the code or the user changed concurrently (e.g. a concurrent
+   * verification).
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async verifyEmail(email: string, code: string): Promise<void> {
     return this.signupService.verifyEmail(email, code);
@@ -142,6 +151,8 @@ export class SignupApplicationService extends BaseApplicationService {
    * @returns {Promise<void>}
    * @throws {DomainServiceError} NOT_FOUND when no user exists with the given email.
    * @throws {DomainServiceError} INVALID_OPERATION when the user's email is already verified.
+   * @throws {DomainServiceError} ALREADY_EXISTS when a concurrent resend issued a new pending code first.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async resendVerificationCode(email: string): Promise<void> {
     const { userId, rawCode } = await this.signupService.resendVerificationCode(email);

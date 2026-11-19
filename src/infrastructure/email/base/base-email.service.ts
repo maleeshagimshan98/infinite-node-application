@@ -86,6 +86,11 @@ export abstract class BaseEmailService implements IEmailService {
   /**
    * Creates the shared part of an email service from the queue that queued emails wait in, the email log, the
    * application logger and the email queue settings
+   *
+   * @param {IQueue} queue - The queue that queued emails wait in.
+   * @param {EmailLoggerService} emailLogger - The email log.
+   * @param {ILogger} logger - The application logger.
+   * @param {IEmailQueueConfig} queueConfig - The email queue settings (queue name, attempts, retry delay and backoff).
    */
   constructor(queue: IQueue, emailLogger: EmailLoggerService, logger: ILogger, queueConfig: IEmailQueueConfig) {
     this.queue = queue;

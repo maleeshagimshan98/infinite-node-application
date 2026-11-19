@@ -25,7 +25,8 @@ export class HealthService extends BaseDomainService {
   }
 
   /**
-   * Perform comprehensive health check
+   * Perform comprehensive health check. It does not throw: a failing service is reported as disconnected in the
+   * result.
    *
    * @returns {Promise<IHealthCheckResult>} Complete health status
    */

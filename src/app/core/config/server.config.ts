@@ -8,6 +8,13 @@ export interface ServerConfig {
   };
 }
 
+/**
+ * Build the server configuration from the environment: whether SSL is on, and the key and certificate read from
+ * `SSL_KEY_PATH` / `SSL_CERT_PATH`.
+ *
+ * @returns {ServerConfig} The server configuration.
+ * @throws {Error} when an SSL key or certificate file cannot be read.
+ */
 export const serverConfig = (): ServerConfig => {
   return {
     ssl: process.env.SSL_ENABLED === 'true',

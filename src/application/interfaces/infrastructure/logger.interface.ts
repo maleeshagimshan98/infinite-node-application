@@ -5,15 +5,30 @@
 import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
 
 export interface ILogger extends IBaseInfrastructureService {
+  /**
+   * The DI registration name of this service; it equals its factory's `name()`.
+   *
+   * @returns {'logger'} Always `logger`.
+   */
   serviceName(): 'logger';
+  /**
+   * Whether the DI container registers this service as a singleton.
+   *
+   * @returns {true} Always true.
+   */
   singleton(): true;
+  /**
+   * Whether this service's creation is deferred in the DI container.
+   *
+   * @returns {false} Always false.
+   */
   deferred(): false;
 
   /**
    * Log an informational message
    *
-   * @param message - Log message
-   * @param meta - Optional metadata object
+   * @param {string} message - Log message
+   * @param {Record<string, unknown>} [meta] - Optional metadata object
    * @returns {void}
    */
   logInfo(message: string, meta?: Record<string, unknown>): void;

@@ -34,9 +34,11 @@ export class ShutdownManager {
   }
 
   /**
-   * Register a shutdown hook
+   * Register a shutdown hook. Ignored once shutdown has started.
    *
-   * @param hook Object containing name, handler, priority, and optional timeout
+   * @param {{ name: string; handler: () => Promise<void>; priority: ShutdownPriority; timeout?: number }} hook - Object
+   * containing name, handler, priority, and optional timeout (5000 ms by default)
+   * @returns {void}
    */
   registerHook(hook: {
     name: string;
@@ -58,15 +60,19 @@ export class ShutdownManager {
 
   /**
    * Check if shutdown is in progress
+   *
+   * @returns {boolean} True once shutdown has started.
    */
   isShuttingDown(): boolean {
     return this.shuttingDown;
   }
 
   /**
-   * Execute graceful shutdown sequence
+   * Execute graceful shutdown sequence: run the hooks priority group by priority group, then exit the process (0
+   * on success, the force-exit code on an error or when the global timeout passes).
    *
-   * @param signal The signal that triggered shutdown
+   * @param {string} signal - The signal that triggered shutdown
+   * @returns {Promise<void>} Resolves only when shutdown was already in progress; otherwise the process exits.
    */
   async shutdown(signal: string): Promise<void> {
     if (this.shuttingDown) {
@@ -106,6 +112,9 @@ export class ShutdownManager {
 
   /**
    * Force immediate exit
+   *
+   * @param {number} code - The process exit code.
+   * @returns {void}
    */
   forceExit(code: number): void {
     console.error(`\n⚠️  Forcing process exit with code ${code}`);
@@ -114,6 +123,8 @@ export class ShutdownManager {
 
   /**
    * Group hooks by priority level
+   *
+   * @returns {Map<ShutdownPriority, ShutdownHook[]>} The hooks of each priority, in priority order.
    */
   private groupHooksByPriority(): Map<ShutdownPriority, ShutdownHook[]> {
     const groups = new Map<ShutdownPriority, ShutdownHook[]>();
@@ -129,6 +140,9 @@ export class ShutdownManager {
 
   /**
    * Execute all hooks in a priority group (parallel)
+   *
+   * @param {ShutdownHook[]} hooks - The hooks of one priority.
+   * @returns {Promise<void>} Resolves once every hook has settled.
    */
   private async executeHookGroup(hooks: ShutdownHook[]): Promise<void> {
     const promises = hooks.map((hook) => this.executeHook(hook));
@@ -136,7 +150,10 @@ export class ShutdownManager {
   }
 
   /**
-   * Execute a single hook with timeout
+   * Execute a single hook with timeout. A failing or timed-out hook is logged, not thrown.
+   *
+   * @param {ShutdownHook} hook - The hook to run.
+   * @returns {Promise<void>}
    */
   private async executeHook(hook: ShutdownHook): Promise<void> {
     const hookTimeout = hook.timeout ?? 5000; // Default 5s per hook

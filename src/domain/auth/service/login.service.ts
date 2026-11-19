@@ -43,6 +43,7 @@ export class LoginService extends BaseDomainService {
    * @param {string} userId - The subject claim (user ID) to embed in the token.
    * @param {string} groups - The user-group ID to embed as the `groups` claim.
    * @returns {string} The signed JWT access token.
+   * @throws {Error} when `JWT_PRIVATE_KEY` is missing or is not a valid RS256 private key.
    */
   private signJwt(userId: string, groups: string): string {
     const privateKey = process.env.JWT_PRIVATE_KEY?.replace(/\\n/g, '\n') ?? '';
@@ -94,6 +95,7 @@ export class LoginService extends BaseDomainService {
    * @param {string} groups - The user-group ID to embed in the access token.
    * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
    * @returns {Promise<{ accessToken: string; refreshToken: string; loginRecord: LoginRecord }>} The new token pair and its persisted login record.
+   * @throws {Error} when the access token cannot be signed (`JWT_PRIVATE_KEY` missing or invalid).
    */
   private async issueTokensAndRecord(
     userId: string,
@@ -133,7 +135,8 @@ export class LoginService extends BaseDomainService {
    *
    * @param {string} userId - The unique identifier of the user to retrieve.
    * @returns {Promise<User | null>} The user, or null if none matched.
-   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR — if a database error occurs.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getUserById(userId: string): Promise<User | null> {
     return this.wrapInfrastructureErrors(async () => {
@@ -148,8 +151,12 @@ export class LoginService extends BaseDomainService {
    * @param {string} password - The plain-text password to verify against the stored hash.
    * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
    * @returns {Promise<{ id: string; status: string; accessToken: string; refreshToken: string; loginRecord: LoginRecord }>} The authenticated user's identity plus the new token pair and login record.
-   * @throws {DomainServiceError} AUTHENTICATION_ERROR — if the password does not match.
-   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR — if a database error occurs.
+   * @throws {DomainServiceError} AUTHENTICATION_ERROR when the password does not match.
+   * @throws {DomainServiceError} ALREADY_EXISTS when the user already has a session with the same access token: two
+   * logins with the same claims in the same second sign identical tokens.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
+   * @throws {Error} when the stored password hash cannot be verified, or the access token cannot be signed
+   * (`JWT_PRIVATE_KEY` missing or invalid).
    */
   async login(
     user: User,
@@ -187,7 +194,7 @@ export class LoginService extends BaseDomainService {
    *
    * @param {string} token - The raw JWT access token to validate.
    * @returns {Promise<{ id: string; groups: string }>} The token's subject id and embedded groups claim.
-   * @throws {DomainServiceError} AUTHENTICATION_ERROR — if the token is missing or its signature is invalid.
+   * @throws {DomainServiceError} AUTHENTICATION_ERROR when the token is missing or its signature is invalid.
    */
   async validateToken(token: string): Promise<{ id: string; groups: string }> {
     if (!token) {
@@ -210,7 +217,7 @@ export class LoginService extends BaseDomainService {
    * @param {string} token - The raw JWT access token.
    * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
    * @returns {Promise<LoginRecord | null>} The matching login record, or null if none matched.
-   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR — if a database error occurs.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getLoginRecordByToken(token: string, transactionOptions?: TransactionOptions): Promise<LoginRecord | null> {
     return this.wrapInfrastructureErrors(async () => {
@@ -237,9 +244,9 @@ export class LoginService extends BaseDomainService {
    * @param {LoginRecord} loginRecord - The login record to expire.
    * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
    * @returns {Promise<void>}
-   * @throws {DomainServiceError} NOT_FOUND — if the login record no longer exists.
-   * @throws {DomainServiceError} CONFLICT — if the login record was updated after `loginRecord` was read.
-   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR — if a database error occurs.
+   * @throws {DomainServiceError} NOT_FOUND when the login record no longer exists.
+   * @throws {DomainServiceError} CONFLICT when the login record was updated after `loginRecord` was read.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async expireLoginRecord(loginRecord: LoginRecord, transactionOptions?: TransactionOptions): Promise<void> {
     return this.wrapInfrastructureErrors(async () => {
@@ -261,9 +268,9 @@ export class LoginService extends BaseDomainService {
    * @param {LoginRecord} loginRecord - The login record to revoke.
    * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
    * @returns {Promise<void>}
-   * @throws {DomainServiceError} NOT_FOUND — if the login record no longer exists.
-   * @throws {DomainServiceError} CONFLICT — if the login record was updated after `loginRecord` was read.
-   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR — if a database error occurs.
+   * @throws {DomainServiceError} NOT_FOUND when the login record no longer exists.
+   * @throws {DomainServiceError} CONFLICT when the login record was updated after `loginRecord` was read.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async revokeLoginRecord(loginRecord: LoginRecord, transactionOptions?: TransactionOptions): Promise<void> {
     return this.wrapInfrastructureErrors(async () => {
@@ -286,7 +293,10 @@ export class LoginService extends BaseDomainService {
    * @param {string} groups - The user-group ID to embed in the new access token.
    * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
    * @returns {Promise<{ accessToken: string; refreshToken: string; loginRecord: LoginRecord }>} The new token pair and its persisted login record.
-   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR — if a database error occurs.
+   * @throws {DomainServiceError} ALREADY_EXISTS when the user already has a session with the same access token: two
+   * sessions with the same claims issued in the same second sign identical tokens.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
+   * @throws {Error} when the access token cannot be signed (`JWT_PRIVATE_KEY` missing or invalid).
    */
   async createLoginRecord(
     userId: string,

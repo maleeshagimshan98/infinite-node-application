@@ -15,14 +15,30 @@ export type TransactionOptions = {
  * Database mappers provide an abstraction layer for database operations using object-oriented paradigms.
  */
 export interface IDatabaseMapper extends IBaseInfrastructureService {
+  /**
+   * The DI registration name of this service; it equals its factory's `name()`.
+   *
+   * @returns {'database_mapper'} Always `database_mapper`.
+   */
   serviceName(): 'database_mapper';
+  /**
+   * Whether the DI container registers this service as a singleton.
+   *
+   * @returns {true} Always true.
+   */
   singleton(): true;
+  /**
+   * Whether this service's creation is deferred in the DI container.
+   *
+   * @returns {false} Always false.
+   */
   deferred(): false;
 
   /**
    * Provides access to the underlying database mapper client/instance for performing database operations
    *
    * @returns {unknown} The underlying database mapper client/instance (e.g., Mongoose connection, Sequelize instance, etc.)
+   * @throws {InfrastructureError} DATABASE_ERROR when the service is not initialized.
    */
   mapper(): unknown;
 

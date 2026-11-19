@@ -9,6 +9,7 @@ import { queueConfig } from './queue.config';
  * Asynchronously loads and initializes the BullMQ QueueDriver
  *
  * @returns {Promise<QueueDriver>} An initialized instance of the BullMQ QueueDriver
+ * @throws {DriverError} when the queue cannot be created or connected.
  */
 export const bullmqDriverLoader = async (): Promise<QueueDriver> => {
   const driver = new QueueDriver(queueConfig());

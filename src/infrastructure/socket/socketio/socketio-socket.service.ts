@@ -53,6 +53,7 @@ export class SocketIOService implements ISocket {
    * Creates an instance of SocketIOService
    *
    * @param {SocketsDriver} driver - The Socket.IO Server instance from the core driver
+   * @throws {SocketError} SOCKET_ERROR when the driver has no Socket.IO server (it was not initialized).
    */
   constructor(driver: SocketsDriver) {
     this.driver = driver;
@@ -182,6 +183,7 @@ export class SocketIOService implements ISocket {
    * Gracefully shutdown Socket.IO server
    *
    * @returns {Promise<void>}
+   * @throws {SocketError} SOCKET_ERROR when the server cannot be closed.
    */
   async shutdown(): Promise<void> {
     console.log('  Closing Socket.IO connections...');

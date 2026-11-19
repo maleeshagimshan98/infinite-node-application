@@ -14,6 +14,11 @@ export interface IQueueConfig extends IDriverConfig {
   };
 }
 
+/**
+ * Build the BullMQ queue configuration from the environment (`QUEUE_*`, `REDIS_SERVER_*`), with local defaults.
+ *
+ * @returns {IQueueConfig} The BullMQ queue configuration.
+ */
 export const queueConfig = (): IQueueConfig => ({
   driverName: 'queue',
   singleton: true,

@@ -17,6 +17,7 @@ export class LoginRecordMapper extends BaseMapper<INewLoginRecordSchema, LoginRe
    *
    * @param {INewLoginRecordSchema & { _id: Types.ObjectId }} data - The raw persisted document.
    * @returns {LoginRecord} The mapped domain model.
+   * @throws {PersistanceError} when the document has no version key (`__v`).
    */
   toDomain(data: INewLoginRecordSchema & { _id: Types.ObjectId }): LoginRecord {
     return new LoginRecord({
@@ -36,6 +37,7 @@ export class LoginRecordMapper extends BaseMapper<INewLoginRecordSchema, LoginRe
    *
    * @param {NewLoginRecord} data - The domain model data to persist.
    * @returns {INewLoginRecordSchema} The persistence-ready schema object.
+   * @throws {BSONError} when an id is not a valid ObjectId; the repository reports it as INVALID_ID.
    */
   toPersistence(data: NewLoginRecord): INewLoginRecordSchema {
     return !data.id

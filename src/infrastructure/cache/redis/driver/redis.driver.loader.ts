@@ -10,6 +10,7 @@ import { RedisDriver } from './redis.driver';
  * Initializes the Redis driver and returns the instance
  *
  * @returns {Promise<RedisDriver>}
+ * @throws {Error} when the Redis client cannot connect (the node-redis error, unchanged).
  */
 export const redisDriverLoader = async (): Promise<RedisDriver> => {
   const driver = new RedisDriver(redisConfig());

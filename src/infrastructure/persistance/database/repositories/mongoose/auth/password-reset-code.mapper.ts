@@ -21,6 +21,7 @@ export class PasswordResetCodeMapper extends BaseMapper<
    *
    * @param {IPasswordResetCodeSchema & { _id: Types.ObjectId }} data - The raw persisted document.
    * @returns {PasswordResetCode} The mapped domain model.
+   * @throws {PersistanceError} when the document has no version key (`__v`).
    */
   toDomain(data: IPasswordResetCodeSchema & { _id: Types.ObjectId }): PasswordResetCode {
     return new PasswordResetCode({
@@ -38,6 +39,7 @@ export class PasswordResetCodeMapper extends BaseMapper<
    *
    * @param {NewPasswordResetCode} data - The domain model data to persist.
    * @returns {IPasswordResetCodeSchema} The persistence-ready schema object.
+   * @throws {BSONError} when an id is not a valid ObjectId; the repository reports it as INVALID_ID.
    */
   toPersistence(data: NewPasswordResetCode): IPasswordResetCodeSchema {
     return !data.id

@@ -41,6 +41,7 @@ export class WinstonDriver implements ICoreDriver<winston.Logger, IWinstonConfig
 
   /**
    * Winston logger instance
+   *
    * @private
    */
   private logger: winston.Logger | undefined;
@@ -59,20 +60,17 @@ export class WinstonDriver implements ICoreDriver<winston.Logger, IWinstonConfig
   }
 
   /**
-   * Initializes the Winston logger with the provided configuration
+   * Initializes the Winston logger with the configuration the driver was created with
    *
    * Sets up transports based on configuration (console, file with daily rotation).
    * Configures log levels, formats, and rotation policies for file transports.
    *
-   * @param {AwilixContainer} container - Awilix DI container (for potential dependencies)
-   * @param {IWinstonConfig} config - Winston configuration object
    * @returns {Promise<void>}
    * @throws {Error} If logger initialization fails
    *
    * @example
    * ```typescript
-   * const driver = new WinstonDriver();
-   * await driver.init(container, {
+   * const driver = new WinstonDriver({
    *   driverName: 'logger',
    *   singleton: true,
    *   deferred: true,
@@ -85,6 +83,7 @@ export class WinstonDriver implements ICoreDriver<winston.Logger, IWinstonConfig
    *     ]
    *   }
    * });
+   * await driver.init();
    * ```
    */
   async init(): Promise<void> {

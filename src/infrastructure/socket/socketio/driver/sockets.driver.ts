@@ -65,10 +65,20 @@ export class SocketsDriver implements ICoreDriver<Server, ISocketConfig> {
     this._client = io;
   }
 
+  /**
+   * Get the driver's configuration.
+   *
+   * @returns {ISocketConfig} The configuration the driver was created with.
+   */
   config(): ISocketConfig {
     return this._config;
   }
 
+  /**
+   * Get the Socket.IO server.
+   *
+   * @returns {Server | undefined} The Socket.IO server, or undefined before `init()`.
+   */
   client(): Server | undefined {
     return this._client;
   }

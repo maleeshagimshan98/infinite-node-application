@@ -17,6 +17,7 @@ export class UserGroupMapper extends BaseMapper<INewUserGroupSchema, UserGroup, 
    *
    * @param {INewUserGroupSchema & { _id: Types.ObjectId }} data - The raw persisted document.
    * @returns {UserGroup} The mapped domain model.
+   * @throws {PersistanceError} when the document has no version key (`__v`).
    */
   toDomain(data: INewUserGroupSchema & { _id: Types.ObjectId }): UserGroup {
     return new UserGroup({
@@ -34,6 +35,7 @@ export class UserGroupMapper extends BaseMapper<INewUserGroupSchema, UserGroup, 
    *
    * @param {NewUserGroup} data - The domain model data to persist.
    * @returns {INewUserGroupSchema} The persistence-ready schema object.
+   * @throws {BSONError} when an id is not a valid ObjectId; the repository reports it as INVALID_ID.
    */
   toPersistence(data: NewUserGroup): INewUserGroupSchema {
     return !data.id

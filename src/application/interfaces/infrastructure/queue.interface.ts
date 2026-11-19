@@ -35,8 +35,23 @@ export type JobStatus = 'completed' | 'failed' | 'pending' | 'unknown';
 import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
 
 export interface IQueue extends IBaseInfrastructureService {
+  /**
+   * The DI registration name of this service; it equals its factory's `name()`.
+   *
+   * @returns {'queue'} Always `queue`.
+   */
   serviceName(): 'queue';
+  /**
+   * Whether the DI container registers this service as a singleton.
+   *
+   * @returns {true} Always true.
+   */
   singleton(): true;
+  /**
+   * Whether this service's creation is deferred in the DI container.
+   *
+   * @returns {false} Always false.
+   */
   deferred(): false;
 
   /**
@@ -52,6 +67,7 @@ export interface IQueue extends IBaseInfrastructureService {
    *
    * @param {string} queueName - Name of the queue to create
    * @returns {IQueue} Queue instance for the specified name
+   * @throws {InfrastructureError} QUEUE_ERROR when a queue with the given name already exists.
    */
   newQueue(queueName: string): IQueue;
 
@@ -62,6 +78,7 @@ export interface IQueue extends IBaseInfrastructureService {
    * @param {T} jobData - Job data/payload
    * @param {JobOptions} options - Optional job configuration
    * @returns {Promise<Job<T>>} resolving to the job instance
+   * @throws {InfrastructureError} QUEUE_ERROR when the queue doesn't exist or the job cannot be added.
    */
   addJob<T>(queueName: string, jobData: T, options?: JobOptions): Promise<Job<T>>;
 
@@ -97,6 +114,7 @@ export interface IQueue extends IBaseInfrastructureService {
    *
    * @param {string} queueName - Name of the queue
    * @returns {Promise<void>}
+   * @throws {InfrastructureError} QUEUE_ERROR when the queue doesn't exist or its failed jobs cannot be retried.
    */
   retryJobs(queueName: string): Promise<void>;
 
@@ -105,6 +123,7 @@ export interface IQueue extends IBaseInfrastructureService {
    *
    * @param {string} jobId - Job identifier
    * @returns {Promise<JobStatus>} Promise resolving to job status
+   * @throws {InfrastructureError} QUEUE_ERROR when the queue doesn't exist or the job's status cannot be read.
    */
   getJobStatus(jobId: string): Promise<JobStatus>;
 }

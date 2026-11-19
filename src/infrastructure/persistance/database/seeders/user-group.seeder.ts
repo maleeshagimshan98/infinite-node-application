@@ -4,8 +4,10 @@ import type { UserGroupService } from '@/domain/user/service/user-group.service'
 import type { INewUserGroup } from '@/domain/user/models/user-group';
 
 /**
- * Seeds the database with default user groups using UserGroupService
- * @returns boolean indicating if seeding was successful (true) or skipped (false)
+ * Seeds the database with the default user groups using UserGroupService.
+ *
+ * @returns {Promise<boolean>} True when at least one record was created, false when seeding was skipped.
+ * @throws {Error} whatever a service call threw (e.g. a DomainServiceError), rethrown after logging.
  */
 export async function seedUserGroups(): Promise<boolean> {
   try {
@@ -70,7 +72,10 @@ export async function seedUserGroups(): Promise<boolean> {
 }
 
 /**
- * Clears all non-default user groups from the database (useful for development/testing)
+ * Clears all non-default user groups from the database (useful for development/testing).
+ *
+ * @returns {Promise<void>}
+ * @throws {Error} whatever a service call threw (e.g. a DomainServiceError), rethrown after logging.
  */
 export async function clearUserGroups(): Promise<void> {
   try {

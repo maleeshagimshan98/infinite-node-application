@@ -14,6 +14,7 @@ export abstract class BaseSubDocumentMapper<DBSchema, DomainModel, NewDomainMode
    *
    * @param {DBSchema} data - The raw sub-document data.
    * @returns {DomainModel} The mapped domain model instance.
+   * @throws {DomainEntityError} when the stored sub-document breaks a model invariant.
    */
   abstract toDomain(data: DBSchema): DomainModel;
 
@@ -22,6 +23,7 @@ export abstract class BaseSubDocumentMapper<DBSchema, DomainModel, NewDomainMode
    *
    * @param {NewDomainModel} data - The domain model data to convert.
    * @returns {DBSchema} The persistence-ready sub-document schema object.
+   * @throws {BSONError} when an id is not a valid ObjectId; the repository reports it as INVALID_ID.
    */
   abstract toPersistence(data: NewDomainModel): DBSchema;
 }

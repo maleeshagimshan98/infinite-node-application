@@ -244,9 +244,9 @@ class InfiniteNodeApplication {
   /**
    * Event listener for HTTP server "error" event.
    *
-   * @param {NodeJS.ErrnoException} error
-   * @param {string | number} port
-   * @return {void}
+   * @param {NodeJS.ErrnoException} error - The error the server emitted.
+   * @param {string | number} port - The port the server tried to listen on.
+   * @returns {void}
    * @throws {NodeJS.ErrnoException} Throws the error if it's not related to listen syscall
    */
   private onListenError(error: NodeJS.ErrnoException, port: string | number): void {
@@ -303,7 +303,7 @@ class InfiniteNodeApplication {
    *
    * @param {Error} error  The low-level error emitted by the HTTP parser / socket layer.
    * @param {net.Socket} socket  The raw network socket associated with the offending client.
-   * @return {void}
+   * @returns {void}
    */
   private onClientError(error: Error, socket: net.Socket): void {
     try {
@@ -320,6 +320,9 @@ class InfiniteNodeApplication {
 
   /**
    * Event listener for HTTP server "listening" event.
+   *
+   * @param {http.Server} server - The server that started listening.
+   * @returns {void}
    */
   private onListening(server: http.Server): void {
     const bind = this.getServerBindString();
@@ -344,6 +347,9 @@ class InfiniteNodeApplication {
    * Shutdown the HTTP server gracefully
    *
    * Stops accepting new connections and drains existing ones
+   *
+   * @returns {Promise<void>} Resolves once every connection has drained, or after 5 seconds, once the rest are
+   * destroyed.
    */
   async shutdownHttpServer(): Promise<void> {
     console.log('  Closing HTTP server...');
@@ -376,6 +382,8 @@ class InfiniteNodeApplication {
 
   /**
    * Destroy all active connections
+   *
+   * @returns {void}
    */
   private destroyActiveConnections(): void {
     console.log(`  Destroying ${this.activeConnections.size} active connections`);
@@ -386,7 +394,9 @@ class InfiniteNodeApplication {
   }
 
   /**
-   * Shutdown infrastructure services
+   * Shutdown infrastructure services. A service that fails to shut down is logged; the others still shut down.
+   *
+   * @returns {Promise<void>}
    */
   async shutdownInfrastructure(): Promise<void> {
     console.log('  Shutting down infrastructure services...');
@@ -397,6 +407,8 @@ class InfiniteNodeApplication {
 
   /**
    * Check if application is shutting down
+   *
+   * @returns {boolean} True once shutdown has started.
    */
   isShuttingDown(): boolean {
     return this.shutdownManager?.isShuttingDown() ?? false;
@@ -411,6 +423,7 @@ class InfiniteNodeApplication {
    * 2. Infrastructure services (MEDIUM) - Close database, cache, queue connections
    * 3. Telemetry (LOW) - Flush the last spans, metrics and log records
    *
+   * @returns {void}
    * @private
    */
   private registerShutdownHooks(): void {

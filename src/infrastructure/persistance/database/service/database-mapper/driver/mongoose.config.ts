@@ -11,6 +11,11 @@ export interface IMongooseConfig extends IDriverConfig {
   options?: mongoose.ConnectOptions;
 }
 
+/**
+ * Build the Mongoose driver configuration from the environment (`MONGODB_*`), with local defaults.
+ *
+ * @returns {IMongooseConfig} The Mongoose driver configuration.
+ */
 export const mongooseConfig = (): IMongooseConfig => ({
   driverName: 'mongoose',
   singleton: true,

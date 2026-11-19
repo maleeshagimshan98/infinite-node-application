@@ -5,6 +5,14 @@ import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 
 import type { NextFunction, Response } from 'express';
 
+/**
+ * Build a middleware that authenticates the request by its Bearer access token and sets `req.user`. A missing,
+ * invalid or expired token is answered with a 401; an infrastructure outage with a generic 503 / 500.
+ *
+ * @param {() => LoginApplicationService} loginApplicationServiceProvider - Resolves the login application service
+ * when a request arrives.
+ * @returns {(req: AuthenticatedRequest, res: Response, next: NextFunction) => Promise<void>} The middleware.
+ */
 export const UserValidatorMiddleware =
   (loginApplicationServiceProvider: () => LoginApplicationService) =>
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {

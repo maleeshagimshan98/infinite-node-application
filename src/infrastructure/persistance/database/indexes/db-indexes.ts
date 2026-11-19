@@ -78,6 +78,7 @@ export interface IDbIndexesResult {
  *
  * @param {string} [dir=MODELS_DIR] - The folder to search, recursively.
  * @returns {IndexedModel[]} The compiled models.
+ * @throws {Error} when a model file cannot be read or loaded.
  */
 export function loadModels(dir: string = MODELS_DIR): IndexedModel[] {
   const files = fs
@@ -208,6 +209,7 @@ function isIndexSpec(value: unknown): value is [IndexDefinition, IndexOptions] {
  * @param {IndexDefinition} keys - The unique index keys.
  * @param {IndexOptions} options - The unique index options.
  * @returns {Promise<IDuplicateGroup[]>} Every group with more than one document, largest first.
+ * @throws {Error} when the aggregation fails (the MongoDB driver error, unchanged).
  */
 export async function findDuplicates(
   model: IndexedModel,
@@ -249,6 +251,7 @@ export async function findDuplicates(
  *
  * @param {IndexedModel} model - The model to audit.
  * @returns {Promise<IModelIndexReport>} The model's report.
+ * @throws {Error} when a query fails (the MongoDB driver error, unchanged).
  */
 export async function auditModel(model: IndexedModel): Promise<IModelIndexReport> {
   const uniqueIndexes: IUniqueIndexAudit[] = [];
@@ -289,6 +292,8 @@ export async function auditModel(model: IndexedModel): Promise<IModelIndexReport
  * @param {IndexedModel} model - The model to apply.
  * @param {IModelIndexReport} report - The model's audit report, completed in place.
  * @returns {Promise<void>}
+ * @throws {Error} when an update fails (the MongoDB driver error, unchanged).
+ * A failed index build is recorded on the report instead.
  */
 async function applyModel(model: IndexedModel, report: IModelIndexReport): Promise<void> {
   // Through the driver, so neither change touches updatedAt.
@@ -315,6 +320,7 @@ async function applyModel(model: IndexedModel, report: IModelIndexReport): Promi
  * @param {IndexedModel[]} models - The models to audit and apply.
  * @param {{ check: boolean }} options - `check: true` audits and diffs only.
  * @returns {Promise<IDbIndexesResult>} The reports, whether changes were applied, and whether the run succeeded.
+ * @throws {Error} when a query or an update fails (the MongoDB driver error, unchanged).
  */
 export async function runDbIndexes(models: IndexedModel[], options: { check: boolean }): Promise<IDbIndexesResult> {
   const reports: IModelIndexReport[] = [];

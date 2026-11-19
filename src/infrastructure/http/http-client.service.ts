@@ -204,12 +204,12 @@ export class HTTPClientService implements IHTTPClient {
    * (connection, DNS, timeout, redirects, unreadable response) are infrastructure errors; failures while
    * setting the request up (unsupported protocol, invalid URL, unserializable body) are rethrown unchanged.
    *
-   * @private
    * @param {RequestConfig} config - Request configuration
    * @returns {Promise<HTTPResponse>}
    * @throws {InfrastructureError} NETWORK_ERROR when the request was sent but failed
    * @throws {CircuitOpenError} CONNECTION_ERROR when the host's circuit is open; the request was not sent
    * @throws {Error} When the request could not be set up (caller or configuration error)
+   * @private
    */
   private async createRequest(config: RequestConfig): Promise<HTTPResponse> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -257,9 +257,9 @@ export class HTTPClientService implements IHTTPClient {
    * Get the circuit breaker for a URL's host, creating it on first use. Only the MAX_CIRCUIT_BREAKERS most
    * recently used hosts keep theirs.
    *
-   * @private
    * @param {string} url - The request URL.
    * @returns {ICircuitBreaker | undefined} The host's breaker, or undefined when the URL can't be parsed.
+   * @private
    */
   private circuitBreakerFor(url: string): ICircuitBreaker | undefined {
     if (!URL.canParse(url)) {

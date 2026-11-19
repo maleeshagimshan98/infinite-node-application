@@ -54,6 +54,11 @@ export class SMTPDriver implements ICoreDriver<Transporter, ISMTPConfig> {
     });
   }
 
+  /**
+   * Get the driver's configuration.
+   *
+   * @returns {ISMTPConfig} The configuration the driver was created with.
+   */
   config(): ISMTPConfig {
     return this._config;
   }

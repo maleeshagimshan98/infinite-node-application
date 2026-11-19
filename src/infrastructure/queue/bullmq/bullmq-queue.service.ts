@@ -52,16 +52,16 @@ export class BullMQQueueService implements IQueue {
   /**
    * Map to store multiple queue instances by name (if needed)
    *
-   * @private
    * @type {Map<string, Queue>}
+   * @private
    */
   private queues: Map<string, Queue> = new Map();
 
   /**
    * Map to store Worker instances for processing jobs
    *
-   * @private
    * @type {Map<string, Worker[]>}
+   * @private
    */
   private workers: Map<string, Worker[]> = new Map();
 
@@ -69,6 +69,7 @@ export class BullMQQueueService implements IQueue {
    * Creates an instance of BullMQQueueService
    *
    * @param {QueueDriver} driver - The BullMQ Queue instance from the core driver
+   * @throws {QueueError} QUEUE_ERROR when the driver has no client (it was not initialized).
    */
   constructor(driver: QueueDriver) {
     this.driver = driver;
@@ -108,6 +109,8 @@ export class BullMQQueueService implements IQueue {
 
   /**
    * Returns the underlying BullMQ Queue driver instance
+   *
+   * @returns {QueueDriver} The BullMQ driver.
    */
   getDriver(): QueueDriver {
     return this.driver;

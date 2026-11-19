@@ -1,5 +1,10 @@
 import type { Schema } from 'express-validator';
 
+/**
+ * Validate a reset-password request: email, reset code, and the new password with its confirmation.
+ *
+ * @returns {Schema} The express-validator schema.
+ */
 export const resetPasswordValidator = (): Schema => {
   return {
     email: {

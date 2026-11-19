@@ -25,6 +25,10 @@ export class LoginController extends BaseController {
   /**
    * Authenticate the user. Sets the access token as a Bearer header and the
    * refresh token as an httpOnly cookie.
+   *
+   * @param {Request} req - The request.
+   * @param {Response} res - The response to send.
+   * @returns {Promise<Response>} The sent response; every error is answered by `catchExceptionsWrapper()`.
    */
   async login(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
@@ -50,6 +54,10 @@ export class LoginController extends BaseController {
   /**
    * Validate the access token. Called by Nginx auth_request.
    * On success sets X-User-Id and X-User-Groups forwarding headers.
+   *
+   * @param {Request} req - The request.
+   * @param {Response} res - The response to send.
+   * @returns {Promise<Response>} The sent response; every error is answered by `catchExceptionsWrapper()`.
    */
   async validate(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
@@ -68,6 +76,10 @@ export class LoginController extends BaseController {
   /**
    * Refresh the access and refresh tokens. The old login record is expired
    * and a new one is created.
+   *
+   * @param {Request} req - The request.
+   * @param {Response} res - The response to send.
+   * @returns {Promise<Response>} The sent response; every error is answered by `catchExceptionsWrapper()`.
    */
   async refresh(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
@@ -95,6 +107,10 @@ export class LoginController extends BaseController {
 
   /**
    * Logout the user. Revokes the login record and clears the refresh token cookie.
+   *
+   * @param {Request} req - The request.
+   * @param {Response} res - The response to send.
+   * @returns {Promise<Response>} The sent response; every error is answered by `catchExceptionsWrapper()`.
    */
   async logout(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {

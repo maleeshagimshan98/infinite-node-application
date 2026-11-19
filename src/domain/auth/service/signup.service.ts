@@ -99,6 +99,7 @@ export class SignupService extends BaseDomainService {
    * @throws {DomainServiceError} NOT_FOUND if a pending code is concurrently deleted mid-invalidation.
    * @throws {DomainServiceError} CONFLICT if a pending code is concurrently changed mid-invalidation.
    * @throws {DomainServiceError} ALREADY_EXISTS if a concurrent request issued a pending code for the email first.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async createVerificationCode(
     userId: string,
@@ -133,6 +134,7 @@ export class SignupService extends BaseDomainService {
    * @throws {DomainServiceError} NOT_FOUND if the user does not exist, or no matching pending code is found.
    * @throws {DomainServiceError} VALIDATION_ERROR if the matching code has expired.
    * @throws {DomainServiceError} CONFLICT if the code or the user changed concurrently (e.g. a concurrent verification).
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async verifyEmail(email: string, code: string, transactionOptions?: TransactionOptions): Promise<void> {
     return this.wrapInfrastructureErrors(async () => {
@@ -193,6 +195,7 @@ export class SignupService extends BaseDomainService {
    * @throws {DomainServiceError} NOT_FOUND if the user does not exist, or no pending verification code exists for the email.
    * @throws {DomainServiceError} INVALID_OPERATION if the user's email is already verified.
    * @throws {DomainServiceError} ALREADY_EXISTS if a concurrent resend issued a new pending code first.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async resendVerificationCode(
     email: string,

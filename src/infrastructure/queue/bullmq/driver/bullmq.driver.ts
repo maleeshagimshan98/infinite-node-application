@@ -79,10 +79,20 @@ export class QueueDriver implements ICoreDriver<Queue, IQueueConfig> {
     return queue;
   }
 
+  /**
+   * Get the default BullMQ queue.
+   *
+   * @returns {Queue | undefined} The default BullMQ queue, or undefined before `init()`.
+   */
   client(): Queue | undefined {
     return this._default_client;
   }
 
+  /**
+   * Get the driver's configuration.
+   *
+   * @returns {IQueueConfig} The configuration the driver was created with.
+   */
   config(): IQueueConfig {
     return this._config;
   }

@@ -46,10 +46,20 @@ export class MongooseDriver implements ICoreDriver<typeof mongoose, IMongooseCon
     }
   }
 
+  /**
+   * Get the driver's configuration.
+   *
+   * @returns {IMongooseConfig} The configuration the driver was created with.
+   */
   config(): IMongooseConfig {
     return this._config;
   }
 
+  /**
+   * Get the Mongoose instance.
+   *
+   * @returns {typeof mongoose | undefined} The Mongoose instance, or undefined before `init()`.
+   */
   client(): typeof mongoose | undefined {
     return this._client;
   }

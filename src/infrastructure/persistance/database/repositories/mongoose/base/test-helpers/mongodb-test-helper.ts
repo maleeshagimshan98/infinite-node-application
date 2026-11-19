@@ -20,6 +20,7 @@ import mongoose from 'mongoose';
  * parallel, and `clearTestDB()` empties every collection, so a test file whose data would collide with another's
  * (e.g. the same collections) uses its own database.
  * @returns {Promise<void>}
+ * @throws {Error} when the connection fails (the Mongoose error, unchanged).
  */
 export const connectToTestDB = async (dbName?: string): Promise<void> => {
   // Get MongoDB URI from environment variable or use default test database
@@ -35,6 +36,7 @@ export const connectToTestDB = async (dbName?: string): Promise<void> => {
  * Clear all data from all collections
  *
  * @returns {Promise<void>}
+ * @throws {Error} when no database connection is established.
  */
 export const clearTestDB = async (): Promise<void> => {
   if (!mongoose.connection.db) {
@@ -65,6 +67,7 @@ export const disconnectFromTestDB = async (): Promise<void> => {
  * Drop the entire database
  *
  * @returns {Promise<void>}
+ * @throws {Error} when no database connection is established.
  */
 export const dropTestDB = async (): Promise<void> => {
   if (!mongoose.connection.db) {

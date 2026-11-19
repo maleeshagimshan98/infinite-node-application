@@ -140,6 +140,10 @@ export class SNSPushNotificationService implements INotificationManager {
   /**
    * Creates an instance of SNSPushNotificationService from an initialized SNS driver and the breaker guarding its
    * publishes
+   *
+   * @param {SNSDriver} driver - The initialized SNS driver.
+   * @param {ICircuitBreaker} circuitBreaker - The breaker guarding the publishes.
+   * @throws {SnsError} NOTIFICATION_ERROR when the driver has no client (it was not initialized).
    */
   constructor(driver: SNSDriver, circuitBreaker: ICircuitBreaker) {
     this.driver = driver;

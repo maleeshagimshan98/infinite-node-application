@@ -24,6 +24,9 @@ export class CacheServiceFactory implements IServiceFactory<ICache> {
 
   /**
    * Type guard to validate cache driver type
+   *
+   * @param {string} value - The `CACHE_DRIVER` value to check.
+   * @returns {boolean} True when `value` is a known cache driver type.
    */
   private isCacheDriverType(value: string): value is CacheDriverType {
     return ['redis', 'memcached', 'inmemory'].includes(value);
@@ -33,6 +36,7 @@ export class CacheServiceFactory implements IServiceFactory<ICache> {
    * Create a cache service instance using the provided Redis driver
    *
    * @returns {Promise<ICache>} Redis cache service implementation
+   * @throws {Error} when the Redis client cannot connect (the node-redis error, unchanged).
    */
   async createRedisCacheService(): Promise<ICache> {
     return new RedisCacheService(await redisDriverLoader());

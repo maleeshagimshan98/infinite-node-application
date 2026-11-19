@@ -14,6 +14,10 @@ import { seedRoles } from './role.seeder';
  * Initialize the DI container: register all infrastructure services via InfrastructureManager,
  * then auto-register application services, repositories, and controllers.
  * Database connection is handled by DatabaseMapperService, one of the registered infra services.
+ *
+ * @returns {Promise<void>}
+ * @throws {Error} whatever building the infrastructure services or registering the components threw (e.g. an
+ * InfrastructureError DRIVER_ERROR), rethrown after logging.
  */
 async function initializeServices(): Promise<void> {
   try {
@@ -43,6 +47,9 @@ async function initializeServices(): Promise<void> {
 
 /**
  * Main seeder function that runs all database seeders
+ *
+ * @returns {Promise<void>}
+ * @throws {Error} whatever initialization or a seeder threw, rethrown after logging.
  */
 export async function runAllSeeders(): Promise<void> {
   console.log('\n\n╔═══════════════════════════════════════════════════════════╗');
@@ -95,6 +102,9 @@ export async function runAllSeeders(): Promise<void> {
 
 /**
  * Clear all seeded data (useful for development/testing)
+ *
+ * @returns {Promise<void>}
+ * @throws {Error} whatever initialization or a clear step threw, rethrown after logging.
  */
 export async function clearAllSeeders(): Promise<void> {
   console.log('\n\n╔═══════════════════════════════════════════════════════════╗');
@@ -147,9 +157,11 @@ export async function clearAllSeeders(): Promise<void> {
 }
 
 /**
- * CLI Handler - Allows running seeders from command line
+ * CLI Handler - Allows running seeders from command line. Exits the process with 0 on success, 1 on failure.
  * Usage: npm run seed
  * Usage: npm run seed:clear
+ *
+ * @returns {Promise<void>}
  */
 async function main(): Promise<void> {
   process.env.NODE_ENV = process.env.NODE_ENV || 'development';

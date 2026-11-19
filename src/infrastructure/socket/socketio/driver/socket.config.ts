@@ -14,6 +14,11 @@ export interface ISocketConfig extends IDriverConfig {
   };
 }
 
+/**
+ * Build the Socket.IO driver configuration from the environment (`SOCKET_*`), with local defaults.
+ *
+ * @returns {ISocketConfig} The Socket.IO driver configuration.
+ */
 export const socketConfig = (): ISocketConfig => ({
   driverName: 'socket',
   singleton: true,

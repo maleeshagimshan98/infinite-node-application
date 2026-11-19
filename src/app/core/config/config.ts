@@ -17,6 +17,12 @@ export type INodeApplicationConfig = {
   logging: Record<string, unknown>;
 };
 
+/**
+ * Load the application configuration: server, global middleware, app metadata, JWT keys and logging.
+ *
+ * @returns {INodeApplicationConfig} The application configuration.
+ * @throws {Error} when an SSL key or certificate file cannot be read.
+ */
 export const configLoader: () => INodeApplicationConfig = () => {
   return {
     server: serverConfig(),

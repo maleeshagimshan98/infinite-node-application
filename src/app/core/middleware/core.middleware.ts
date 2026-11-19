@@ -18,6 +18,14 @@ import { buildRateLimitStore } from './rate-limit-store.factory';
 import type { RequestHandler } from 'express';
 import type { AwilixContainer } from 'awilix';
 
+/**
+ * Build the factories of the global Express middleware: cookies, session, CORS, helmet, rate limit, morgan, body
+ * parsers, content type and request logging.
+ *
+ * @param {AwilixContainer} container - The DI container the rate limiter and request logger resolve `cache` /
+ * `logger` from.
+ * @returns {Promise<Record<string, () => RequestHandler>>} A factory per middleware, by name.
+ */
 export const coreMiddleware = async (container: AwilixContainer): Promise<Record<string, () => RequestHandler>> => {
   const middlewareConfigInstance = coreMiddlewareConfig(container);
   const middlewares = {

@@ -7,8 +7,10 @@ import type { UserService } from '@/domain/user/service/user.service';
 import type { INewUser } from '@/domain/user/models/user';
 
 /**
- * Seeds the database with sample users using SignupApplicationService
- * @returns boolean indicating if seeding was successful (true) or skipped (false)
+ * Seeds the database with sample users using SignupApplicationService.
+ *
+ * @returns {Promise<boolean>} True when at least one record was created, false when seeding was skipped.
+ * @throws {Error} whatever a service call threw (e.g. a DomainServiceError), rethrown after logging.
  */
 export async function seedUsers(): Promise<boolean> {
   try {
@@ -101,7 +103,10 @@ export async function seedUsers(): Promise<boolean> {
 }
 
 /**
- * Clears all users from the database (useful for development/testing)
+ * Clears all users from the database (useful for development/testing).
+ *
+ * @returns {Promise<void>}
+ * @throws {Error} whatever a service call threw (e.g. a DomainServiceError), rethrown after logging.
  */
 export async function clearUsers(): Promise<void> {
   try {

@@ -32,15 +32,17 @@ import type { WinstonDriver } from './driver/winston.driver';
 export class WinstonLoggerService implements ILogger {
   /**
    * Winston driver instance
-   * @private
+   *
    * @readonly
+   * @private
    */
   private readonly driver: WinstonDriver;
 
   /**
    * Winston logger instance from the driver
-   * @private
+   *
    * @readonly
+   * @private
    */
   private readonly winstonLogger: winston.Logger;
 

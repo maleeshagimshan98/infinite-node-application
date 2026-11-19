@@ -21,6 +21,7 @@ export class EmailVerificationCodeMapper extends BaseMapper<
    *
    * @param {INewEmailVerificationCodeSchema & { _id: Types.ObjectId }} data - The raw persisted document.
    * @returns {EmailVerificationCode} The mapped domain model.
+   * @throws {PersistanceError} when the document has no version key (`__v`).
    */
   toDomain(data: INewEmailVerificationCodeSchema & { _id: Types.ObjectId }): EmailVerificationCode {
     return new EmailVerificationCode({
@@ -40,6 +41,7 @@ export class EmailVerificationCodeMapper extends BaseMapper<
    *
    * @param {NewEmailVerificationCode} data - The domain model data to persist.
    * @returns {INewEmailVerificationCodeSchema} The persistence-ready schema object.
+   * @throws {BSONError} when an id is not a valid ObjectId; the repository reports it as INVALID_ID.
    */
   toPersistence(data: NewEmailVerificationCode): INewEmailVerificationCodeSchema {
     const base = {

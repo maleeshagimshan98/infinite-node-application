@@ -70,6 +70,11 @@ export class SNSDriver implements ICoreDriver<SNSClient, ISNSConfig> {
     this._client = client;
   }
 
+  /**
+   * Get the driver's configuration.
+   *
+   * @returns {ISNSConfig} The configuration the driver was created with.
+   */
   config(): ISNSConfig {
     return this._config;
   }

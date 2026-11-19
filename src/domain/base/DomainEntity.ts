@@ -80,6 +80,8 @@ export abstract class DomainEntity {
 
   /**
    * Convert to plain object (alias for toJSON)
+   *
+   * @returns {Record<string, unknown>} Every getter's value, keyed by the field name without its `_` prefix.
    */
   public toObject(): Record<string, unknown> {
     return this.toJSON();

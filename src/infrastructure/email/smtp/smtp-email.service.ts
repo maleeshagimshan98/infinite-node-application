@@ -61,6 +61,13 @@ export class SMTPEmailService extends BaseEmailService {
   /**
    * Creates an instance of SMTPEmailService from an initialized SMTP driver, the breaker guarding its sends, the
    * queue that queued emails wait in, the email log, and the application logger
+   *
+   * @param {SMTPDriver} driver - The initialized driver.
+   * @param {ICircuitBreaker} circuitBreaker - The breaker guarding the sends.
+   * @param {IQueue} queue - The queue that queued emails wait in.
+   * @param {EmailLoggerService} emailLogger - The email log.
+   * @param {ILogger} logger - The application logger.
+   * @throws {SmtpError} EMAIL_ERROR when the driver has no client (it was not initialized).
    */
   constructor(
     driver: SMTPDriver,

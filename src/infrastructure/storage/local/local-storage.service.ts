@@ -33,7 +33,7 @@ function isNotFoundError(e: unknown): boolean {
  *
  * @example
  * ```typescript
- * const storageService = new LocalStorageService('/path/to/storage/root');
+ * const storageService = new LocalStorageService(); // rooted at STORAGE_ROOT_PATH
  *
  * await storageService.createFile('documents/file.txt', Buffer.from('content'));
  * const content = await storageService.readFile('documents/file.txt');
@@ -43,15 +43,14 @@ function isNotFoundError(e: unknown): boolean {
 export class LocalStorageService implements IStorage {
   /**
    * Root directory path for all storage operations
-   * @private
+   *
    * @readonly
+   * @private
    */
   private readonly rootPath: string;
 
   /**
-   * Creates an instance of LocalStorageService
-   *
-   * @param {string} rootPath - Absolute path to the storage root directory
+   * Creates an instance of LocalStorageService, rooted at the configured `STORAGE_ROOT_PATH`
    *
    * @example
    * ```typescript
@@ -90,6 +89,11 @@ export class LocalStorageService implements IStorage {
     return false;
   }
 
+  /**
+   * Local storage uses the file system directly and has no driver.
+   *
+   * @returns {unknown} Always null.
+   */
   getDriver(): unknown {
     return null;
   }

@@ -17,6 +17,8 @@ export abstract class BaseMapper<DBSchema, DomainModel, NewDomainModel> implemen
    *
    * @param {DBSchema & { _id: Types.ObjectId }} data - The raw persisted data, with `_id` narrowed to required for a hydrated read.
    * @returns {DomainModel} The mapped domain model instance.
+   * @throws {PersistanceError} when the stored document cannot be mapped (e.g. it has no version key).
+   * @throws {DomainEntityError} when the stored document breaks a model invariant.
    */
   abstract toDomain(data: DBSchema & { _id: Types.ObjectId }): DomainModel;
 
@@ -25,6 +27,7 @@ export abstract class BaseMapper<DBSchema, DomainModel, NewDomainModel> implemen
    *
    * @param {NewDomainModel} data - The domain model data to convert.
    * @returns {DBSchema} The persistence-ready schema object.
+   * @throws {BSONError} when an id is not a valid ObjectId; the repository reports it as INVALID_ID.
    */
   abstract toPersistence(data: NewDomainModel): DBSchema;
 
@@ -50,6 +53,7 @@ export abstract class BaseMapper<DBSchema, DomainModel, NewDomainModel> implemen
    *
    * @param {Partial<NewDomainModel>} filter - Partial domain model fields used as query criteria
    * @returns {Partial<DBSchema>} Partial schema object for use in database queries
+   * @throws {BSONError} when an id is not a valid ObjectId; the repository reports it as INVALID_ID.
    */
   toFilter(filter: Partial<NewDomainModel>): Partial<DBSchema> {
     const persistenceFilter = this.toPersistence(filter as NewDomainModel) as Record<string, unknown>;

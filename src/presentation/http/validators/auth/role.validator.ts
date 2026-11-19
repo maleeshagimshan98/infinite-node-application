@@ -1,5 +1,10 @@
 import type { Schema } from 'express-validator';
 
+/**
+ * Validate a create-role request.
+ *
+ * @returns {Schema} The express-validator schema.
+ */
 export const newRoleValidator = (): Schema => {
   return {
     name: {
@@ -37,6 +42,11 @@ export const newRoleValidator = (): Schema => {
   };
 };
 
+/**
+ * Validate an update-role request, including the `version` the client read.
+ *
+ * @returns {Schema} The express-validator schema.
+ */
 export const updateRoleValidator = (): Schema => {
   return {
     // The version of the role the client read (from a GET); a stale one is rejected with 409 and nothing changes.

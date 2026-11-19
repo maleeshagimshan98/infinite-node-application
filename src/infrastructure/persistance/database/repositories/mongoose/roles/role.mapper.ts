@@ -36,6 +36,7 @@ export class RoleMapper extends BaseMapper<INewRoleSchema, Role, NewRole> {
    *
    * @param {INewRoleSchema & { _id: Types.ObjectId }} data - The raw persisted document.
    * @returns {Role} The mapped domain model.
+   * @throws {PersistanceError} when the document has no version key (`__v`).
    */
   toDomain(data: INewRoleSchema & { _id: Types.ObjectId }): Role {
     // RoleRepository.populateOptions() always populates resource_permissions.resource_id, so at
@@ -74,6 +75,7 @@ export class RoleMapper extends BaseMapper<INewRoleSchema, Role, NewRole> {
    *
    * @param {NewRole} data - The domain model data to persist.
    * @returns {INewRoleSchema} The persistence-ready schema object.
+   * @throws {BSONError} when an id is not a valid ObjectId; the repository reports it as INVALID_ID.
    */
   toPersistence(data: NewRole): INewRoleSchema {
     const base = {

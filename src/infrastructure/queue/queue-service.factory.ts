@@ -24,6 +24,7 @@ export class QueueServiceFactory implements IServiceFactory<IQueue> {
    * Creates a BullMQ queue service instance
    *
    * @returns {Promise<IQueue>} A BullMQ queue service instance
+   * @throws {DriverError} when the queue cannot be created or connected.
    */
   async createBullMQQueueService(): Promise<IQueue> {
     return new BullMQQueueService(await bullmqDriverLoader());

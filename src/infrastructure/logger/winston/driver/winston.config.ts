@@ -20,12 +20,14 @@ export interface IWinstonConfig extends IDriverConfig {
   winston: {
     /**
      * Log file name pattern (supports date patterns like %DATE%)
+     *
      * @example './logs/application-%DATE%.log'
      */
     fileName: string;
 
     /**
      * Date pattern for log file rotation
+     *
      * @example 'YYYY-MM-DD'
      */
     datePattern: string;
@@ -37,6 +39,7 @@ export interface IWinstonConfig extends IDriverConfig {
 
     /**
      * Maximum size per log file (in bytes)
+     *
      * @example 5242880 (5MB)
      */
     maxSize: number;
@@ -48,12 +51,14 @@ export interface IWinstonConfig extends IDriverConfig {
 
     /**
      * Default log level
+     *
      * @example 'info', 'debug', 'error', 'warn'
      */
     level: string;
 
     /**
      * Default log format
+     *
      * @example 'json', 'simple'
      */
     format: string;
@@ -65,6 +70,7 @@ export interface IWinstonConfig extends IDriverConfig {
     transports: Array<{
       /**
        * Transport type
+       *
        * @example 'console', 'file'
        */
       type: string;
@@ -100,13 +106,6 @@ export interface IWinstonConfig extends IDriverConfig {
  *
  * @returns {IWinstonConfig} The Winston logger configuration object
  *
- * @example
- * ```typescript
- * const config = winstonConfig();
- * const driver = new WinstonDriver();
- * await driver.init(container, config);
- * ```
- *
  * @remarks
  * Environment variables:
  * - INSTANCE_TYPE: Set to WORKER by the worker process (src/app/worker.ts), which selects the
@@ -122,6 +121,12 @@ export interface IWinstonConfig extends IDriverConfig {
  * - WINSTON_LOG_MAX_FILES: Maximum number of log files to retain
  * - WINSTON_LOG_LEVEL: Default log level
  * - WINSTON_LOG_FORMAT: Default log format
+ * @example
+ * ```typescript
+ * const config = winstonConfig();
+ * const driver = new WinstonDriver();
+ * await driver.init(container, config);
+ * ```
  */
 export const winstonConfig = (): IWinstonConfig => {
   const isWorker = process.env.INSTANCE_TYPE === 'WORKER';

@@ -109,6 +109,13 @@ export class SESEmailService extends BaseEmailService {
   /**
    * Creates an instance of SESEmailService from an initialized SES driver, the breaker guarding its sends, the
    * queue that queued emails wait in, the email log, and the application logger
+   *
+   * @param {SESDriver} driver - The initialized driver.
+   * @param {ICircuitBreaker} circuitBreaker - The breaker guarding the sends.
+   * @param {IQueue} queue - The queue that queued emails wait in.
+   * @param {EmailLoggerService} emailLogger - The email log.
+   * @param {ILogger} logger - The application logger.
+   * @throws {SesError} EMAIL_ERROR when the driver has no client (it was not initialized).
    */
   constructor(
     driver: SESDriver,

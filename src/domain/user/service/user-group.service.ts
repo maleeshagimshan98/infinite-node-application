@@ -35,6 +35,7 @@ export class UserGroupService extends BaseDomainService {
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<UserGroup | null>} The user group, or null if none matched.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getById(id: string, transactionOptions?: TransactionOptions): Promise<UserGroup | null> {
     return this.wrapInfrastructureErrors(async () => {
@@ -48,6 +49,7 @@ export class UserGroupService extends BaseDomainService {
    * @param {string} name - The name of the user group to retrieve.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<UserGroup | null>} The user group, or null if none matched.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getByName(name: string, transactionOptions?: TransactionOptions): Promise<UserGroup | null> {
     return this.wrapInfrastructureErrors(async () => {
@@ -60,6 +62,7 @@ export class UserGroupService extends BaseDomainService {
    *
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<UserGroup | null>} The default user group, or null if none is set.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getDefaultGroup(transactionOptions?: TransactionOptions): Promise<UserGroup | null> {
     return this.wrapInfrastructureErrors(async () => {
@@ -73,6 +76,7 @@ export class UserGroupService extends BaseDomainService {
    * @param {number} [limit] - Maximum number of user groups to return.
    * @param {number} [offset] - Number of user groups to skip.
    * @returns {Promise<UserGroup[]>} The matching user groups.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getAll(limit?: number, offset?: number): Promise<UserGroup[]> {
     return this.wrapInfrastructureErrors(async () => {
@@ -88,6 +92,7 @@ export class UserGroupService extends BaseDomainService {
    * @returns {Promise<{ id: string; name: string }>} The created user group's id and name.
    * @throws {DomainServiceError} ALREADY_EXISTS when a group with the same name already exists.
    * @throws {DomainServiceError} VALIDATION_ERROR when a default group already exists and `groupData.default` is true.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async create(
     groupData: INewUserGroup,
@@ -136,6 +141,7 @@ export class UserGroupService extends BaseDomainService {
    * any write), or the group or the current default group changed during the update.
    * @throws {DomainServiceError} ALREADY_EXISTS when another user group already has the requested name.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async update(
     id: string,
@@ -203,6 +209,7 @@ export class UserGroupService extends BaseDomainService {
    * @returns {Promise<UserGroup>} The deleted user group.
    * @throws {DomainServiceError} NOT_FOUND when no user group exists with the given id.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed, or the group is the default group or has associated users.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async delete(id: string, transactionOptions?: TransactionOptions): Promise<UserGroup> {
     return this.wrapInfrastructureErrors(async () => {
@@ -247,6 +254,7 @@ export class UserGroupService extends BaseDomainService {
    * @throws {DomainServiceError} NOT_FOUND when no user group exists with the given id, or the current default group could not be unset.
    * @throws {DomainServiceError} CONFLICT when the group or the current default group changed during the switch.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async setAsDefault(id: string, transactionOptions?: TransactionOptions): Promise<{ id: string; name: string }> {
     return this.wrapInfrastructureErrors(async () => {

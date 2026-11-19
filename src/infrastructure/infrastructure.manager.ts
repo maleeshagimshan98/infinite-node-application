@@ -48,6 +48,8 @@ export class InfrastructureManager implements IInfrastructureManager {
   private services: IBaseInfrastructureService[] = [];
 
   /**
+   * Create a manager that builds the infrastructure services from the given factories.
+   *
    * @param {InfrastructureFactoryClass[]} [loader] - Factory classes to build the services from; defaults to
    * `infrastructureLoader`
    */

@@ -167,7 +167,8 @@ export class LoginApplicationService extends BaseApplicationService {
    *
    * @param {() => Promise<void>} op - The login-record mutation to run.
    * @returns {Promise<void>}
-   * @throws {DomainServiceError} AUTHENTICATION_ERROR — when `op` fails because the record no longer exists or changed since it was read.
+   * @throws {DomainServiceError} AUTHENTICATION_ERROR when `op` fails because the record no longer exists or changed since it was read.
+   * @throws {unknown} Any other error `op` throws, unchanged.
    */
   private async mutateLoginRecord(op: () => Promise<void>): Promise<void> {
     try {
@@ -185,6 +186,8 @@ export class LoginApplicationService extends BaseApplicationService {
    *
    * @param {string} userId - The unique identifier of the user to retrieve.
    * @returns {Promise<User | null>} The user, or null if none matched.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getUserById(userId: string): Promise<User | null> {
     return this.loginService.getUserById(userId);
@@ -196,7 +199,12 @@ export class LoginApplicationService extends BaseApplicationService {
    * @param {string} email - The user's email address.
    * @param {string} password - The plain-text password to verify.
    * @returns {Promise<{ id: string; status: string; accessToken: string; refreshToken: string }>} The authenticated user's identity and new token pair.
-   * @throws {DomainServiceError} AUTHENTICATION_ERROR — if no user matches the email, or the password does not match.
+   * @throws {DomainServiceError} AUTHENTICATION_ERROR when no user matches the email, or the password does not match.
+   * @throws {DomainServiceError} ALREADY_EXISTS when the user already has a session with the same access token (two
+   * logins with the same claims in the same second).
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
+   * @throws {Error} when the stored password hash cannot be verified, or the access token cannot be signed
+   * (`JWT_PRIVATE_KEY` missing or invalid).
    */
   async login(
     email: string,
@@ -223,7 +231,9 @@ export class LoginApplicationService extends BaseApplicationService {
    *
    * @param {string} token - The raw JWT access token to validate.
    * @returns {Promise<{ id: string; status: string; groups: string }>} The identity and login record status for the validated token.
-   * @throws {DomainServiceError} AUTHENTICATION_ERROR — if the token is invalid, has no matching login record, or that record is expired.
+   * @throws {DomainServiceError} AUTHENTICATION_ERROR when the token is invalid, has no matching login record, or that record is expired.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails. A cache failure is logged and the
+   * database is used instead.
    */
   async validate(token: string): Promise<{ id: string; status: string; groups: string }> {
     const identity = await this.loginService.validateToken(token);
@@ -248,7 +258,15 @@ export class LoginApplicationService extends BaseApplicationService {
    * @param {string} accessToken - The current (raw) access token.
    * @param {string} refreshToken - The current (raw) refresh token.
    * @returns {Promise<{ accessToken: string; refreshToken: string }>} The newly issued token pair.
-   * @throws {DomainServiceError} AUTHENTICATION_ERROR — if the access token is invalid, has no matching login record, or the refresh token is invalid/expired.
+   * @throws {DomainServiceError} AUTHENTICATION_ERROR when the access token is invalid, has no matching login record, or the refresh token is invalid/expired.
+   * @throws {DomainServiceError} ALREADY_EXISTS when the user already has a session with the same new access token
+   * (two sessions with the same claims issued in the same second).
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
+   * @throws {InfrastructureError} CONNECTION_ERROR when the database cannot be reached while running or committing
+   * the transaction.
+   * @throws {PersistanceError} when the database otherwise fails while running, committing or aborting the
+   * transaction.
+   * @throws {Error} when the new access token cannot be signed (`JWT_PRIVATE_KEY` missing or invalid).
    */
   async refresh(accessToken: string, refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
     const identity = await this.loginService.validateToken(accessToken);
@@ -280,7 +298,8 @@ export class LoginApplicationService extends BaseApplicationService {
    *
    * @param {string} token - The raw JWT access token to log out.
    * @returns {Promise<void>}
-   * @throws {DomainServiceError} AUTHENTICATION_ERROR — if the token is invalid, has no matching login record, or that record is already expired.
+   * @throws {DomainServiceError} AUTHENTICATION_ERROR when the token is invalid, has no matching login record, or that record is already expired.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async logout(token: string): Promise<void> {
     await this.loginService.validateToken(token);

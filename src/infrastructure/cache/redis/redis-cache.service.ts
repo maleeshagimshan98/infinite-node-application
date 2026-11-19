@@ -26,6 +26,9 @@ export class RedisCacheService implements ICache {
 
   /**
    * Creates an instance of RedisCacheService
+   *
+   * @param {RedisDriver} driver - The initialized Redis driver.
+   * @throws {InfrastructureError} CONNECTION_ERROR when the driver has no client (it was not initialized).
    */
   constructor(driver: RedisDriver) {
     this.driver = driver;

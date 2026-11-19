@@ -18,6 +18,7 @@ export class NotificationMapper extends BaseMapper<INewNotificationSchema, Notif
    * @param {INewNotificationSchema & { _id: Types.ObjectId }} data - The raw persisted document.
    * @returns {Notification} The mapped domain model.
    * @throws {DomainEntityError} When the stored document breaks a Notification invariant (e.g. an empty topic).
+   * @throws {PersistanceError} when the document has no version key (`__v`).
    */
   toDomain(data: INewNotificationSchema & { _id: Types.ObjectId }): Notification {
     return new Notification({
@@ -38,6 +39,7 @@ export class NotificationMapper extends BaseMapper<INewNotificationSchema, Notif
    *
    * @param {NewNotification} data - The domain model data to persist.
    * @returns {INewNotificationSchema} The persistence-ready schema object.
+   * @throws {BSONError} when an id is not a valid ObjectId; the repository reports it as INVALID_ID.
    */
   toPersistence(data: NewNotification): INewNotificationSchema {
     // toFilter() (inherited from BaseMapper) also calls this with a partial filter object, so any field may be

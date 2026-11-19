@@ -35,6 +35,7 @@ export class SocketServiceFactory implements IServiceFactory<ISocket> {
    * Creates a Socket.IO service instance
    *
    * @returns {Promise<ISocket>} A Socket.IO service instance
+   * @throws {Error} when no `httpServer` is registered in the container.
    */
   async createSocketIOService(): Promise<ISocket> {
     return new SocketIOService(await socketDriverLoader());

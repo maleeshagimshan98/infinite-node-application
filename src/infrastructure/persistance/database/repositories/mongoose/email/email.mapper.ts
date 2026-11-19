@@ -20,6 +20,7 @@ export class EmailMapper extends BaseMapper<INewEmailSchema, Email, NewEmail> {
    * @returns {Email} The mapped domain model.
    * @throws {PersistanceError} When the stored document has no user_id.
    * @throws {DomainEntityError} When the stored document breaks an Email invariant (e.g. a sent email without sent_on).
+   * @throws {PersistanceError} when the document has no version key (`__v`).
    */
   toDomain(data: INewEmailSchema & { _id: Types.ObjectId }): Email {
     if (!data.user_id) {
@@ -46,6 +47,7 @@ export class EmailMapper extends BaseMapper<INewEmailSchema, Email, NewEmail> {
    *
    * @param {NewEmail} data - The domain model data to persist.
    * @returns {INewEmailSchema} The persistence-ready schema object.
+   * @throws {BSONError} when an id is not a valid ObjectId; the repository reports it as INVALID_ID.
    */
   toPersistence(data: NewEmail): INewEmailSchema {
     // toFilter() (inherited from BaseMapper) also calls this with a partial filter object, so any field may be

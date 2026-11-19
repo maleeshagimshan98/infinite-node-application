@@ -10,6 +10,11 @@ export interface IFileSystemStorageConfig extends IDriverConfig {
   };
 }
 
+/**
+ * Build the local storage configuration from the environment (`STORAGE_ROOT_PATH`, `STORAGE_SERVICE_OPTIONAL`), with local defaults.
+ *
+ * @returns {IFileSystemStorageConfig} The local storage configuration.
+ */
 export const storageConfig = (): IFileSystemStorageConfig => ({
   driverName: 'storage',
   singleton: false,

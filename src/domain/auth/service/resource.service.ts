@@ -36,6 +36,7 @@ export class ResourceService extends BaseDomainService {
    * @returns {Promise<Resource>} The matching resource.
    * @throws {DomainServiceError} NOT_FOUND when no resource exists with the given id.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getById(id: string, transactionOptions?: TransactionOptions): Promise<Resource> {
     return this.wrapInfrastructureErrors(async () => {
@@ -53,6 +54,7 @@ export class ResourceService extends BaseDomainService {
    * @param {string} name - The resource name.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<Resource | null>} The matching resource, or null if none exists.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getByName(name: string, transactionOptions?: TransactionOptions): Promise<Resource | null> {
     return this.wrapInfrastructureErrors(async () => {
@@ -67,6 +69,7 @@ export class ResourceService extends BaseDomainService {
    * @param {number} [offset] - Number of resources to skip.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<Resource[]>} The matching resources.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getAll(limit?: number, offset?: number, transactionOptions?: TransactionOptions): Promise<Resource[]> {
     return this.wrapInfrastructureErrors(async () => {
@@ -81,6 +84,7 @@ export class ResourceService extends BaseDomainService {
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<Resource>} The created resource.
    * @throws {DomainServiceError} ALREADY_EXISTS when a resource with the same name already exists.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async create(data: INewResource, transactionOptions?: TransactionOptions): Promise<Resource> {
     return this.wrapInfrastructureErrors(async () => {
@@ -109,6 +113,7 @@ export class ResourceService extends BaseDomainService {
    * changed during the update.
    * @throws {DomainServiceError} ALREADY_EXISTS when renaming to a name already used by another resource.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async update(id: string, data: Partial<INewResource>, transactionOptions?: TransactionOptions): Promise<Resource> {
     return this.wrapInfrastructureErrors(async () => {
@@ -146,6 +151,7 @@ export class ResourceService extends BaseDomainService {
    * @returns {Promise<Resource>} The deleted resource.
    * @throws {DomainServiceError} NOT_FOUND when no resource exists with the given id.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed, or the resource is still granted by a role.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async delete(id: string, transactionOptions?: TransactionOptions): Promise<Resource> {
     return this.wrapInfrastructureErrors(async () => {

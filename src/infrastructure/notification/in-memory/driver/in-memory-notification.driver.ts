@@ -28,16 +28,16 @@ export class InMemoryNotificationDriver implements ICoreDriver<unknown, IInMemor
   /**
    * The in-memory notification client instance (currently undefined as placeholder)
    *
-   * @private
    * @type {unknown | undefined}
+   * @private
    */
   private _client: undefined;
 
   /**
    * The configuration for this driver
    *
-   * @private
    * @type {IInMemoryNotificationConfig}
+   * @private
    */
   private _config: IInMemoryNotificationConfig;
 

@@ -27,6 +27,7 @@ export class InfrastructureHealthCheckService implements IHealthCheck {
    * Called by InfrastructureManager during service initialization
    *
    * @param {IBaseInfrastructureService} service - Infrastructure service instance
+   * @returns {void}
    */
   registerService(service: IBaseInfrastructureService): void {
     const serviceName = service.serviceName();

@@ -37,6 +37,14 @@ export const registerAppMetadata = (appConfig: IAppConfig): void => {
   });
 };
 
+/**
+ * Register a value in the DI container under `name`.
+ *
+ * @param {string} name - The registration name.
+ * @param {string} type - `singleton` registers it as a singleton; anything else as transient.
+ * @param {unknown} service - The value to register.
+ * @returns {void}
+ */
 export const registerService = (name: string, type: string, service: unknown): void => {
   if (type === 'singleton') {
     container.register({

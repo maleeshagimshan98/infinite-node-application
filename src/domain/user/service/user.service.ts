@@ -48,6 +48,7 @@ export class UserService extends BaseDomainService {
    * @returns {Promise<User>} The matching user.
    * @throws {DomainServiceError} NOT_FOUND when no user exists with the given id.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getById(id: string, transactionOptions?: TransactionOptions): Promise<User> {
     return this.wrapInfrastructureErrors(async () => {
@@ -65,6 +66,7 @@ export class UserService extends BaseDomainService {
    * @param {string} email - The user's email, in any case.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<User | null>} The matching user, or null if none exists.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getByEmail(email: string, transactionOptions?: TransactionOptions): Promise<User | null> {
     return this.wrapInfrastructureErrors(async () => {
@@ -79,6 +81,7 @@ export class UserService extends BaseDomainService {
    * @param {number} [offset] - Number of users to skip.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<User[]>} The matching users.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getAll(limit?: number, offset?: number, transactionOptions?: TransactionOptions): Promise<User[]> {
     return this.wrapInfrastructureErrors(async () => {
@@ -125,6 +128,8 @@ export class UserService extends BaseDomainService {
    * @returns {Promise<User>} The created user.
    * @throws {DomainServiceError} ALREADY_EXISTS when the email is already associated with another account.
    * @throws {DomainServiceError} VALIDATION_ERROR when the given role_id/ug_id is malformed or does not exist.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
+   * @throws {Error} when argon2 cannot hash the password.
    */
   async create(data: INewUser, transactionOptions?: TransactionOptions): Promise<User> {
     return this.wrapInfrastructureErrors(async () => {
@@ -159,6 +164,8 @@ export class UserService extends BaseDomainService {
    * during the update.
    * @throws {DomainServiceError} ALREADY_EXISTS when renaming to an email already used by another account.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed, or the given role_id/ug_id is malformed or does not exist.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
+   * @throws {Error} when argon2 cannot hash a new password.
    */
   async update(id: string, data: Partial<INewUser>, transactionOptions?: TransactionOptions): Promise<User> {
     return this.wrapInfrastructureErrors(async () => {
@@ -207,6 +214,7 @@ export class UserService extends BaseDomainService {
    * @returns {Promise<User>} The deleted user.
    * @throws {DomainServiceError} NOT_FOUND when no user exists with the given id.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async delete(id: string, transactionOptions?: TransactionOptions): Promise<User> {
     return this.wrapInfrastructureErrors(async () => {

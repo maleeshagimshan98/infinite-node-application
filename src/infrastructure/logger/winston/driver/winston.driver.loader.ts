@@ -10,6 +10,7 @@ import { winstonConfig } from './winston.config';
  * Factory function to create and initialize a WinstonDriver instance with the default configuration.
  *
  * @returns {Promise<WinstonDriver>} The initialized WinstonDriver instance
+ * @throws {Error} when the logger cannot be initialized.
  */
 export const winstonDriverLoader = async (): Promise<WinstonDriver> => {
   const driver = new WinstonDriver(winstonConfig());

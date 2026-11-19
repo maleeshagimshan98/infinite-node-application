@@ -15,6 +15,8 @@ export interface IEmailRepository extends IBaseRepository<Email, NewEmail> {
    * @param {number} [offset] - Number of emails to skip.
    * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
    * @returns {Promise<Email[]>} The emails, newest first.
+   * @throws {InfrastructureError} CONNECTION_ERROR when the database cannot be reached; DATABASE_ERROR for any
+   * other database failure.
    */
   findNewestFirst(limit?: number, offset?: number, transactionOptions?: TransactionOptions): Promise<Email[]>;
 }

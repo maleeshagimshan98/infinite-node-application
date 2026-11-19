@@ -5,8 +5,10 @@ import type { ResourceService } from '@/domain/auth/service/resource.service';
 import type { INewRole } from '@/domain/auth/models/role';
 
 /**
- * Seeds the database with default roles using RoleService
- * @returns boolean indicating if seeding was successful (true) or skipped (false)
+ * Seeds the database with the default roles using RoleService.
+ *
+ * @returns {Promise<boolean>} True when at least one record was created, false when seeding was skipped.
+ * @throws {Error} whatever a service call threw (e.g. a DomainServiceError), rethrown after logging.
  */
 export async function seedRoles(): Promise<boolean> {
   try {
@@ -75,7 +77,10 @@ export async function seedRoles(): Promise<boolean> {
 }
 
 /**
- * Clears all non-default roles from the database (useful for development/testing)
+ * Clears all non-default roles from the database (useful for development/testing).
+ *
+ * @returns {Promise<void>}
+ * @throws {Error} whatever a service call threw (e.g. a DomainServiceError), rethrown after logging.
  */
 export async function clearRoles(): Promise<void> {
   try {

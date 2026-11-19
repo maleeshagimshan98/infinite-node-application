@@ -28,6 +28,13 @@ export class RedisDriver implements ICoreDriver<RedisClientType, IRedisConfig> {
    */
   private _client: RedisClientType | undefined;
 
+  /**
+   * Create the Redis client and connect it. A connection error after startup does not throw: `health()` reports
+   * it.
+   *
+   * @returns {Promise<void>}
+   * @throws {Error} when the client cannot connect (the node-redis error, unchanged).
+   */
   async init(): Promise<void> {
     this._client = createClient(this._config.params);
     // Redis emits 'error' on real connection failures (not just failed commands). Throwing
@@ -37,14 +44,30 @@ export class RedisDriver implements ICoreDriver<RedisClientType, IRedisConfig> {
     await this._client.connect();
   }
 
+  /**
+   * Get the driver's configuration.
+   *
+   * @returns {IRedisConfig} The configuration the driver was created with.
+   */
   public config(): IRedisConfig {
     return this._config;
   }
 
+  /**
+   * Get the Redis client.
+   *
+   * @returns {RedisClientType | undefined} The Redis client, or undefined before `init()`.
+   */
   client(): RedisClientType | undefined {
     return this._client;
   }
 
+  /**
+   * Close the Redis connection, if the client was created.
+   *
+   * @returns {Promise<void>}
+   * @throws {Error} when the client is already closed (the node-redis error, unchanged).
+   */
   async shutdown(): Promise<void> {
     if (this._client) {
       await this._client.quit();

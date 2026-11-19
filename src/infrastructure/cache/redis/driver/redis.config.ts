@@ -72,6 +72,11 @@ export interface IRedisConfig extends IDriverConfig {
   };
 }
 
+/**
+ * Build the Redis driver configuration from the environment (`REDIS_*`), with local defaults.
+ *
+ * @returns {IRedisConfig} The Redis driver configuration.
+ */
 export const redisConfig = (): IRedisConfig => {
   const config: IRedisConfig = {
     driverName: 'redis',

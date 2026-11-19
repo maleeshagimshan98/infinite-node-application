@@ -9,8 +9,12 @@ import type { Logger } from 'winston';
  * Setup handlers for unhandled errors
  *
  * Handles:
- * - unhandledRejection: Promise rejections without .catch()
- * - uncaughtException: Synchronous errors not in try/catch
+ * - unhandledRejection: Promise rejections without .catch() — logged, then a graceful shutdown
+ * - uncaughtException: Synchronous errors not in try/catch — logged, then an immediate exit
+ *
+ * @param {ShutdownManager} shutdownManager - Runs the shutdown.
+ * @param {Logger} [logger] - Logs the error, when given.
+ * @returns {void}
  */
 export function setupErrorHandlers(shutdownManager: ShutdownManager, logger?: Logger): void {
   // Unhandled Promise Rejection

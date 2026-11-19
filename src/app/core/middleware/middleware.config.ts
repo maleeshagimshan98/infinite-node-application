@@ -37,6 +37,12 @@ export interface MiddlewareConfig {
   };
 }
 
+/**
+ * Build the global middleware settings from the environment.
+ *
+ * @param {AwilixContainer} _container - The DI container; not used yet.
+ * @returns {MiddlewareConfig} The middleware settings.
+ */
 export const coreMiddlewareConfig: (container: AwilixContainer) => MiddlewareConfig = (_container: AwilixContainer) => {
   return {
     cookieParser: {

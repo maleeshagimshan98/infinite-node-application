@@ -50,6 +50,7 @@ export class UserMapper extends BaseMapper<INewUserSchema, User, NewUser> {
    * @param {INewUserSchema & { _id: Types.ObjectId }} data - The raw persisted document.
    * @returns {User} The mapped domain model; without a `role` when the role was not populated or no longer exists.
    * @throws {PersistanceError} When the stored role_id is neither a role document nor an ObjectId (e.g. missing).
+   * @throws {PersistanceError} when the document has no version key (`__v`).
    */
   toDomain(data: INewUserSchema & { _id: Types.ObjectId }): User {
     const user = {
@@ -78,6 +79,7 @@ export class UserMapper extends BaseMapper<INewUserSchema, User, NewUser> {
    *
    * @param {NewUser} data - The domain model data to persist.
    * @returns {INewUserSchema} The persistence-ready schema object.
+   * @throws {BSONError} when an id is not a valid ObjectId; the repository reports it as INVALID_ID.
    */
   toPersistence(data: NewUser): INewUserSchema {
     const base = {

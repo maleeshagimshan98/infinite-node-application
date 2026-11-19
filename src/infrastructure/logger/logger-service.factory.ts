@@ -42,6 +42,7 @@ export class LoggerServiceFactory implements IServiceFactory<ILogger> {
 
   /**
    * Type guard to validate logger driver type
+   *
    * @param {unknown} value - The value to check
    * @returns {value is LoggerDriverType} True if the value is a valid logger driver type
    */

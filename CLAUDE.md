@@ -127,7 +127,7 @@ src/
 8. `UserValidatorMiddleware` on every route except the listed public ones (§9.5).
 9. Infrastructure errors mean infrastructure failures only, and their messages never reach the client (§11.3, §9.4).
 10. `@/` imports and the copyright header in every new `.ts` file (§12.1, §12.2).
-11. Full-tag JSDoc on every non-trivial method (§12.5).
+11. Full-tag JSDoc on every method and function, with every error it can surface in `@throws` (§12.5).
 12. No type assertion without the user's explicit consent (§12.6).
 13. A change is done only when the §13.2 checks pass.
 
@@ -965,10 +965,18 @@ import type { Request, Response } from 'express';
 | `@typescript-eslint/no-empty-object-type`          | error | No empty interface: use a type alias (§6.4)                               |
 | `import/order`                                     | error | §12.2                                                                     |
 | `prettier/prettier`                                | error | 120 columns, 2 spaces, single quotes, semicolons, trailing commas, LF     |
+| `jsdoc/require-jsdoc`                              | error | A JSDoc block on every function, method, interface method and exported arrow function; getters, setters and constructors exempt (§12.5) |
+| `jsdoc/require-description`                        | error | A summary in every block                                                  |
+| `jsdoc/require-param`, `check-param-names`, `require-param-type`, `require-param-description` | error | One `@param {Type} name - description` per parameter, in declared order |
+| `jsdoc/require-returns`, `require-returns-type`    | error | `@returns {Type}` on every function, including `void` and `Promise<void>` |
+| `jsdoc/require-throws`, `require-throws-type`      | error | `@throws {Type}` for a `throw` in a synchronous function's own body       |
+| `jsdoc/check-tag-names`, `valid-types`             | error | Known tags only (`@returns`, not `@return`; `@extends`, not `@augments`), valid types |
+| `jsdoc/sort-tags`, `tag-lines`                     | error | `@param` → `@returns` → `@throws`; one blank line between the summary and the first tag |
 | `no-console`                                       | warn  | Log through the injected `logger` (`ILogger`)                             |
 
 `eslint.config.mjs` sets `no-unused-vars` and `no-explicit-any` to warn, but `tseslint.configs.recommended`, listed
-later, raises them to error and adds `no-empty-object-type`. `npm run lint` still reports 9 older errors (seven empty
+later, raises them to error and adds `no-empty-object-type`. The `jsdoc/*` rules apply to `src/**/*.ts` except specs,
+and a class's `@implements` / `@extends` tag does not exempt its methods. `npm run lint` still reports 9 older errors (seven empty
 repository interfaces, one `any`, one unused variable; `Docs/TODO.yml`): don't add new ones.
 
 ### 12.4 Follow the naming conventions
@@ -983,17 +991,32 @@ repository interfaces, one `any`, one unused variable; `Docs/TODO.yml`): don't a
 | DI tokens              | camelCase class name       | `roleService`                       |
 | Route exports          | PascalCase + `Routes`      | `AuthRoleRoutes`                    |
 
-### 12.5 Document every non-trivial method with a full-tag JSDoc block
+### 12.5 Document every method and function with a full-tag JSDoc block
 
-**Rule:** Every non-trivial method and exported function, in every layer and including private helpers, has a JSDoc
-block: a one-line imperative summary, a blank line, then `@param` (in declared order) → `@returns` → `@throws`, each
-with `{Type}` braces. Exempt: trivial getters / setters and constructors.
+**Rule:** Every method, function, interface method and exported arrow function, in every layer and including private
+helpers, has a JSDoc block: a one-line imperative summary, a blank line, then `@param` (in declared order) →
+`@returns` → `@throws`, each with `{Type}` braces. Exempt: getters / setters and constructors (a constructor that
+throws still documents it). `npm run lint` enforces the block, the summary, the tags, their types and order (§12.3);
+the completeness of `@throws` and the summary's wording are checked in review.
 **Why:** The `@throws` tags are how callers learn the error types they must handle.
 **Use cases:**
 
-- an async method without a value → `@returns {Promise<void>}`
-- one `@throws` per error type the method (or an uncaught call inside it) can surface; omit it only when the method
-  cannot throw
+- a method without a value → `@returns {void}`, or `@returns {Promise<void>}` when it is async
+- one `@throws` per error type the method (or an uncaught call inside it) can surface, written
+  `@throws {Type} CODE when …`; omit it only when the method cannot throw (it catches and logs, or only reads a field).
+  Lint checks only a `throw` written in a synchronous function's own body: errors from calls, and from async
+  functions, are traced by hand
+- a domain-service method inside `wrapInfrastructureErrors()` → its own `DomainServiceError` types, the ones mapped
+  from the repository errors it can hit (`INVALID_ID` → `VALIDATION_ERROR` for an id it passes, `DUPLICATE_KEY` →
+  `ALREADY_EXISTS` for a write to a uniquely indexed field, `VERSION_CONFLICT` → `CONFLICT` for an `update()`), and
+  always `INFRASTRUCTURE_ERROR when the database fails.`
+- a private domain-service helper that only runs inside a wrapper → the errors it throws itself; the repository errors
+  it lets through are documented on the public method that maps them
+- an application service that calls `dbTransaction()` → also `{InfrastructureError} CONNECTION_ERROR` and
+  `{PersistanceError}`, which `MongooseService.transaction()` throws unwrapped (§8.3)
+- a library error nothing wraps (`jsonwebtoken`, `argon2`, a client library's connect error) → `@throws {Error}`
+- an interface method → the errors its implementations throw, by `InfrastructureError` type (`CACHE_ERROR`,
+  `QUEUE_ERROR`, …), so callers can rely on the contract
 - inline comments → only for a non-obvious _why_, never to narrate the code
 
 ```typescript
@@ -1004,6 +1027,11 @@ with `{Type}` braces. Exempt: trivial getters / setters and constructors.
  * @param {string} refreshToken - The current (raw) refresh token.
  * @returns {Promise<{ accessToken: string; refreshToken: string }>} The newly issued token pair.
  * @throws {DomainServiceError} AUTHENTICATION_ERROR when the token is invalid or expired.
+ * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
+ * @throws {InfrastructureError} CONNECTION_ERROR when the database cannot be reached while running or committing
+ * the transaction.
+ * @throws {PersistanceError} when the database otherwise fails while running, committing or aborting the
+ * transaction.
  */
 ```
 
@@ -1059,7 +1087,7 @@ throw new InfrastructureError(`Failed: ${error instanceof Error ? error.message 
 A change is done only when all four hold:
 
 1. **Logic correct:** it does what was asked and follows every rule in this file.
-2. **JSDoc** present and correct (§12.5).
+2. **JSDoc** present and correct (§12.5): the `jsdoc/*` lint rules pass, and every `@throws` list is complete.
 3. **No lint errors:** `npm run lint` is clean (`npm run lint:fix` / `npm run format` fix most).
 4. **No type errors:** `npx tsc --noEmit` passes and `npm run build` succeeds.
 

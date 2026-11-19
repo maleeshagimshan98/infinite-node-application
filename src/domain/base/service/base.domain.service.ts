@@ -32,10 +32,10 @@ export class BaseDomainService {
    * @param {() => Promise<T>} fn - The async operation to protect.
    * @param {(error: InfrastructureError) => Promise<void> | void} [onError] - Optional callback invoked with the raw InfrastructureError before it is re-thrown, for per-call logging or alerting. Not invoked for a RepositoryError, which is bad caller data rather than an outage.
    * @returns {Promise<T>} The resolved value of `fn` when it succeeds.
-   * @throws {DomainServiceError} ALREADY_EXISTS — when `fn` throws a DUPLICATE_KEY RepositoryError.
-   * @throws {DomainServiceError} VALIDATION_ERROR — when `fn` throws an INVALID_ID RepositoryError.
-   * @throws {DomainServiceError} CONFLICT — when `fn` throws a VERSION_CONFLICT RepositoryError.
-   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR — when `fn` throws an InfrastructureError.
+   * @throws {DomainServiceError} ALREADY_EXISTS when `fn` throws a DUPLICATE_KEY RepositoryError.
+   * @throws {DomainServiceError} VALIDATION_ERROR when `fn` throws an INVALID_ID RepositoryError.
+   * @throws {DomainServiceError} CONFLICT when `fn` throws a VERSION_CONFLICT RepositoryError.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when `fn` throws an InfrastructureError.
    */
   protected async wrapInfrastructureErrors<T>(
     fn: () => Promise<T>,

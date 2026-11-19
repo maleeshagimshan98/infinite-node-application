@@ -48,6 +48,7 @@ export class DatabaseMapperServiceFactory implements IServiceFactory<IDatabaseMa
    * Create a Mongoose service instance
    *
    * @returns {IDatabaseMapper} Mongoose service implementation
+   * @throws {DriverError} when the database connection cannot be established.
    *
    * @example
    * ```typescript

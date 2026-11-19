@@ -1,5 +1,10 @@
 import type { Schema } from 'express-validator';
 
+/**
+ * Validate a create-resource request.
+ *
+ * @returns {Schema} The express-validator schema.
+ */
 export const newResourceValidator = (): Schema => {
   return {
     name: {
@@ -14,6 +19,11 @@ export const newResourceValidator = (): Schema => {
   };
 };
 
+/**
+ * Validate an update-resource request, including the `version` the client read.
+ *
+ * @returns {Schema} The express-validator schema.
+ */
 export const updateResourceValidator = (): Schema => {
   return {
     // The version of the resource the client read (from a GET); a stale one is rejected with 409 and nothing changes.

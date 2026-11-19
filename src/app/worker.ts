@@ -168,7 +168,7 @@ class InfiniteNodeWorker {
   /**
    * Type guard — checks that a resolved value implements IWorker.
    *
-   * @param {unknown} value
+   * @param {unknown} value - The resolved DI registration to check.
    * @returns {value is IWorker}
    * @private
    */
@@ -225,6 +225,7 @@ class InfiniteNodeWorker {
    *   MEDIUM (3) — then disconnect infrastructure (DB, queue, cache)
    *   LOW    (4) — finally flush telemetry
    *
+   * @returns {void}
    * @private
    */
   private registerShutdownHooks(): void {

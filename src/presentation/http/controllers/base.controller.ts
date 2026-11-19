@@ -79,6 +79,13 @@ class BaseController {
 
   //... wrapValidationAndEntityRetrieval() {}
 
+  /**
+   * Run `callback` as one unit of work. A placeholder: it does not start a transaction yet.
+   *
+   * @param {() => void} callback - The work to run.
+   * @returns {boolean} Always true.
+   * @throws {unknown} Whatever `callback` throws, unchanged.
+   */
   protected saveWithTransaction(callback: () => void): boolean {
     // DB.beginTransaction();
     callback();
@@ -140,8 +147,8 @@ class BaseController {
   /**
    * Wraps a callback in a try-catch block to handle exceptions.
    *
-   * @param {() => Promise<APIResponse>} callback
-   * @returns {Promise<APIResponse>}
+   * @param {() => Promise<APIResponse>} callback - The controller logic that builds the response.
+   * @returns {Promise<APIResponse>} The response `callback` built, or the error response for what it threw.
    */
   protected async catchExceptionsWrapper(callback: () => Promise<APIResponse>): Promise<APIResponse> {
     try {

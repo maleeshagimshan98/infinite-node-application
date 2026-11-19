@@ -11,6 +11,10 @@ import type { ShutdownManager } from './shutdown.manager';
  * - SIGINT: Ctrl+C in terminal
  * - SIGTERM: Docker/Kubernetes stop command
  * - SIGUSR2: tsx watch / nodemon restart
+ * - beforeExit: tsx watch on Windows
+ *
+ * @param {ShutdownManager} shutdownManager - Runs the graceful shutdown.
+ * @returns {void}
  */
 export function setupSignalHandlers(shutdownManager: ShutdownManager): void {
   // SIGINT: User pressed Ctrl+C

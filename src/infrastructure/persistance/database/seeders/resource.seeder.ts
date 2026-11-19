@@ -9,8 +9,10 @@ import { EMAIL_LOG_RESOURCE_NAME } from '@/domain/app/email/models/email';
 const CANONICAL_SEEDED_RESOURCE_NAME = 'users';
 
 /**
- * Seeds the database with default resources using ResourceService
- * @returns boolean indicating if seeding was successful (true) or skipped (false)
+ * Seeds the database with the default resources using ResourceService.
+ *
+ * @returns {Promise<boolean>} True when at least one record was created, false when seeding was skipped.
+ * @throws {Error} whatever a service call threw (e.g. a DomainServiceError), rethrown after logging.
  */
 export async function seedResources(): Promise<boolean> {
   try {
@@ -62,7 +64,10 @@ export async function seedResources(): Promise<boolean> {
 }
 
 /**
- * Clears all resources from the database (useful for development/testing)
+ * Clears all resources from the database (useful for development/testing).
+ *
+ * @returns {Promise<void>}
+ * @throws {Error} whatever a service call threw (e.g. a DomainServiceError), rethrown after logging.
  */
 export async function clearResources(): Promise<void> {
   try {

@@ -17,6 +17,7 @@ export class ResourceMapper extends BaseMapper<INewResourceSchema, Resource, New
    *
    * @param {INewResourceSchema & { _id: Types.ObjectId }} data - The raw persisted document.
    * @returns {Resource} The mapped domain model.
+   * @throws {PersistanceError} when the document has no version key (`__v`).
    */
   toDomain(data: INewResourceSchema & { _id: Types.ObjectId }): Resource {
     return new Resource({
@@ -32,6 +33,7 @@ export class ResourceMapper extends BaseMapper<INewResourceSchema, Resource, New
    *
    * @param {NewResource} data - The domain model data to persist.
    * @returns {INewResourceSchema} The persistence-ready schema object.
+   * @throws {BSONError} when an id is not a valid ObjectId; the repository reports it as INVALID_ID.
    */
   toPersistence(data: NewResource): INewResourceSchema {
     const base = {

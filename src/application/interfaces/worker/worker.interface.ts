@@ -60,6 +60,7 @@ export interface IWorker {
    * Called once by InfiniteNodeWorker after infrastructure and DI are fully initialized.
    *
    * @returns {Promise<void>}
+   * @throws {InfrastructureError} when the worker cannot start, e.g. QUEUE_ERROR for a queue processor.
    */
   init(): Promise<void>;
 
@@ -71,6 +72,7 @@ export interface IWorker {
    * during the HIGH-priority shutdown phase, before infrastructure services are disconnected.
    *
    * @returns {Promise<void>}
+   * @throws {InfrastructureError} when the worker cannot stop, e.g. QUEUE_ERROR for a queue processor.
    */
   shutdown(): Promise<void>;
 }

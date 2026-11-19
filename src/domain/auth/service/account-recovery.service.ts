@@ -53,6 +53,7 @@ export class AccountRecoveryService extends BaseDomainService {
    * @returns {Promise<void>}
    * @throws {DomainServiceError} NOT_FOUND if a reset code is concurrently deleted mid-cancellation.
    * @throws {DomainServiceError} CONFLICT if a reset code is concurrently changed mid-cancellation.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async cancelOldResetCodes(email: string, transactionOptions?: TransactionOptions): Promise<void> {
     return this.wrapInfrastructureErrors(async () => {
@@ -97,6 +98,7 @@ export class AccountRecoveryService extends BaseDomainService {
    * @throws {DomainServiceError} NOT_FOUND if user doesn't exist
    * @throws {DomainServiceError} CONFLICT if an old reset code is concurrently changed mid-cancellation.
    * @throws {DomainServiceError} ALREADY_EXISTS if a concurrent request issued an active reset code for the email first.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async forgotPassword(email: string, transactionOptions?: TransactionOptions): Promise<void> {
     return this.wrapInfrastructureErrors(async () => {
@@ -131,6 +133,8 @@ export class AccountRecoveryService extends BaseDomainService {
    * @throws {DomainServiceError} NOT_FOUND if reset code or user doesn't exist
    * @throws {DomainServiceError} VALIDATION_ERROR if the reset code has expired.
    * @throws {DomainServiceError} CONFLICT if the reset code, the user or the login record changed concurrently (e.g. a concurrent reset with the same code).
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
+   * @throws {Error} when argon2 cannot hash the new password.
    */
   async resetPassword(
     email: string,

@@ -30,8 +30,9 @@ import type { InMemoryNotificationDriver } from './driver/in-memory-notification
 export class InMemoryNotificationService implements INotificationManager {
   /**
    * The notification driver instance
-   * @private
+   *
    * @readonly
+   * @private
    */
   private readonly driver: InMemoryNotificationDriver;
 

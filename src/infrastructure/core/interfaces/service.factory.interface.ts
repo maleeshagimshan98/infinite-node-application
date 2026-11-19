@@ -26,11 +26,18 @@ export type ServiceClosure<T> = FunctionReturning<T>;
 export interface IServiceFactory<T extends IBaseInfrastructureService> {
   /**
    * The DI registration name of the service this factory builds. Must equal the service's `serviceName()`.
+   *
+   * @returns {ReturnType<T['serviceName']>} The registration name.
    */
   name(): ReturnType<T['serviceName']>;
 
   /**
    * Create the service, or a closure that builds it from the infrastructure services it depends on.
+   *
+   * @returns {Promise<T | ServiceClosure<T>>} The service, or the closure that builds it.
+   * @throws {InfrastructureError} DRIVER_ERROR when the `{NAME}_DRIVER` setting names a driver the factory doesn't
+   * support.
+   * @throws {Error} when the driver fails to initialize (e.g. a DriverError, or the client library error).
    */
   create(): Promise<T | ServiceClosure<T>>;
 }

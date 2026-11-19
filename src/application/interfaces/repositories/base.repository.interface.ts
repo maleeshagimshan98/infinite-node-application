@@ -23,34 +23,52 @@ export interface IVersionedEntity {
 export interface IBaseRepository<DomainModel extends IVersionedEntity, NewDomainModel> {
   /**
    * Create a new entity
-   * @param item - New domain model instance to persist
-   * @param transactionOptions - Optional database transaction session
-   * @returns The persisted domain model
+   *
+   * @param {NewDomainModel} item - New domain model instance to persist
+   * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
+   * @returns {Promise<DomainModel>} The persisted domain model
+   * @throws {RepositoryError} DUPLICATE_KEY when a unique index rejects the entity; INVALID_ID for a malformed id in
+   * `item`.
+   * @throws {InfrastructureError} CONNECTION_ERROR when the database cannot be reached; DATABASE_ERROR for any
+   * other database failure.
    */
   create(item: NewDomainModel, transactionOptions?: TransactionOptions): Promise<DomainModel>;
 
   /**
    * Bulk-create entities
-   * @param items - Array of new domain model instances
-   * @param transactionOptions - Optional database transaction session
-   * @returns Array of persisted domain models
+   *
+   * @param {NewDomainModel[]} items - Array of new domain model instances
+   * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
+   * @returns {Promise<DomainModel[]>} Array of persisted domain models
+   * @throws {RepositoryError} DUPLICATE_KEY when a unique index rejects an entity; INVALID_ID for a malformed id in
+   * `items`.
+   * @throws {InfrastructureError} CONNECTION_ERROR when the database cannot be reached; DATABASE_ERROR for any
+   * other database failure.
    */
   bulkCreate(items: NewDomainModel[], transactionOptions?: TransactionOptions): Promise<DomainModel[]>;
 
   /**
    * Find an entity by its ID
-   * @param id - Entity identifier
-   * @param transactionOptions - Optional database transaction session
-   * @returns The domain model, or null if not found
+   *
+   * @param {string} id - Entity identifier
+   * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
+   * @returns {Promise<DomainModel | null>} The domain model, or null if not found
+   * @throws {RepositoryError} INVALID_ID when `id` is malformed.
+   * @throws {InfrastructureError} CONNECTION_ERROR when the database cannot be reached; DATABASE_ERROR for any
+   * other database failure.
    */
   findById(id: string, transactionOptions?: TransactionOptions): Promise<DomainModel | null>;
 
   /**
    * Find a single entity matching the filter
-   * @param filter - Partial new domain model fields to match against
-   * @param sort - Optional sort order (1 = ascending, -1 = descending)
-   * @param transactionOptions - Optional database transaction session
-   * @returns The domain model, or null if not found
+   *
+   * @param {Partial<NewDomainModel>} filter - Partial new domain model fields to match against
+   * @param {Record<string, 1 | -1>} [sort] - Optional sort order (1 = ascending, -1 = descending)
+   * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
+   * @returns {Promise<DomainModel | null>} The domain model, or null if not found
+   * @throws {RepositoryError} INVALID_ID for a malformed id in `filter`.
+   * @throws {InfrastructureError} CONNECTION_ERROR when the database cannot be reached; DATABASE_ERROR for any
+   * other database failure.
    */
   findOne(
     filter: Partial<NewDomainModel>,
@@ -60,12 +78,16 @@ export interface IBaseRepository<DomainModel extends IVersionedEntity, NewDomain
 
   /**
    * Find multiple entities matching the filter
-   * @param filter - Partial new domain model fields to match against
-   * @param limit - Maximum number of results
-   * @param offset - Number of results to skip
-   * @param sort - Optional sort order
-   * @param transactionOptions - Optional database transaction session
-   * @returns Array of domain models
+   *
+   * @param {Partial<NewDomainModel>} filter - Partial new domain model fields to match against
+   * @param {number} [limit] - Maximum number of results
+   * @param {number} [offset] - Number of results to skip
+   * @param {Record<string, 1 | -1>} [sort] - Optional sort order
+   * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
+   * @returns {Promise<DomainModel[]>} Array of domain models
+   * @throws {RepositoryError} INVALID_ID for a malformed id in `filter`.
+   * @throws {InfrastructureError} CONNECTION_ERROR when the database cannot be reached; DATABASE_ERROR for any
+   * other database failure.
    */
   find(
     filter: Partial<NewDomainModel>,
@@ -77,28 +99,41 @@ export interface IBaseRepository<DomainModel extends IVersionedEntity, NewDomain
 
   /**
    * Count entities matching the filter
-   * @param filter - Partial new domain model fields to match against
-   * @param transactionOptions - Optional database transaction session
-   * @returns Count of matching entities
+   *
+   * @param {Partial<NewDomainModel>} filter - Partial new domain model fields to match against
+   * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
+   * @returns {Promise<number>} Count of matching entities
+   * @throws {RepositoryError} INVALID_ID for a malformed id in `filter`.
+   * @throws {InfrastructureError} CONNECTION_ERROR when the database cannot be reached; DATABASE_ERROR for any
+   * other database failure.
    */
   count(filter: Partial<NewDomainModel>, transactionOptions?: TransactionOptions): Promise<number>;
 
   /**
    * Update an entity by ID, only while the stored version still equals `item.version`. The update advances the
    * stored version by one, in the same write.
-   * @param id - Entity identifier
-   * @param item - The entity as read and then changed; its `version` is the version it was read at
-   * @param transactionOptions - Optional database transaction session
-   * @returns The updated domain model with its new version, or null if no entity has the ID
-   * @throws RepositoryError VERSION_CONFLICT when the entity was updated after `item` was read (a stale version)
+   *
+   * @param {string} id - Entity identifier
+   * @param {DomainModel} item - The entity as read and then changed; its `version` is the version it was read at
+   * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
+   * @returns {Promise<DomainModel | null>} The updated domain model with its new version, or null if no entity has
+   * the ID
+   * @throws {RepositoryError} VERSION_CONFLICT when the entity was updated after `item` was read (a stale version);
+   * DUPLICATE_KEY when a unique index rejects the change; INVALID_ID for a malformed `id` or id in `item`.
+   * @throws {InfrastructureError} CONNECTION_ERROR when the database cannot be reached; DATABASE_ERROR for any
+   * other database failure.
    */
   update(id: string, item: DomainModel, transactionOptions?: TransactionOptions): Promise<DomainModel | null>;
 
   /**
    * Delete an entity by ID
-   * @param id - Entity identifier
-   * @param transactionOptions - Optional database transaction session
-   * @returns The deleted domain model, or null if not found
+   *
+   * @param {string} id - Entity identifier
+   * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
+   * @returns {Promise<DomainModel | null>} The deleted domain model, or null if not found
+   * @throws {RepositoryError} INVALID_ID when `id` is malformed.
+   * @throws {InfrastructureError} CONNECTION_ERROR when the database cannot be reached; DATABASE_ERROR for any
+   * other database failure.
    */
   delete(id: string, transactionOptions?: TransactionOptions): Promise<DomainModel | null>;
 }

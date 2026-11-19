@@ -43,6 +43,7 @@ export class RoleService extends BaseDomainService {
    * @returns {Promise<Role>} The matching role.
    * @throws {DomainServiceError} NOT_FOUND when no role exists with the given id.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getById(id: string, transactionOptions?: TransactionOptions): Promise<Role> {
     return this.wrapInfrastructureErrors(async () => {
@@ -60,6 +61,7 @@ export class RoleService extends BaseDomainService {
    * @param {string} name - The role name.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<Role | null>} The matching role, or null if none exists.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getByName(name: string, transactionOptions?: TransactionOptions): Promise<Role | null> {
     return this.wrapInfrastructureErrors(async () => {
@@ -72,6 +74,7 @@ export class RoleService extends BaseDomainService {
    *
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<Role | null>} The default role, or null if none is set.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getDefaultRole(transactionOptions?: TransactionOptions): Promise<Role | null> {
     return this.wrapInfrastructureErrors(async () => {
@@ -86,6 +89,7 @@ export class RoleService extends BaseDomainService {
    * @param {number} [offset] - Number of roles to skip.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<Role[]>} The matching roles.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async getAll(limit?: number, offset?: number, transactionOptions?: TransactionOptions): Promise<Role[]> {
     return this.wrapInfrastructureErrors(async () => {
@@ -103,6 +107,7 @@ export class RoleService extends BaseDomainService {
    * @throws {DomainServiceError} VALIDATION_ERROR when another role is already set as default.
    * @throws {DomainServiceError} NOT_FOUND when a resource_permissions entry references a resource id
    * that does not exist.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async create(data: INewRole, transactionOptions?: TransactionOptions): Promise<Role> {
     return this.wrapInfrastructureErrors(async () => {
@@ -141,6 +146,7 @@ export class RoleService extends BaseDomainService {
    * write), or the role or the current default role changed during the update.
    * @throws {DomainServiceError} ALREADY_EXISTS when renaming to a name already used by another role.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async update(id: string, data: Partial<INewRole>, transactionOptions?: TransactionOptions): Promise<Role> {
     return this.wrapInfrastructureErrors(async () => {
@@ -197,6 +203,7 @@ export class RoleService extends BaseDomainService {
    * @throws {DomainServiceError} NOT_FOUND when no role exists with the given id.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed, the role is the default role, or it still has
    * associated users.
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
   async delete(id: string, transactionOptions?: TransactionOptions): Promise<Role> {
     return this.wrapInfrastructureErrors(async () => {

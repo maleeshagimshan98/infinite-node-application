@@ -23,6 +23,11 @@ export interface ISMTPConfig extends IDriverConfig {
   queue: IEmailQueueConfig;
 }
 
+/**
+ * Build the SMTP driver configuration from the environment (`EMAIL_SMTP_*`, `EMAIL_FROM`, `EMAIL_CIRCUIT_*`), with local defaults.
+ *
+ * @returns {ISMTPConfig} The SMTP driver configuration.
+ */
 export const smtpConfig = (): ISMTPConfig => {
   return {
     driverName: 'email',

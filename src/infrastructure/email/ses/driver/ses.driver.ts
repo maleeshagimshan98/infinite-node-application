@@ -70,6 +70,11 @@ export class SESDriver implements ICoreDriver<SESv2Client, ISESConfig> {
     this._client = client;
   }
 
+  /**
+   * Get the driver's configuration.
+   *
+   * @returns {ISESConfig} The configuration the driver was created with.
+   */
   config(): ISESConfig {
     return this._config;
   }
