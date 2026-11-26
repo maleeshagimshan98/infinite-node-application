@@ -350,12 +350,13 @@ A complete resource is made of these files; some are conditional. The step-by-st
 | 8   | Mapper                                 | `src/infrastructure/persistance/database/repositories/mongoose/{feature}/{name}.mapper.ts`     | Translates between the stored document and the domain model                                                   |
 | 9   | Seeder _(if applicable)_               | `src/infrastructure/persistance/database/seeders/{feature}.seeder.ts`                          | Default data: `seed{Feature}()` / `clear{Feature}()`, registered by hand, in dependency order, in `seeder.ts` |
 
-The repository interface (`src/application/interfaces/repositories/{feature}/`) and the validators
-(`src/presentation/http/validators/{feature}/`) go with them.
+The repository interface (`src/application/interfaces/repositories/`, in a `{feature}/` folder when the feature has
+more than one repository) and the validators (`src/presentation/http/validators/{feature}/`) go with them. The binding
+paths are `CLAUDE.md` §15.1.
 
-> **Folder names don't always match across layers.** The domain feature `auth` holds `role.ts` and `resource.ts`, but
-> their Mongoose folders are `roles/` and `resources/`. Copy an existing, similar resource rather than assuming one
-> name for every layer.
+> **Older folders follow other names.** The domain feature `auth` holds `role.ts` and `resource.ts`, but their
+> Mongoose folders are `roles/` and `resources/`; `user-groups/` is the same. A new resource uses its feature's
+> folder (§15.1), so copy an existing resource's code, not its folder names.
 
 > ⚠️ **Keep the file set in sync.** The domain model is the source of truth for the resource's shape. A change to it
 > (adding, removing, renaming or retyping a field, or changing an invariant) is not complete until every other file
