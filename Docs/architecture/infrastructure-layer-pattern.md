@@ -1,567 +1,141 @@
-# Infrastructure Layer Pattern
+# Infrastructure layer: services, drivers and factories
 
-## Overview
+How the infrastructure services are declared, built, wired into DI, health-checked and shut down: the database
+mapper, cache, queue, email, push notifications, storage, logger, socket and HTTP client.
 
-This document describes the exact architectural approach for organizing infrastructure-level services (database, cache, storage, email, etc.) in this application. The pattern separates **drivers** (low-level client connections managed via `ICoreDriver`) from **services** (application-facing implementations that implement `IBaseInfrastructureService`) while maintaining clean architecture principles.
+`CLAUDE.md` §11 holds the binding rules. Each card below expands one of them with its contracts, real code and more
+use cases, and names the § it expands. Where this file and `CLAUDE.md` disagree, `CLAUDE.md` wins.
 
-Infrastructure services are initialized at boot time by `InfrastructureManager`, which iterates a registry of factory classes (`infrastructureLoader`). Each factory implements `IServiceFactory<T>` and is responsible for reading its own configuration from environment variables, creating its driver (if applicable), and returning either a ready service instance or — when the service needs other infrastructure services — a closure that builds it from them. The `InfrastructureManager` registers each result in the Awilix DI container under the factory's `name()`, then resolves them all.
+| For                                                                                    | Read                                                                   |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| How the layers, processes and request flow fit together                                | `Docs/architecture/application-architecture.md`                        |
+| Email and push notification specifics                                                  | `Docs/features/email.md`, `Docs/features/notification.md`              |
+| Repositories, schemas and mappers (in `persistance/`, but not infrastructure services) | `CLAUDE.md` §6, `Docs/prompts/Domain_Model_Repository_Mapper_Guide.md` |
 
-## Core Principles
+## Core rules
 
-1. **All external system integrations belong in `src/infrastructure/`** — not in `src/app/core/`
-2. **Service configuration is read from env vars inside each factory** — there are no per-service config files in `app/core/config/`; only `app.config.ts`, `server.config.ts`, and `config.ts` live there
-3. **Application layer depends only on interfaces** — defined in `src/application/interfaces/infrastructure/`
-4. **Each infrastructure service implements `IBaseInfrastructureService`** — declaring its `serviceName`, `singleton`, and `deferred` flags
-5. **Each infrastructure service has a factory implementing `IServiceFactory<T>`** — factories are registered in `infrastructure.loader.ts`
-6. **`InfrastructureManager` orchestrates all service initialization** — it iterates factory classes, calls `factory.create()`, registers every result in the Awilix container under `factory.name()`, and only then resolves them, so a service can depend on another infrastructure service wherever it sits in the loader
-7. **Drivers implement `ICoreDriver<ClientType, ConfigType>`** — only used internally by services; never registered in the DI container directly
-8. **Infrastructure errors are for infrastructure failures only** — a service wraps only its driver's own failures (the `try` covers the driver call alone; caller input is serialized/validated before it; caller callbacks are never wrapped), keeps the original error in `data.cause`, and never attaches objects carrying secrets. The error message is for the logs; clients get a generic 500/503 (`CLAUDE.md` §10–§11)
+1. Inner layers know a service only by its interface in `src/application/interfaces/infrastructure/`, injected under
+   its DI token (card 1).
+2. A service has three parts: a **driver** that owns the client, a **service** that implements the interface, and a
+   **factory** that picks and builds them (cards 3–5).
+3. Env vars are read in the driver's `*.config.ts`; the factory reads only `{NAME}_DRIVER` (card 2).
+4. The factory's `name()` returns the same literal as the service's `serviceName()`: that literal is the DI token
+   (card 4).
+5. A service that needs other infrastructure services is returned as a synchronous closure (card 5).
+6. A new service is new files plus one line in `infrastructure.loader.ts`; nothing else changes (card 6).
+7. `InfrastructureManager` builds, checks, health-registers and shuts down every service; nothing else builds one
+   (cards 7–8).
+8. An infrastructure error means "this infrastructure failed": wrap only the driver's own failures, keep the
+   original, never carry secrets (card 9).
+9. A remote dependency that is not retried sits behind a circuit breaker (card 10).
+10. Health comes from the driver's `health()`, never through the breaker (card 11).
 
-## Directory Structure
+## Structure
 
 ```
 src/
-  app/
-    core/
-      config/
-        app.config.ts               ← App name, port, API prefix (from env vars)
-        server.config.ts            ← SSL/TLS options
-        config.ts                   ← Root config loader (composes all above)
-      errors/
-      middleware/
-      shutdown/
-      utils/
-      service.container.ts          ← Awilix DI container + autoRegisterApplicationComponents()
-
-  infrastructure/
-    core/
-      interfaces/
-        service.factory.interface.ts  ← IServiceFactory<T> { name(); create(): Promise<T | ServiceClosure<T>> }
-      driver/
-        core.driver.ts                ← ICoreDriver<ClientType, ConfigType> interface
-        core.driver.config.ts         ← IDriverConfig base interface
-      errors/
-        driver.error.ts               ← DriverError (InfrastructureError and RepositoryError live in
-        circuit-open.error.ts           application/interfaces/errors/, so every layer can import them)
-
-    cache/                            ← Cache service (e.g. Redis)
-    email/                            ← Email service (EMAIL_DRIVER: smtp | aws-ses)
-      base/
-        base-email.service.ts         ← BaseEmailService — queue + email log flow shared by every driver
-      smtp/                           ← SMTPEmailService + SMTP driver
-      ses/                            ← SESEmailService + AWS SES driver (@aws-sdk/client-sesv2)
-      email-log/
-        email-logger.service.ts       ← EmailLoggerService — keeps the email log (§10d); not in DI
-      queue/
-        email-queue.config.ts         ← IEmailQueueConfig — email queue name and retries (EMAIL_QUEUE_*)
-      email-service.factory.ts        ← EmailServiceFactory implements IServiceFactory<IEmailService>
-    http/                             ← HTTP client service
-    logger/                           ← Logging service (e.g. Winston)
-    notification/                     ← Notification log (the planned notification manager will live here)
-      notification-log/
-        notification-logger.service.ts ← NotificationLoggerService — keeps the notification log (§10e); not in DI
-    push-notification/                ← Push notification service (PUSH_NOTIFICATION_DRIVER: inmemory | aws-sns)
-      in-memory/                      ← InMemoryNotificationService + in-memory driver
-      sns/                            ← SNSPushNotificationService + AWS SNS driver (@aws-sdk/client-sns)
-      push-notification-service.factory.ts ← PushNotificationServiceFactory implements IServiceFactory<IPushNotificationService>
-    queue/                            ← Message queue service
-    socket/                           ← WebSocket service (Socket.io)
-
-    storage/
-      local/
-        local-file-storage.config.ts  ← IFileSystemStorageConfig (reads env vars)
-        local-storage.service.ts      ← implements IStorage + IBaseInfrastructureService
-      storage-service.factory.ts      ← StorageServiceFactory implements IServiceFactory<IStorage>
-      index.ts
-
-    persistance/
-      database/
-        erros/
-        models/                       ← Shared Mongoose schema helpers
-        seeders/
-        repositories/
-          mongoose/
-            base/
-              base-repository.ts      ← BaseRepository<DBModel, DomainModel, NewDomainModel>
-              base.mapper.interface.ts ← IBaseMapper<DBSchema, DomainModel, NewDomainModel>
-            auth/
-            email/
-              email.model.ts          ← INewEmailSchema + EmailSchema (TTL index) + EmailModel ('email_log')
-              email.mapper.ts         ← EmailMapper extends BaseMapper
-              email.repository.ts     ← EmailRepository extends BaseRepository (auto-registered)
-            notification/
-              notification.model.ts   ← INewNotificationSchema + NotificationSchema + NotificationModel ('notification_log')
-              notification.mapper.ts  ← NotificationMapper extends BaseMapper
-              notification.repository.ts ← NotificationRepository extends BaseRepository (auto-registered)
-            erp/
-              customer/
-                customer.model.ts     ← INewCustomerSchema + Mongoose schema + model
-                customer.mapper.ts    ← CustomerMapper implements IBaseMapper
-                customer.repository.ts ← CustomerRepository extends BaseRepository
-              invoice/
-              item/
-              order/
-              payment/
-              purchase-order/
-              shipping/
-              vendor/
-            settings/
-            user/
-            ledger-entries/
-        service/
-          database-mapper/
-            driver/
-              mongoose.config.ts      ← IMongooseConfig (reads MONGODB_URI from env)
-              mongoose.driver.ts      ← MongooseDriver implements ICoreDriver
-              mongoose.driver.loader.ts ← creates + inits MongooseDriver
-            mongoose.service.ts       ← MongooseService implements IDatabaseMapper
-          database-mapper-service.factory.ts ← DatabaseMapperServiceFactory implements IServiceFactory<IDatabaseMapper>
-          index.ts
-
-    health/
-      infrastructure-health-check.service.ts
-
-    infrastructure.loader.ts          ← Array of all InfrastructureFactoryClass constructors
-    infrastructure.manager.ts         ← InfrastructureManager.init() — iterates loader, registers in DI
-    index.ts
-
-  application/
-    interfaces/
-      infrastructure/
-        core/
-          base-infrastructure-service.interface.ts ← IBaseInfrastructureService
-          circuit-breaker.interface.ts             ← ICircuitBreaker + ICircuitBreakerOptions
-          circuit-breaker-status.interface.ts      ← ICircuitBreakerStatus + CircuitState
-        database-mapper.interface.ts  ← IDatabaseMapper + TransactionOptions type
-        cache.interface.ts            ← ICache
-        storage.interface.ts          ← IStorage
-        email-service.interface.ts    ← IEmailService (DI token `emailService`)
-        logger.interface.ts           ← ILogger
-        http-client.interface.ts      ← IHTTPClient + RequestConfig type
-        queue.interface.ts            ← IQueue (processJobs starts a worker; closeWorkers closes it — §9a)
-        socket.interface.ts           ← ISocket
-        notification/
-          notification.interface.ts         ← INotification + INotificationChannel + INotificationStatus + INewNotification
-        push-notification/
-          push-notification-service.interface.ts ← IPushNotificationService (DI token `pushNotification`)
-        health-check.interface.ts     ← IHealthCheck
-        infrastructure-manager.interface.ts ← IInfrastructureManager
-      repositories/
-        base.repository.interface.ts  ← IBaseRepository<DBSchema, DomainModel, NewDomainModel>
-        email/
-          email.repository.interface.ts ← IEmailRepository
-        notification/
-          notification.repository.interface.ts ← INotificationRepository
-      worker/
-        worker.interface.ts           ← IWorker (workerName, init, shutdown)
-    workers/
-      email/
-        email.worker.ts               ← EmailWorker implements IWorker (worker process only — §9a)
-    services/
-      base/
-        base.application.service.ts   ← BaseApplicationService (provides dbTransaction())
-      order/
-        order.application.service.ts
-      purchase-order/
-        purchase-order.application.service.ts
-
-  domain/
-    app/
-      email/
-        models/
-          email.ts                    ← EmailStatus, INewEmail, IEmail, NewEmail, Email (the email log record)
-      notification/
-        models/
-          notification.ts             ← INewNotificationRecord, NewNotification, Notification (the notification log record)
-    base/
-      DomainEntity.ts
-      service/
-        base.domain.service.ts        ← BaseDomainService (empty base)
-        domain-service.error.ts       ← DomainServiceError + error types
-    erp/
-      customer-service/
-        models/
-          customer.ts                 ← INewCustomer, ICustomer, NewCustomer, Customer
-        service/
-          customer.service.ts         ← CustomerService extends BaseDomainService
-      invoice-service/
-      item-ledger-entry-service/
-      order-service/
-      ...
-    user/
-      models/
-        user.ts
-      service/
-        ...
-    shared/
-      erp/
-        types.ts                      ← Shared ERP types (IContact, etc.)
-
-  presentation/
-    http/
-      controllers/
-        base.controller.ts            ← BaseController (catchExceptionsWrapper, getPaginator)
-        customer/
-          customer.controller.ts
-        auth/
-        health/
-        ...
-      middleware/
-        RequestValidatorMiddleware.ts ← Validates request body using express-validator Schema
-        UserValidatorMiddleware.ts    ← Authenticates JWT token, attaches req.user
-      routes/
-        index.ts                      ← Main Express router (mounts all sub-routers)
-        customer.routes.ts
-        auth.routes.ts
-        health.routes.ts
-        ...
-      validators/
-        customer/
-          customer.validator.ts
-        auth/
-        item/
-        ...
-
-  index.ts                            ← Application entry point
+├── application/interfaces/
+│   ├── infrastructure/
+│   │   ├── core/                          # IBaseInfrastructureService, ICircuitBreaker, ICircuitBreakerStatus
+│   │   ├── {name}.interface.ts            # One contract per service: ICache, IQueue, IStorage, IHTTPClient, …
+│   │   ├── push-notification/             # IPushNotificationService
+│   │   ├── notification/                  # INotification (the notification log record)
+│   │   └── infrastructure-manager.interface.ts
+│   └── errors/                            # InfrastructureError, RepositoryError: every layer may import them
+└── infrastructure/
+    ├── core/
+    │   ├── circuit-breaker/               # CircuitBreaker
+    │   ├── driver/                        # ICoreDriver, IDriverHealthStatus, IDriverConfig
+    │   ├── errors/                        # DriverError, CircuitOpenError
+    │   └── interfaces/                    # IServiceFactory, ServiceClosure
+    ├── {name}/                            # cache, email, http, logger, push-notification, queue, socket, storage
+    │   ├── {driver}/
+    │   │   ├── driver/                    # {driver}.config.ts, {driver}.driver.ts, {driver}.driver.loader.ts
+    │   │   ├── error/                     # The driver's InfrastructureError subclass and outage guard, if any
+    │   │   └── {driver}-{name}.service.ts # Implements the interface
+    │   ├── {name}-service.factory.ts
+    │   └── index.ts
+    ├── persistance/database/service/      # The database mapper service, with the same driver/factory layout
+    ├── health/                            # InfrastructureHealthCheckService
+    ├── infrastructure.loader.ts           # The factory list
+    └── infrastructure.manager.ts          # Builds, tracks and shuts down every service
 ```
 
-## Pattern Implementation
+File names vary a little between services (`socketio/driver/sockets.driver.ts`, `bullmq/driver/queue.config.ts`);
+copy the layout of `src/infrastructure/email/` for a new one.
 
-### 1. Core Infrastructure Interfaces
+## Services
 
-**`IBaseInfrastructureService`** — every infrastructure service must implement this
+| Token              | Interface                  | `{NAME}_DRIVER` (default)             | Implementations                                             | Closure | Breaker      | `shutdown()` |
+| ------------------ | -------------------------- | ------------------------------------- | ----------------------------------------------------------- | ------- | ------------ | ------------ |
+| `database_mapper`  | `IDatabaseMapper`          | `DATABASE_MAPPER_DRIVER` (mongoose)   | `MongooseService`                                           | —       | —            | ✅           |
+| `cache`            | `ICache`                   | `CACHE_DRIVER` (redis)                | `RedisCacheService`                                         | —       | —            | ✅           |
+| `queue`            | `IQueue`                   | `QUEUE_DRIVER` (bullmq)               | `BullMQQueueService`                                        | —       | —            | ✅           |
+| `logger`           | `ILogger`                  | `LOGGING_DRIVER` (winston)            | `WinstonLoggerService`                                      | —       | —            | ✅           |
+| `emailService`     | `IEmailService`            | `EMAIL_DRIVER` (smtp)                 | `SMTPEmailService`, `SESEmailService`                       | ✅      | one          | —            |
+| `pushNotification` | `IPushNotificationService` | `PUSH_NOTIFICATION_DRIVER` (inmemory) | `InMemoryNotificationService`, `SNSPushNotificationService` | —       | SNS only     | SNS only     |
+| `storage`          | `IStorage`                 | `STORAGE_DRIVER` (filesystem)         | `LocalStorageService` (no driver)                           | —       | —            | —            |
+| `socket`           | `ISocket`                  | `SOCKET_DRIVER` (socketio)            | `SocketIOService` (API process only)                        | —       | —            | ✅           |
+| `httpClient`       | `IHTTPClient`              | none                                  | `HTTPClientService` (axios, no driver)                      | —       | one per host | —            |
 
-**Location**: `src/application/interfaces/infrastructure/core/base-infrastructure-service.interface.ts`
+## Contracts
+
+### 1. Declare the service's contract in `application/interfaces/infrastructure`
+
+**Expands:** `CLAUDE.md` §11.1 (step 1), §2.1
+**Rule:** Each service has an interface in `src/application/interfaces/infrastructure/{name}.interface.ts` that
+extends `IBaseInfrastructureService` and narrows `serviceName()` to a string literal (its DI token), `singleton()` to
+`true` and `deferred()` to `false`. Domain, application and presentation code depend on this interface only.
+**Why:** The interface is what lets a driver be swapped without touching the inner layers (card 14). The literal
+`serviceName()` lets the compiler check that the factory's `name()` returns the same token (card 4).
 
 ```typescript
 export interface IBaseInfrastructureService {
-  serviceName(): string;
-  singleton(): boolean;
+  serviceName(): string; // the DI token
+  singleton(): boolean; // InfrastructureManager rejects false
   deferred(): boolean;
-  getDriver: () => unknown;
-
-  /** Optional — close connections, flush buffers, etc. */
-  shutdown?(): Promise<void>;
+  getDriver: () => unknown; // read by the health check (card 11)
+  shutdown?(): Promise<void>; // card 8
   isShuttingDown?(): boolean;
+  circuitBreakerStatuses?(): ICircuitBreakerStatus[]; // card 10
 }
-```
-
-**`IServiceFactory<T>`** — every infrastructure factory must implement this
-
-**Location**: `src/infrastructure/core/interfaces/service.factory.interface.ts`
-
-```typescript
-// Parameters are named after the registration names of the services it needs; Awilix injects them by name.
-export type ServiceClosure<T> = FunctionReturning<T>; // from 'awilix'
-
-export interface IServiceFactory<T extends IBaseInfrastructureService> {
-  name(): ReturnType<T['serviceName']>; // DI registration name — equals the service's serviceName()
-  create(): Promise<T | ServiceClosure<T>>; // the service, or a synchronous closure that builds it
-}
-```
-
-**`IDriverConfig`** — base config interface for all drivers
-
-**Location**: `src/infrastructure/core/driver/core.driver.config.ts`
-
-```typescript
-export interface IDriverConfig {
-  driverName: string;
-  singleton: boolean;
-  deferred: boolean;
-  optional?: boolean;
-}
-```
-
-**`ICoreDriver<ClientType, ConfigType>`** — interface for all low-level drivers
-
-**Location**: `src/infrastructure/core/driver/core.driver.ts`
-
-```typescript
-export interface ICoreDriver<T, K extends IDriverConfig> {
-  init: () => Promise<void>;
-  config(): K;
-  client: () => T | undefined;
-  shutdown: () => Promise<void>;
-  health?: () => Promise<IDriverHealthStatus>;
-}
-```
-
----
-
-### 2. Application Service Interfaces
-
-**Purpose**: Define the contracts that application and domain layers depend on. All extend `IBaseInfrastructureService` and declare their specific `serviceName` as a string literal type.
-
-**Location**: `src/application/interfaces/infrastructure/`
-
-```typescript
-// storage.interface.ts
-import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
 
 export interface IStorage extends IBaseInfrastructureService {
   serviceName(): 'storage';
   singleton(): true;
   deferred(): false;
 
-  getRoot(): Promise<string>;
   listFiles(folderPath: string): Promise<string[]>; // [] when the folder does not exist
-  createFile(path: string, content: Buffer): Promise<void>;
   readFile(path: string): Promise<Buffer | null>; // null when the file does not exist
-  updateFile(path: string, content: Buffer): Promise<void>;
-  deleteFile(path: string): Promise<void>;
-  moveFile(srcPath: string, destPath: string): Promise<void>;
-  createFolder(path: string): Promise<void>;
-  deleteFolder(path: string): Promise<void>;
+  // ...
 }
 ```
 
-```typescript
-// database-mapper.interface.ts
-import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
+**Use cases:**
 
-export type TransactionOptions = {
-  session?: unknown; // Mongoose ClientSession, Sequelize Transaction, etc.
-};
+- "not found" is an answer the contract can give → return `null` / `[]`, never throw; the caller decides whether it
+  is a `NOT_FOUND`
+- a type that crosses the layer boundary → define it in the interface file without leaking the library:
+  `TransactionOptions.session` is `unknown` (asserted only in a Mongoose repository, §12.6 case 2), `RequestConfig` is
+  a plain object type, not an Axios one
+- every error an implementation can throw → in that method's `@throws`, by `InfrastructureErrorType` (§12.5), so
+  callers can rely on the contract whichever driver runs
+- a new interface → also export it from `src/application/interfaces/index.ts`
 
-export interface IDatabaseMapper extends IBaseInfrastructureService {
-  serviceName(): 'database_mapper';
-  singleton(): true;
-  deferred(): false;
+**Reference:** `src/application/interfaces/infrastructure/storage.interface.ts`,
+`src/application/interfaces/infrastructure/core/base-infrastructure-service.interface.ts`
 
-  mapper(): unknown;
-  transaction<T>(callback: (options: TransactionOptions) => Promise<T>): Promise<T>;
-}
-```
+### 2. Read env vars in the driver's config file
 
-> **IMPORTANT**: `TransactionOptions` (not `session?: unknown` directly) is the type passed through domain services and repositories for transaction support.
-
-```typescript
-// http-client.interface.ts
-import type { IHTTPResponse } from './http-response.interface';
-import type { IBaseInfrastructureService } from './base-infrastructure-service.interface';
-
-export type RequestConfig = {
-  url: string;
-  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  headers?: Record<string, string>;
-  params?: Record<string, string>;
-  data?: Record<string, unknown> | Record<string, unknown>[] | undefined;
-  timeout?: number;
-};
-
-export interface IHTTPClient extends IBaseInfrastructureService {
-  serviceName(): 'httpClient';
-  singleton(): true;
-  deferred(): false;
-
-  get(config: Omit<RequestConfig, 'method'>): Promise<IHTTPResponse>;
-  post(config: Omit<RequestConfig, 'method'>): Promise<IHTTPResponse>;
-  put(config: Omit<RequestConfig, 'method'>): Promise<IHTTPResponse>;
-  patch(config: Omit<RequestConfig, 'method'>): Promise<IHTTPResponse>;
-  delete(config: Omit<RequestConfig, 'method'>): Promise<IHTTPResponse>;
-}
-```
-
-> **NOTE**: `RequestConfig.data` accepts a single object **or an array of objects** — arrays enable
-> batch request bodies. The explicit `| undefined` in its type is required because the project
-> compiles with `exactOptionalPropertyTypes: true`; keep it when modifying the type. `GET`/`DELETE`
-> ignore `data`. `RequestConfig` is the single source of truth for the request shape —
-> `HTTPClientService.createRequest()` reuses it; never duplicate the shape inline.
-
----
-
-### 3. Service Configuration (inside each service's folder)
-
-**Purpose**: Service-specific configurations are NOT in `app/core/config/`. Each service has its own config file that reads from env vars. These config interfaces extend `IDriverConfig`.
-
-**Location**: Next to the service implementation in `infrastructure/{service}/`
+**Expands:** `CLAUDE.md` §11.1 (step 2)
+**Rule:** Each driver has a `{driver}.config.ts` next to it: an interface extending `IDriverConfig` and a function
+that reads the env vars, applies defaults and returns it. Validate the values there. The factory reads only
+`{NAME}_DRIVER`, and `src/app/core/config/` holds application config only (`app.config.ts`, `server.config.ts`,
+`config.ts`, `load-env.ts`), never a service's.
+**Why:** The config travels with the driver it configures, so adding or removing a driver touches one folder. A bad
+value fails startup with a message that names it, instead of failing at the first request.
 
 ```typescript
-// infrastructure/storage/local/local-file-storage.config.ts
-import type { IDriverConfig } from '@/infrastructure/core/driver/core.driver.config';
-
-export interface IFileSystemStorageConfig extends IDriverConfig {
-  params: {
-    rootPath: string;
-  };
-}
-
-export const storageConfig = (): IFileSystemStorageConfig => ({
-  driverName: 'storage',
-  singleton: false,
-  deferred: true,
-  optional: process.env.STORAGE_SERVICE_OPTIONAL === 'true',
-  params: {
-    rootPath: process.env.STORAGE_ROOT_PATH || './storage',
-  },
-});
-```
-
----
-
-### 4. Service Implementation
-
-**Purpose**: Application-facing service implementing the interface from `application/interfaces/infrastructure/`. Reads its config on construction. For simple services (e.g. local storage), there is no separate driver — the service IS the implementation.
-
-**Location**: `infrastructure/{service}/{impl}/`
-
-```typescript
-// infrastructure/storage/local/local-storage.service.ts
-import * as fs from 'fs/promises';
-import * as path from 'path';
-
-import type { IStorage } from '@/application/interfaces/infrastructure/storage.interface';
-import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
-
-import { storageConfig } from './local-file-storage.config';
-
-// Shape check rather than `instanceof Error`: fs errors can come from another realm (e.g. under Jest).
-function isNotFoundError(e: unknown): boolean {
-  return typeof e === 'object' && e !== null && 'code' in e && e.code === 'ENOENT';
-}
-
-export class LocalStorageService implements IStorage {
-  private readonly rootPath: string;
-
-  constructor() {
-    const config = storageConfig();
-    this.rootPath = config.params.rootPath;
-  }
-
-  serviceName(): 'storage' {
-    return 'storage';
-  }
-  singleton(): true {
-    return true;
-  }
-  deferred(): false {
-    return false;
-  }
-  getDriver() {
-    return null;
-  }
-
-  async createFile(filePath: string, content: Buffer): Promise<void> {
-    const fullPath = path.join(this.rootPath, filePath);
-    try {
-      await fs.mkdir(path.dirname(fullPath), { recursive: true });
-      await fs.writeFile(fullPath, content);
-    } catch (e: unknown) {
-      throw new InfrastructureError(
-        `Failed to create file "${filePath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
-        'STORAGE_ERROR',
-        { filePath, cause: e }, // keep the original error for the logs
-      );
-    }
-  }
-
-  async readFile(filePath: string): Promise<Buffer | null> {
-    const fullPath = path.join(this.rootPath, filePath);
-    try {
-      return await fs.readFile(fullPath);
-    } catch (e: unknown) {
-      if (isNotFoundError(e)) {
-        return null; // "missing" is an answer, not a failure — the caller decides (e.g. NOT_FOUND)
-      }
-      throw new InfrastructureError(
-        `Failed to read file "${filePath}": ${e instanceof Error ? e.message : 'Unknown error'}`,
-        'STORAGE_ERROR',
-        { filePath, cause: e },
-      );
-    }
-  }
-
-  // ... other IStorage methods follow the same pattern
-}
-```
-
-For services with a driver (e.g. database), the service is created by first constructing the driver, then passing it to the service:
-
-```typescript
-// infrastructure/persistance/database/service/database-mapper/mongoose.service.ts
-import type {
-  IDatabaseMapper,
-  TransactionOptions,
-} from '@/application/interfaces/infrastructure/database-mapper.interface';
-import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
-
-import { isConnectionFailure, isMongooseDriverError } from '../../errors/mongoose-error.guards';
-import { PersistanceError } from '../../errors/persistance.error';
-
-import type mongoose from 'mongoose';
-import type { MongooseDriver } from './driver/mongoose.driver';
-
-export class MongooseService implements IDatabaseMapper {
-  private driver: MongooseDriver;
-  private client: mongoose.Mongoose;
-
-  constructor(driver: MongooseDriver) {
-    this.driver = driver;
-    const client = driver.client();
-    if (!client) {
-      throw new PersistanceError('Invalid Mongoose client provided to MongooseService');
-    }
-    this.client = client;
-  }
-
-  serviceName(): 'database_mapper' {
-    return 'database_mapper';
-  }
-  singleton(): true {
-    return true;
-  }
-  deferred(): false {
-    return false;
-  }
-  getDriver() {
-    return this.driver;
-  }
-  mapper() {
-    return this.client;
-  }
-
-  async transaction<T>(callback: (options: TransactionOptions) => Promise<T>): Promise<T> {
-    const connection = this.client.connection;
-    try {
-      // `await` is required — without it a rejection bypasses this catch.
-      // connection.transaction() wraps session.withTransaction(): commit on success, abort on error,
-      // and automatic retry of the callback on TransientTransactionError (e.g. write conflicts).
-      return await connection.transaction((session) => callback({ session }));
-    } catch (err: unknown) {
-      // Translate only here, after withTransaction has finished — it retries only while the raw
-      // MongoError is still unwrapped. Errors thrown by the callback itself (DomainServiceError, …)
-      // are rethrown unchanged so they keep their type and HTTP status.
-      if (!isMongooseDriverError(err)) {
-        throw err;
-      }
-      const message = `Failed to execute transaction: ${err.message}`;
-      if (isConnectionFailure(err, connection.readyState)) {
-        throw new InfrastructureError(message, 'CONNECTION_ERROR', { cause: err });
-      }
-      throw new PersistanceError(message, { cause: err });
-    }
-  }
-
-  async shutdown(): Promise<void> {
-    await this.client.connection.close();
-  }
-}
-```
-
----
-
-### 5. Driver (for services that need one)
-
-**Purpose**: Low-level client connections. Implements `ICoreDriver<ClientType, ConfigType>`. Used internally by the service — never registered in the DI container directly.
-
-**Location**: `infrastructure/{service}/{impl}/driver/`
-
-```typescript
-// infrastructure/persistance/database/service/database-mapper/driver/mongoose.config.ts
-import type { IDriverConfig } from '@/infrastructure/core/driver/core.driver.config';
-import type mongoose from 'mongoose';
-
 export interface IMongooseConfig extends IDriverConfig {
   uri: string;
   options?: mongoose.ConnectOptions;
@@ -572,47 +146,63 @@ export const mongooseConfig = (): IMongooseConfig => ({
   singleton: true,
   deferred: true,
   uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/infinite-node-application',
+  options: {
+    serverSelectionTimeoutMS: Number(process.env.MONGODB_SERVER_SELECTION_TIMEOUT_MS) || 15000,
+    connectTimeoutMS: Number(process.env.MONGODB_CONNECT_TIMEOUT_MS) || 10000,
+    socketTimeoutMS: Number(process.env.MONGODB_SOCKET_TIMEOUT_MS) || 45000,
+    autoIndex: process.env.MONGODB_AUTO_INDEX !== 'false',
+  },
 });
 ```
 
-```typescript
-// infrastructure/persistance/database/service/database-mapper/driver/mongoose.driver.ts
-import mongoose from 'mongoose';
-import type { ICoreDriver } from '@/infrastructure/core/driver/core.driver';
-import type { IMongooseConfig } from './mongoose.config';
+**Use cases:**
 
+- a number with a default → `Number(x) || 15000`; when `0` is a valid value, test whether the variable is set instead
+  (`HTTP_CLIENT_CIRCUIT_FAILURE_THRESHOLD` in `http-client-service.factory.ts`)
+- an invalid or missing required value → throw `RangeError` from the config function (`email-queue.config.ts`;
+  `ses.config.ts` without `EMAIL_FROM`)
+- circuit breaker settings → a `circuitBreaker: { failureThreshold, resetTimeout }` field, spread into the
+  `CircuitBreaker` by the factory (card 10)
+- credentials for AWS → never in env config; the SDK's default provider chain supplies them
+  (`Docs/features/email.md` card 9)
+- every new variable → documented in `.env.example`, in the service's section
+- a service without a driver → reads its config in its own constructor (`LocalStorageService` → `storageConfig()`);
+  the HTTP client reads its three settings in its factory
+
+**Reference:** `src/infrastructure/persistance/database/service/database-mapper/driver/mongoose.config.ts`,
+`src/infrastructure/email/smtp/driver/smtp.config.ts`
+
+### 3. Wrap the client in a driver and build it with a loader
+
+**Expands:** `CLAUDE.md` §11.1 (steps 3–4)
+**Rule:** A driver implements `ICoreDriver<Client, Config>`:
+
+- `init()` connects, and throws `DriverError` when it can't;
+- `client()` returns the library client;
+- `shutdown()` closes it;
+- `health()` probes the remote end, for a remote dependency.
+
+A driver loader builds and initializes the driver for the factory. A driver is never registered in DI: only the
+service that owns it sees it.
+**Why:** The service receives a client that is already connected, so it has no "not connected yet" state, and each
+technology's connection handling lives in one class.
+
+```typescript
 export class MongooseDriver implements ICoreDriver<typeof mongoose, IMongooseConfig> {
-  private _config: IMongooseConfig;
-  private _client: typeof mongoose | undefined;
-
-  constructor(config: IMongooseConfig) {
-    this._config = config;
-  }
-
+  // ...
   async init(): Promise<void> {
-    const conn = await mongoose.connect(this._config.uri, this._config.options);
-    this._client = conn;
+    try {
+      const conn = await mongoose.connect(this._config.uri, this._config.options);
+      this._client = conn;
+    } catch (error: unknown) {
+      throw new DriverError(
+        `Failed to initialize MongooseDriver: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error : undefined,
+      );
+    }
   }
-
-  config(): IMongooseConfig {
-    return this._config;
-  }
-  client(): typeof mongoose | undefined {
-    return this._client;
-  }
-
-  async shutdown(): Promise<void> {
-    await this._client?.disconnect();
-  }
+  // config(), client(), shutdown(), health()
 }
-```
-
-**Driver Loader** (used by factory to build a ready driver):
-
-```typescript
-// infrastructure/persistance/database/service/database-mapper/driver/mongoose.driver.loader.ts
-import { MongooseDriver } from './mongoose.driver';
-import { mongooseConfig } from './mongoose.config';
 
 export const mongooseDriverLoader = async (): Promise<MongooseDriver> => {
   const driver = new MongooseDriver(mongooseConfig());
@@ -621,119 +211,119 @@ export const mongooseDriverLoader = async (): Promise<MongooseDriver> => {
 };
 ```
 
----
+**Use cases:**
 
-### 6. Service Factory
+- `health()` → returns `{ connected, latency?, error? }` and never throws: a failed probe is `connected: false`
+  (card 11)
+- a `DriverError` → extends `Error`, not `InfrastructureError`; thrown at startup, it ends the process with exit
+  code 1
+- the service constructor → guard the client with `if (!client)` and throw the service's own error
+  (`MongooseService` → `PersistanceError`), never `instanceof Object` (§11.3)
+- nothing to connect → no driver: `LocalStorageService.getDriver()` returns `null`, `HTTPClientService.getDriver()`
+  returns axios
+- a placeholder that sends nothing (in-memory push) → still a driver, so the factory keeps the same shape for every
+  implementation
 
-**Purpose**: Creates a ready service instance based on env var configuration. Implements `IServiceFactory<InterfaceType>`. Reads the driver (via env var switch), constructs the driver if needed, then returns the service. `name()` returns the service's registration name — the same literal as its `serviceName()`.
+**Reference:** `src/infrastructure/persistance/database/service/database-mapper/driver/mongoose.driver.ts`,
+`mongoose.driver.loader.ts` next to it
 
-**Location**: `infrastructure/{service}/{service}-service.factory.ts`
+## Building and registering
+
+### 4. Pick the implementation in the factory
+
+**Expands:** `CLAUDE.md` §11.1 (step 6)
+**Rule:** `{name}-service.factory.ts` implements `IServiceFactory<YourInterface>`:
+
+- `name()` returns the same literal as the service's `serviceName()`;
+- `create()` switches on `process.env.{NAME}_DRIVER` (with a default), builds the driver through its loader and
+  returns the service;
+- an unsupported value, or a driver that is planned but not built, throws `InfrastructureError` `DRIVER_ERROR`.
+
+**Why:** The factory is the only place that knows which implementations exist, so switching provider is a config
+change. A misspelt driver name fails startup instead of silently running another one.
 
 ```typescript
-// infrastructure/storage/storage-service.factory.ts
-import type { IStorage } from '@/application/interfaces/infrastructure/storage.interface';
-import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
-import { LocalStorageService } from './local/local-storage.service';
-import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
-
 export class StorageServiceFactory implements IServiceFactory<IStorage> {
   name(): 'storage' {
     return 'storage';
   }
 
-  async createLocalStorageService(): Promise<IStorage> {
-    return new LocalStorageService();
-  }
-
   async create(): Promise<IStorage> {
-    const driver = process.env.STORAGE_DRIVER || 'local';
+    const driver = process.env.STORAGE_DRIVER || 'filesystem';
     switch (driver) {
       case 'filesystem':
         return new LocalStorageService();
       case 'aws':
-        throw new InfrastructureError('AWS S3 storage service not yet implemented', 'DRIVER_ERROR', { driver });
-      case 'gcp':
-        throw new InfrastructureError('Google Cloud Storage service not yet implemented', 'DRIVER_ERROR', { driver });
-      case 'azure':
-        throw new InfrastructureError('Azure Blob Storage service not yet implemented', 'DRIVER_ERROR', { driver });
+        throw new InfrastructureError('AWS S3 storage service not yet implemented', 'DRIVER_ERROR', {
+          provider: 'aws',
+        });
+      // 'gcp', 'azure': the same
       default:
-        throw new InfrastructureError(`Unsupported storage driver: ${driver}`, 'DRIVER_ERROR', { driver });
+        throw new InfrastructureError(`Unsupported storage driver: ${driver}`, 'DRIVER_ERROR', {
+          driver,
+        });
     }
   }
 }
 ```
 
-```typescript
-// infrastructure/persistance/database/service/database-mapper-service.factory.ts
-import type { IDatabaseMapper } from '@/application/interfaces/infrastructure/database-mapper.interface';
-import type { IServiceFactory } from '@/infrastructure/core/interfaces/service.factory.interface';
-import { MongooseService } from './database-mapper/mongoose.service';
-import { mongooseDriverLoader } from './database-mapper/driver/mongoose.driver.loader';
-import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
+**Use cases:**
 
-export class DatabaseMapperServiceFactory implements IServiceFactory<IDatabaseMapper> {
-  name(): 'database_mapper' {
-    return 'database_mapper';
-  }
+- `IServiceFactory<T>` types `name()` as `ReturnType<T['serviceName']>` → the compiler rejects a `name()` that
+  differs from the interface's literal
+- case-insensitive values → lowercase before the `switch` (`EMAIL_DRIVER`, `QUEUE_DRIVER`,
+  `PUSH_NOTIFICATION_DRIVER`); an alias → an extra `case` (`inmemory` / `in-memory`)
+- a planned driver → keep a `case` that throws `DRIVER_ERROR` "not yet implemented", so the value is reserved and the
+  message says why
+- `create()` throws → the error leaves `InfrastructureManager.init()` and the process exits with code 1
+- the service needs other infrastructure services → return a closure (card 5)
 
-  async createMongooseService(): Promise<IDatabaseMapper> {
-    const mongooseService = new MongooseService(await mongooseDriverLoader());
-    return mongooseService;
-  }
+**Reference:** `src/infrastructure/storage/storage-service.factory.ts`; two drivers:
+`src/infrastructure/email/email-service.factory.ts`
 
-  async create(): Promise<IDatabaseMapper> {
-    const driver = process.env.DATABASE_MAPPER_DRIVER || 'mongoose';
-    switch (driver) {
-      case 'mongoose':
-        return this.createMongooseService();
-      case 'sequelize':
-        throw new InfrastructureError('Sequelize ORM service not yet implemented', 'DRIVER_ERROR', { driver });
-      case 'typeorm':
-        throw new InfrastructureError('TypeORM service not yet implemented', 'DRIVER_ERROR', { driver });
-      case 'prisma':
-        throw new InfrastructureError('Prisma ORM service not yet implemented', 'DRIVER_ERROR', { driver });
-      default:
-        throw new InfrastructureError(`Unsupported ORM driver: ${driver}`, 'DRIVER_ERROR', { driver });
-    }
-  }
-}
-```
+### 5. Inject other infrastructure services through a synchronous closure
 
-**A service that needs other infrastructure services**: `create()` does the async driver setup, then returns a **synchronous closure** whose parameters are named after the registration names of the services it needs. The manager registers the closure as a singleton and Awilix injects the parameters by name (CLASSIC) when it is resolved:
+**Expands:** `CLAUDE.md` §11.2
+**Rule:** A factory whose service needs other infrastructure services does its async setup (driver loader, circuit
+breaker) in `create()`, then returns a `ServiceClosure<T>`: a synchronous function whose parameter names are the
+registration names of the services it needs.
+**Why:** The manager registers every factory's result before resolving any, so the dependencies can come from
+anywhere in the loader. Awilix registers whatever the closure returns, so an `async` closure would hand every
+consumer a Promise.
 
 ```typescript
-async create(): Promise<IEmailService | ServiceClosure<IEmailService>> {
+async createSMTPEmailService(): Promise<ServiceClosure<IEmailService>> {
   const driver = await smtpDriverLoader();
-  return (queue: IQueue, logger: ILogger): IEmailService => new QueuedEmailService(driver, queue, logger);
+  const circuitBreaker = new CircuitBreaker({
+    name: 'smtp',
+    ...driver.config().circuitBreaker,
+    isFailure: isSmtpOutage,
+  });
+  return (queue: IQueue, logger: ILogger): IEmailService =>
+    new SMTPEmailService(driver, circuitBreaker, queue, new EmailLoggerService(), logger);
 }
 ```
 
-The closure must not be `async`: Awilix registers whatever it returns, so every consumer would receive a Promise. A dependency that is not registered fails startup with `InfrastructureError` `DRIVER_ERROR` naming the service and the dependency — in the worker and the seeder too, which leave out the socket service.
+**Use cases:**
 
----
+- a parameter that matches no registration, or a cycle → `InfrastructureError` `DRIVER_ERROR`
+  `Infrastructure service 'emailService' could not be resolved: …`, with the Awilix error in `data.cause`
+- the worker and the seeder don't build `socket` (card 6) → never take `socket` in a service the worker needs
+- a helper that is not an infrastructure service (`EmailLoggerService`) → build it inside the closure with `new`; it
+  is not in DI
+- the closure runs once → the manager registers it as a singleton
 
-### 7. Infrastructure Loader Registry
+**Reference:** `src/infrastructure/email/email-service.factory.ts`; `closureResolver()` in
+`src/infrastructure/infrastructure.manager.ts`
 
-**Purpose**: A single array that declares which factory classes exist. `InfrastructureManager` iterates this to instantiate and register all infrastructure services.
+### 6. Add the factory to the loader, in any position
 
-**Location**: `src/infrastructure/infrastructure.loader.ts`
+**Expands:** `CLAUDE.md` §11.1 (steps 7–8)
+**Rule:** Export the factory from `src/infrastructure/{name}/index.ts` and add its class to `infrastructureLoader`.
+Change nothing else: `app.ts`, `worker.ts` and `InfrastructureManager` don't list services.
+**Why:** Every result is registered before any is resolved (card 7), so the position in the list never matters.
 
 ```typescript
-import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
-import type { IServiceFactory } from './core/interfaces/service.factory.interface';
-
-import { CacheServiceFactory } from './cache';
-import { EmailServiceFactory } from './email';
-import { LoggerServiceFactory } from './logger';
-import { PushNotificationServiceFactory } from './push-notification';
-import { DatabaseMapperServiceFactory } from './persistance/database/service';
-import { QueueServiceFactory } from './queue';
-import { SocketServiceFactory } from './socket/socket-service.factory';
-import { StorageServiceFactory } from './storage';
-import { HTTPClientServiceFactory } from './http';
-
-export type InfrastructureFactoryClass = new () => IServiceFactory<IBaseInfrastructureService>;
-
 export const infrastructureLoader: InfrastructureFactoryClass[] = [
   CacheServiceFactory,
   EmailServiceFactory,
@@ -747,139 +337,254 @@ export const infrastructureLoader: InfrastructureFactoryClass[] = [
 ];
 ```
 
-> **To add a new infrastructure service**: Create the factory class, then add it to this array, in any position — every service is registered before any is resolved, so the order does not matter. No changes needed in `app.ts` or `InfrastructureManager`.
+**Use cases:**
 
----
+- a service the worker process must not build → filter its factory class out in `initForWorker()`, as `socket` is
+  (it needs the API's HTTP server)
+- other infrastructure code imports the service → export it from the `src/infrastructure/index.ts` barrel too
 
-### 8. InfrastructureManager (Bootstrap Orchestrator)
+**Reference:** `src/infrastructure/infrastructure.loader.ts`
 
-**Purpose**: Builds every infrastructure service from `infrastructureLoader` in three phases:
+### 7. Let `InfrastructureManager` build every service
 
-1. **Register** — calls each `factory.create()` and registers the result under `factory.name()`: a service with `asValue()`, a closure as a singleton whose parameters are injected by name.
-2. **Resolve** — resolves every service. Awilix builds a closure's dependencies inside the call that builds the closure, so the loader order does not matter. A missing or cyclic dependency, a `serviceName()` that differs from the factory's `name()`, or `singleton()` returning `false` fails here with `InfrastructureError` `DRIVER_ERROR`.
-3. **Track** — only once every service has resolved, adds them to the health check and to the shutdown list, in the order they were built. `shutdown()` walks that list backwards, so dependents stop before their dependencies.
-
-**Location**: `src/infrastructure/infrastructure.manager.ts`
-
-**Contract**: `IInfrastructureManager` (`init`, `initForWorker`, `shutdown`) in `src/application/interfaces/infrastructure/infrastructure-manager.interface.ts`. `app.ts` and `worker.ts` hold the manager through this interface.
+**Expands:** `CLAUDE.md` §11.1 (Why)
+**Rule:** Never construct an infrastructure service yourself. `InfrastructureManager.init()` (API) or
+`initForWorker()` (worker, seeder) builds them all, and code receives them by injection.
+**Why:** Only the manager checks each service, registers it with the health check and tracks it for shutdown. A
+service built anywhere else is never checked, never health-checked and never closed.
 
 ```typescript
-export class InfrastructureManager implements IInfrastructureManager {
-  private services: IBaseInfrastructureService[] = [];
-
-  private async loadServices(container: AwilixContainer, loader: InfrastructureFactoryClass[]): Promise<void> {
-    const factories = loader.map((FactoryClass) => new FactoryClass());
-    const built: IBaseInfrastructureService[] = []; // dependencies before their dependents
-
-    // 1. Register
-    for (const factory of factories) {
-      const created = await factory.create();
-      if (typeof created === 'function') {
-        // Singleton resolver around asFunction(created).classic() that pushes the service to `built` when built
-        container.register({ [factory.name()]: this.closureResolver(created, built) });
-      } else {
-        built.push(created);
-        container.register({ [factory.name()]: asValue(created) });
-      }
-    }
-
-    // 2. Resolve (AwilixResolutionError → InfrastructureError DRIVER_ERROR)
-    for (const factory of factories) {
-      this.assertService(this.resolveService(container, factory.name()), factory.name());
-    }
-
-    // 3. Track
-    for (const service of built) {
-      this.services.push(service);
-      this.healthCheckService.registerService(service);
-    }
+for (const factory of factories) {
+  const created = await factory.create(); // 1. Register
+  if (typeof created === 'function') {
+    container.register({ [factory.name()]: this.closureResolver(created, built) });
+  } else {
+    built.push(created);
+    container.register({ [factory.name()]: asValue(created) });
   }
-
-  async init(container: AwilixContainer): Promise<void> {
-    await this.loadServices(container, this.loader);
-    container.register({ healthCheck: asValue(this.healthCheckService) });
-  }
-
-  async shutdown(): Promise<void> {
-    // Reverse build order: dependents before their dependencies
-    for (const service of [...this.services].reverse()) {
-      await service.shutdown?.();
-    }
-  }
+}
+for (const factory of factories) {
+  this.assertService(this.resolveService(container, factory.name()), factory.name()); // 2. Resolve and check
+}
+for (const service of built) {
+  this.services.push(service); // 3. Track: shutdown list and health check
+  await this.serviceCreated(service, onServiceCreated);
 }
 ```
 
----
+1. **Register:** runs each factory's `create()` in loader order. A service is registered with `asValue` and added to
+   `built` at once. A closure is registered as a singleton resolver that adds the service to `built` when Awilix
+   builds it.
+2. **Resolve:** resolves every name. Building a closure resolves its parameters first, so `built` ends up with
+   dependencies before their dependents. Each of these is `InfrastructureError` `DRIVER_ERROR` (`deferred()` is not
+   checked):
+   - a name Awilix can't resolve;
+   - a `serviceName()` that differs from the factory's `name()`;
+   - `singleton()` returning `false`.
+3. **Track:** only once every service has resolved, adds each one, in `built` order, to the shutdown list and the
+   health check, and calls the optional `onServiceCreated(service)`. Then it registers `healthCheck`.
 
-### 9. Application Bootstrap (app.ts)
+**Use cases:**
 
-**Purpose**: Wire everything together at startup. `InfrastructureManager.init()` is called first. After it resolves, `autoRegisterApplicationComponents()` auto-registers all domain services, repositories, and controllers.
+- the API → `init(container)`; the worker and the seeder → `initForWorker(container)`, which leaves out `socket`
+- application components → auto-registered only after the manager has finished
+  (`autoRegisterApplicationComponents()`), so every repository and service finds its infrastructure dependencies
+- any phase fails → the process exits with code 1 (see Known gaps for drivers left open)
+- callers → hold the manager through `IInfrastructureManager`
+  (`src/application/interfaces/infrastructure/infrastructure-manager.interface.ts`)
+
+**Reference:** `src/infrastructure/infrastructure.manager.ts`, `src/infrastructure/infrastructure.manager.spec.ts`
+
+### 8. Implement `shutdown()` when the service holds a connection
+
+**Expands:** `CLAUDE.md` §11.1 (Why: "shut down in reverse build order")
+**Rule:** A service that holds connections, timers or buffers implements `shutdown()` and closes them, usually
+through its driver. A failure throws the service's own error.
+**Why:** `InfrastructureManager.shutdown()` walks the services in reverse build order, so a dependent (`emailService`)
+closes before its dependencies (`queue`, `logger`). It logs a failed `shutdown()` and goes on with the next service,
+so one failure doesn't leave the others open.
+
+**Use cases:**
+
+- the order across the process → `ShutdownManager` hooks, lowest priority first; hooks of one priority run in
+  parallel; 15 s global timeout:
+
+  | Process | Hooks                                                                                            |
+  | ------- | ------------------------------------------------------------------------------------------------ |
+  | API     | `http-server` (CRITICAL, 5 s) → `infrastructure-services` (MEDIUM, 8 s) → `telemetry` (LOW, 2 s) |
+  | Worker  | `workers` (HIGH, 10 s) → `infrastructure-services` (MEDIUM, 8 s) → `telemetry` (LOW, 2 s)        |
+
+- every service's `shutdown()` together → must fit the 8 s `infrastructure-services` hook
+- queue workers → closed in the `workers` hook, while Redis and the database are still connected (card 12)
+- the services with a `shutdown()` today → `database_mapper`, `cache`, `queue`, `logger`, `socket`, and
+  `pushNotification` with the SNS driver
+
+**Reference:** `shutdown()` in `src/infrastructure/infrastructure.manager.ts`; `registerShutdownHooks()` in
+`src/app/app.ts` and `src/app/worker.ts`
+
+## Failure handling
+
+### 9. Wrap only the driver's own failures
+
+**Expands:** `CLAUDE.md` §11.3
+**Rule:** Keep the `try` around the driver call alone. Turn what the driver throws into your `InfrastructureError`
+subclass (or `InfrastructureError` with the service's type), with a message for the logs and the original in
+`data.cause`. Let everything else pass unchanged: caller input, caller callbacks and programming errors.
+**Why:** An `InfrastructureError` becomes a generic 500 / 503 and reads as an outage. A caller's mistake relabelled
+`CACHE_ERROR` hides the bug. A raw driver error that escapes untranslated reaches the controller as an unknown 500,
+without its type.
 
 ```typescript
-// src/app/app.ts (relevant portion)
-class InfiniteNodeApplication {
-  private infrastructureManager: IInfrastructureManager;
-
-  constructor(routes: Router, shutdownManager?: ShutdownManager) {
-    this.container = container;
-    this.express_server = this.initExpressServer(config);
-    this.httpServer = this.initHttpServer();
-
-    this.infrastructureManager = new InfrastructureManager();
-    this.infrastructureManager.init(this.container).then(async () => {
-      // Auto-registers *.service.ts, *.repository.ts, *.controller.ts by naming convention
-      autoRegisterApplicationComponents();
-
-      await this.initCoreMiddleware();
-      this.express_server.use(scopePerRequest(this.container));
-      this.express_server.use(config.app.apiUrlPrefix, routes);
-    });
+// ✅ RedisCacheService.set(): an unserializable value is the caller's error, so it is serialized before the try
+const serializedValue = JSON.stringify(value);
+try {
+  if (ttl) {
+    await this.redisClient.setEx(key, ttl, serializedValue);
+  } else {
+    await this.redisClient.set(key, serializedValue);
   }
+} catch (e: unknown) {
+  throw new InfrastructureError(
+    `Failed to set cache key "${key}": ${e instanceof Error ? e.message : 'Unknown error'}`,
+    'CACHE_ERROR',
+    { key, cause: e },
+  );
+}
+
+// ❌ JSON.stringify() inside the try: a circular value becomes a CACHE_ERROR, a 500 that blames Redis
+```
+
+**Use cases:**
+
+- a caller's callback must run inside the `try` (a transaction) → rethrow whatever is not the library's own error.
+  `MongooseService.transaction()` checks `isMongooseDriverError()`, and translates only after `withTransaction` has
+  finished retrying (§8.3). A library without a common error class (node-redis, BullMQ) → keep the `try` narrow
+  instead
+- an error object that carries secrets → copy only what is safe. The HTTP client keeps `{ method, url, code, error }`
+  and drops the `AxiosError`, whose `config` holds the request headers. SES and SNS keep a sanitized copy (name,
+  message, stack) in `data.cause`
+- the type → the one the caller can act on: `CONNECTION_ERROR` / `NETWORK_ERROR` when the dependency can't be reached
+  (503), the service's own type otherwise (500); see `CLAUDE.md` §10
+- the message → for the logs only; `catchExceptionsWrapper()` answers with a generic message (§9.4)
+- a driver's `init()` → `DriverError` (card 3)
+
+The error classes:
+
+| Class                   | Type                          | Thrown by                                                                                                                                                      |
+| ----------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `InfrastructureError`   | Any `InfrastructureErrorType` | Cache (`CACHE_ERROR`), storage (`STORAGE_ERROR`), HTTP client (`NETWORK_ERROR`), factories and the manager (`DRIVER_ERROR`), the database (`CONNECTION_ERROR`) |
+| `PersistanceError`      | `DATABASE_ERROR`              | `MongooseService`, `BaseRepository`, mappers                                                                                                                   |
+| `QueueError`            | `QUEUE_ERROR`                 | `BullMQQueueService`                                                                                                                                           |
+| `SocketError`           | `SOCKET_ERROR`                | `SocketIOService`                                                                                                                                              |
+| `SmtpError`, `SesError` | `EMAIL_ERROR`                 | The SMTP and SES email services                                                                                                                                |
+| `SnsError`              | `NOTIFICATION_ERROR`          | `SNSPushNotificationService`                                                                                                                                   |
+| `CircuitOpenError`      | `CONNECTION_ERROR`            | `CircuitBreaker.execute()` (card 10)                                                                                                                           |
+| `DriverError`           | — (extends `Error`)           | Drivers' `init()` and `shutdown()`                                                                                                                             |
+
+`RepositoryError` (`DUPLICATE_KEY`, `INVALID_ID`, `VERSION_CONFLICT`) is rejected caller data, not an
+infrastructure failure, and does not extend `InfrastructureError` (`CLAUDE.md` §6.5).
+
+**Reference:** `src/infrastructure/cache/redis/redis-cache.service.ts`,
+`src/infrastructure/persistance/database/service/database-mapper/mongoose.service.ts`,
+`src/infrastructure/http/http-client.service.ts`
+
+### 10. Put a circuit breaker in front of remote dependencies that aren't retried
+
+**Expands:** `CLAUDE.md` §11.4
+**Rule:** Build a `CircuitBreaker` in the factory from the driver config's `failureThreshold` / `resetTimeout`, and
+inject it as `ICircuitBreaker`. Wrap the driver call **and** its error translation in `execute()`. The call must have
+a timeout of its own.
+**Why:** While a dependency keeps failing, the breaker rejects calls at once with `CircuitOpenError` (a
+`CONNECTION_ERROR`, so a generic 503) instead of holding every request for the full timeout.
+
+```typescript
+protected override async transport(message: IEmailMessage): Promise<void> {
+  await this.circuitBreaker.execute(() =>
+    this.transporter
+      .sendMail({ from: this.driver.config().from, to: message.to, subject: message.subject, html: message.body })
+      .catch((error: unknown) => {
+        throw new SmtpError(`Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+          code: error instanceof Error && 'code' in error ? error.code : undefined,
+          cause: error,
+        });
+      }),
+  );
 }
 ```
 
-**`autoRegisterApplicationComponents()`** scans these glob patterns and registers each class as a singleton by its camelCase class name:
+How the breaker moves:
 
-| Pattern                                                                        | Example file              | Registered name             |
-| ------------------------------------------------------------------------------ | ------------------------- | --------------------------- |
-| `src/application/services/**/*.service.{ts,js}`                                | `OrderApplicationService` | `'orderApplicationService'` |
-| `src/domain/**/service/*.service.{ts,js}`                                      | `CustomerService`         | `'customerService'`         |
-| `src/infrastructure/persistance/database/repositories/**/*.repository.{ts,js}` | `CustomerRepository`      | `'customerRepository'`      |
-| `src/presentation/http/controllers/**/*.controller.{ts,js}`                    | `CustomerController`      | `'customerController'`      |
+- **closed** → each counted failure adds one and each success takes one off; the breaker opens when the count exceeds
+  `failureThreshold`
+- **open** → `execute()` throws `CircuitOpenError` without calling; after `resetTimeout` ms it turns half-open (the
+  timer is `unref()`'d, so it never holds the process open)
+- **half-open** → one probe call goes through and other calls are rejected; a success closes the breaker, a failure
+  reopens it
 
-> **CRITICAL**: All auto-registered classes **MUST have a `export default ClassName;`** at the bottom of the file or Awilix will not register them.
+**Use cases:**
 
----
+- which dependencies → SMTP, SES, SNS and third-party HTTP hosts: yes. MongoDB (its timeouts bound each request),
+  Redis (`disableOfflineQueue` already fails fast), the logger and local storage: no
+- what counts → by default any `InfrastructureError` (`isFailure`). An error that rejects one request, not the
+  server, must not count: pass `isSmtpOutage()` (ignores `EENVELOPE` / `EMESSAGE`), `isSesOutage()` or
+  `isSnsOutage()` (ignore client faults). An error `isFailure` rejects leaves the breaker untouched
+- a failure that comes back as a value → pass `isFailureResult` to `execute()`; the HTTP client counts 5xx, 408 and
+  429 responses
+- translate inside `execute()` → so `isFailure` sees your error type, not the raw library error
+- invalid options → `RangeError` from the constructor, so build breakers in the factory, at startup
+- one breaker per call target → inject a function that creates one (`createCircuitBreaker(origin)`), and call it once
+  at startup (`'startup-check'`) so invalid options still fail there. The HTTP client keeps one per origin, at most
+  100, dropping the least recently used; a URL it can't parse gets none
+- reporting → implement `circuitBreakerStatuses()` (card 11); with one breaker per target, return only those that
+  are not closed
 
-### 9a. Worker Process (worker.ts) and Queue Workers
+**Reference:** `src/infrastructure/core/circuit-breaker/circuit-breaker.ts`,
+`src/infrastructure/email/email-service.factory.ts`, `src/infrastructure/email/smtp/smtp-email.service.ts`
 
-**Purpose**: Run the queue workers in a separate process with no HTTP server. `InfiniteNodeWorker`
-(`src/app/worker.ts`, started by `src/worker.ts`) is the worker-process counterpart of `InfiniteNodeApplication`.
+### 11. Report health through the driver
 
-**Startup**:
+**Expands:** `CLAUDE.md` §11.4 (the `/health` use case)
+**Rule:** Give every driver of a remote dependency a `health()` bounded by the driver's own timeouts; the health check
+calls it through `service.getDriver()`, bypassing the breaker. Breaker state is reported next to it and never changes
+a service's status.
+**Why:** Health must show whether the dependency answers now. A breaker can be open while the dependency has already
+recovered.
 
-1. `InfrastructureManager.initForWorker()` — builds the infrastructure services, without the socket service.
-2. `autoRegisterWorkerComponents()` — registers the same services and repositories as §9 (no controllers), plus
-   `src/application/workers/**/*.worker.{ts,js}` (`EmailWorker` → `'emailWorker'`).
-3. Resolves every registration whose name ends in `Worker` and that implements `IWorker`.
-4. Calls `init()` on each worker, which starts its queue processors.
+How `/health` is computed:
 
-**Shutdown** (`ShutdownManager` hooks, in this order):
+- per service → the driver's `health()` gives `connected` / `disconnected`, `latency` and `message`. Without
+  `health()`, a truthy `getDriver()` counts as `connected` and a falsy one as `disconnected` ("Driver not
+  initialized"); a throw counts as `disconnected`
+- overall → `unhealthy` when the database is disconnected, `degraded` when any other service is, otherwise `healthy`
+- the response → `/health` and `/health/ready` answer 200 only when `healthy`, otherwise 503; `/health/live` always
+  answers 200 and checks nothing
 
-| Priority | Hook                      | Does                                                                   |
-| -------- | ------------------------- | ---------------------------------------------------------------------- |
-| HIGH     | `workers` (10 s)          | `shutdown()` on every worker, which waits for its in-flight jobs       |
-| MEDIUM   | `infrastructure-services` | `InfrastructureManager.shutdown()` — closes Redis, the database, etc.  |
-| LOW      | `telemetry`               | `otelSdk.shutdown()` — flushes spans, metrics and log records          |
+**Use cases:**
 
-Workers stop first, so the jobs they are running finish while Redis and the database are still connected.
+- service keys → shown with friendly names (`database_mapper` → `database`, `emailService` → `email`,
+  `pushNotification` → `push_notification`); an unmapped token appears as is (`httpClient`). Add a mapping for a new
+  token that doesn't read well
+- `circuitBreakerStatuses()` → shown as the service's `circuit_breakers`
+- the public response → keeps each service's `status`, `latency` and breakers' state and counts. It drops `message`
+  and breaker names, which the controller logs, so `health()` messages may name hosts but must never hold secrets
+- a service with no driver → reported `disconnected` (see Known gaps)
 
-**A worker** implements `IWorker` (`src/application/interfaces/worker/worker.interface.ts`) in
-`src/application/workers/{feature}/{name}.worker.ts` and ends with `export default ClassName;`. `EmailWorker` is the
-reference:
+**Reference:** `src/infrastructure/health/infrastructure-health-check.service.ts`,
+`src/presentation/http/controllers/health/health.controller.ts`
+
+## Service contracts
+
+### 12. Close every queue processor you start
+
+**Expands:** `CLAUDE.md` §11.5
+**Rule:** A queue worker (`src/application/workers/{feature}/{name}.worker.ts`) implements `IWorker` (`workerName()`,
+`init()`, `shutdown()`) and ends with `export default ClassName;`. For every `queue.processJobs(queueName, processor)`
+it starts, it calls `queue.closeWorkers(queueName)`: in `shutdown()`, or as soon as a processor that runs for a limited
+time is done.
+**Why:** Each processor is a BullMQ worker with its own Redis connection. Until it is closed it keeps polling and
+taking jobs, and the queue service keeps a reference to it, so its connection and memory are never freed.
 
 ```typescript
-// src/application/workers/email/email.worker.ts
 export class EmailWorker implements IWorker {
   constructor(
     private readonly queue: IQueue,
@@ -890,14 +595,12 @@ export class EmailWorker implements IWorker {
     return 'email';
   }
 
-  // Starts a BullMQ worker on the email queue
   async init(): Promise<void> {
     await this.queue.processJobs<IEmailJobData>(this.emailService.emailQueueName(), (job) =>
       this.emailService.deliverQueuedEmail(job),
     );
   }
 
-  // Closes it, waiting for the emails being sent
   async shutdown(): Promise<void> {
     await this.queue.closeWorkers(this.emailService.emailQueueName());
   }
@@ -906,820 +609,143 @@ export class EmailWorker implements IWorker {
 export default EmailWorker;
 ```
 
-Rules:
+**Use cases:**
 
-1. **Close every processor you start.** Each `queue.processJobs(queueName, processor)` starts a BullMQ worker with its
-   own Redis connection, which the queue service keeps until it is closed. Call `queue.closeWorkers(queueName)` once
-   the queue no longer needs processing: in `shutdown()` for every queue `init()` processes, and right after the work
-   is done wherever a processor runs for a limited time. An open worker keeps polling Redis and taking jobs, and the
-   queue service keeps a reference to it, so its connection and memory are never freed.
-2. **`closeWorkers()` waits for the jobs in flight**, then forgets the workers, so the queue service's own
-   `shutdown()` does not close them again. It has no timeout of its own: keep jobs shorter than the 10 s `workers`
-   hook. Never close a BullMQ `Worker` directly; a worker sees only `IQueue`.
-3. **It closes every worker on the queue.** Two `processJobs()` calls on one queue start two workers, and both close.
-   Never call it for a queue another component still processes.
-4. **Failures**: a worker that fails to close throws `QueueError` (`QUEUE_ERROR`) once every other worker on the queue
-   is closed, and `InfiniteNodeWorker` logs it and still shuts down the other workers. A worker that fails to start is
-   force-closed by `processJobs()` before it throws `QueueError`, so there is nothing to pass to `closeWorkers()`.
+- how workers start → `InfiniteNodeWorker` resolves every registration whose name ends in `Worker` and that has the
+  `IWorker` methods, then awaits each `init()` in turn
+- `closeWorkers()` waits for the jobs in flight and has no timeout of its own → keep jobs shorter than the 10 s
+  `workers` hook
+- it closes every worker on that queue → never call it for a queue another component still processes
+- a worker sees only `IQueue` → never close a BullMQ `Worker` directly
+- a worker that fails to close → `QueueError` once the other workers on the queue are closed; `InfiniteNodeWorker`
+  logs it and still shuts down the other workers
+- a processor that fails to start → `processJobs()` force-closes it and throws `QueueError`; there is nothing to pass
+  to `closeWorkers()`
 
----
+**Reference:** `src/application/workers/email/email.worker.ts`,
+`src/infrastructure/queue/bullmq/bullmq-queue.service.ts`
 
-### 10. Persistence Layer — Schema, Mapper, Repository
+### 13. Call external HTTP APIs through `httpClient`
 
-#### 10a. Mongoose Schema Model
-
-**Location**: `src/infrastructure/persistance/database/repositories/mongoose/{feature}/{model-name}.model.ts`
-
-```typescript
-// customer.model.ts
-import { Schema, model } from 'mongoose';
-import type { Types } from 'mongoose';
-
-// ⚠️ ONLY export INew{Model}Schema — do NOT add IModel or IModelSchema here
-export interface INewCustomerSchema {
-  _id?: Types.ObjectId;
-  __v?: number; // Mongoose's version key: read by the mapper, written only by BaseRepository.update()
-  no: string;
-  name: string;
-  balance_lcy: number;
-  // ... other fields
-}
-
-export const CustomerSchema = new Schema<INewCustomerSchema>(
-  {
-    no: { type: String, required: true },
-    name: { type: String, required: true },
-    balance_lcy: { type: Number, default: 0 },
-    // ... other fields
-  },
-  { timestamps: true },
-);
-
-// CustomerService checks that `no` is unique; the index enforces it under concurrency.
-CustomerSchema.index({ no: 1 }, { unique: true });
-
-export const CustomerModel = model('customer', CustomerSchema);
-```
-
-> **RULE**: Only one schema interface (`INew{Model}Schema`). Never add `IModel extends INew{Model}Schema` here. The mapper handles `_id` via an intersection type.
-
-> **RULE**: Every uniqueness rule a domain service checks has a matching unique index, declared with
-> `schema.index()` (partial — `partialFilterExpression` — when the rule is conditional, e.g. one default
-> role). The service check gives the specific message; only the index stops two concurrent requests
-> from both writing (`DUPLICATE_KEY`). Indexes are built by `npm run db:indexes`, which audits for
-> existing duplicates first (comparing `lowercase` / `trim` paths such as emails normalized) and never
-> drops an index; production runs `db:indexes:prod` before each rollout with `MONGODB_AUTO_INDEX=false`.
-
-#### 10b. Mapper
-
-**Location**: `src/infrastructure/persistance/database/repositories/mongoose/{feature}/{model-name}.mapper.ts`
+**Expands:** `CLAUDE.md` §11.6
+**Rule:** Inject `httpClient` (`IHTTPClient`) and check each response's status: a non-2xx response does not throw.
+Each request method takes an `Omit<RequestConfig, 'method'>`.
+**Why:** One client gives every outbound call the same timeout, error translation and per-host circuit breaker, and
+keeps request headers out of the logs.
 
 ```typescript
-// customer.mapper.ts
-import { Types } from 'mongoose';
-
-import type { NewCustomer } from '@/domain/erp/customer-service/models/customer';
-import { Customer } from '@/domain/erp/customer-service/models/customer';
-import { BaseMapper } from '../base/base.mapper';
-import type { INewCustomerSchema } from './customer.model';
-
-export class CustomerMapper extends BaseMapper<INewCustomerSchema, Customer, NewCustomer> {
-  // ✅ Use intersection type — never create a separate ICustomerSchema interface
-  toDomain(data: INewCustomerSchema & { _id: Types.ObjectId }): Customer {
-    return new Customer({
-      id: data._id.toString(),
-      version: this.toVersion(data.__v, data._id), // BaseMapper; PersistanceError without __v
-      no: data.no,
-      name: data.name,
-      balance_lcy: data.balance_lcy,
-      // ... map all fields
-    });
-  }
-
-  toPersistence(data: NewCustomer): INewCustomerSchema {
-    // Only include _id if it exists on the domain model. Never write __v: only BaseRepository.update() does.
-    return !data.id
-      ? { no: data.no, name: data.name, balance_lcy: data.balance_lcy }
-      : { _id: new Types.ObjectId(data.id), no: data.no, name: data.name, balance_lcy: data.balance_lcy };
-  }
-}
-```
-
-**`IBaseMapper` interface**:
-
-```typescript
-// base/base.mapper.interface.ts
-import type { Types } from 'mongoose';
-
-export interface IBaseMapper<DBSchema, DomainModel, NewDomainModel> {
-  toDomain(data: DBSchema & { _id: Types.ObjectId }): DomainModel;
-  toPersistence(data: NewDomainModel): DBSchema;
-}
-```
-
-#### 10c. Repository
-
-**Location**: `src/infrastructure/persistance/database/repositories/mongoose/{feature}/{model-name}.repository.ts`
-
-```typescript
-// customer.repository.ts
-import type { Customer, NewCustomer } from '@/domain/erp/customer-service/models/customer';
-import { BaseRepository } from '../../base/base-repository';
-import { CustomerMapper } from './customer.mapper';
-import { CustomerModel } from './customer.model';
-import type { INewCustomerSchema } from './customer.model';
-
-export class CustomerRepository extends BaseRepository<INewCustomerSchema, Customer, NewCustomer> {
-  constructor() {
-    super(CustomerModel, new CustomerMapper());
-  }
-}
-
-export default CustomerRepository;
-```
-
-**Base Repository inherited methods** (all accept optional `transactionOptions?: TransactionOptions`):
-
-| Method     | Signature                                                                           |
-| ---------- | ----------------------------------------------------------------------------------- |
-| `create`   | `(item: NewDomainModel, opts?: TransactionOptions): Promise<DomainModel>`           |
-| `findById` | `(id: string, opts?: TransactionOptions): Promise<DomainModel \| null>`             |
-| `findOne`  | `(filter: Partial<DBModel>, sort?, opts?): Promise<DomainModel \| null>`            |
-| `find`     | `(filter: Partial<DBModel>, limit?, offset?, sort?, opts?): Promise<DomainModel[]>` |
-| `count`    | `(filter: Partial<DBModel>, opts?): Promise<number>`                                |
-| `update`   | `(id: string, item: DomainModel, opts?): Promise<DomainModel \| null>`              |
-| `delete`   | `(id: string, opts?): Promise<DomainModel \| null>`                                 |
-
-**`update()` is a conditional write.** It takes the entity as read (`DomainModel extends
-IVersionedEntity`, so it carries `version`) and runs
-`findOneAndUpdate({ _id: id, __v: item.version }, { $set: toPersistence(item), $inc: { __v: 1 } })`:
-it returns the entity at its new version, `null` when no document has the id, and throws
-`RepositoryError` `VERSION_CONFLICT` when the document has moved past `item.version` (an update made from
-a stale read). Inside a transaction, a concurrent commit to the same document raises a `WriteConflict`
-labelled `TransientTransactionError` instead, and `withTransaction` re-runs the callback.
-
-**Error handling**: every inherited method runs inside `protected wrapDatabaseErrors(operation, fn)`,
-and a custom query method in a concrete repository must too
-(`return this.wrapDatabaseErrors('findByEmail', async () => { ... })`, mapper calls included). It
-classifies what `fn` throws, in this order:
-
-1. A `MongoError` labelled `TransientTransactionError` / `UnknownTransactionCommitResult` → rethrown
-   unchanged, so `withTransaction` can retry
-2. A malformed ObjectId — a Mongoose `CastError` (`kind: 'ObjectId'`), or the `BSONError` a mapper's
-   `new Types.ObjectId()` throws → `RepositoryError` `INVALID_ID`
-3. Anything that is not a Mongoose / MongoDB / BSON error (a mapper's `DomainEntityError`, a
-   `TypeError`) → rethrown unchanged
-4. E11000 duplicate key → `RepositoryError` `DUPLICATE_KEY`
-5. A network / server-selection / closed-client error, or any driver error while the connection is
-   not open (Mongoose's buffering timeout) → `InfrastructureError` `CONNECTION_ERROR`
-6. Anything else → `PersistanceError` (`DATABASE_ERROR`)
-
-`update()`'s own `RepositoryError` `VERSION_CONFLICT` passes through the wrapper unchanged (rule 3).
-
-`RepositoryError` (`@/application/interfaces/errors/repository.error`) is rejected caller data, not an
-infrastructure failure, so it does not extend `InfrastructureError`; `wrapInfrastructureErrors()`
-maps it to a `DomainServiceError` (§11b). Every translated error keeps the original in `data.cause`.
-
-#### 10d. The Email Log
-
-The email log records each email the application sends or tries to send. Its entity, schema, mapper,
-repository and repository contract follow §10a–§10c and §11a like any other resource:
-
-- the entity is in `src/domain/app/email/models/email.ts`;
-- the persistence files are in `repositories/mongoose/email/`;
-- `IEmailRepository` is in `application/interfaces/repositories/email/`.
-
-What is specific to it is who writes it: **only the email infrastructure**. Domain and application code
-send email through `IEmailService` (DI token `emailService`) and learn only that it was handed off. The
-email service keeps the log through `EmailLoggerService`
-(`src/infrastructure/email/email-log/email-logger.service.ts`). That service is not registered in DI,
-and it builds its own `EmailRepository`:
-
-```typescript
-// infrastructure/email/email-log/email-logger.service.ts
-export class EmailLoggerService {
-  constructor(private readonly emailRepository: IEmailRepository = new EmailRepository()) {}
-
-  newId(): string; // an id to log a not-yet-logged email under later
-  async getById(id: string): Promise<Email | null>; // null when there is none, like findById
-  async getAll(): Promise<Email[]>; // newest first
-  async get(offset: number, limit: number): Promise<Email[]>; // one page, newest first; RangeError when out of range
-  async create(email: NewEmail): Promise<Email>;
-  async update(email: Email): Promise<Email | null>;
-}
-```
-
-Emails are sent from a queue. Application code calls
-`enqueueEmail(new NewEmail({ ..., status: 'pending' }))`. The `EmailWorker`
-(`src/application/workers/email/email.worker.ts`, worker process only) hands each job to the email
-service's `deliverQueuedEmail(job)`, which writes the log, and closes the email queue's workers on
-shutdown (§9a):
-
-```typescript
-// API process — enqueueEmail(): queue the whole email under a fixed id; no database call
-const data: IEmailJobData = { id: email.id ?? this.emailLogger.newId(), user_id, to, cc, bcc, subject, body, ttl };
-await this.queue.addJob(queueName, data, { attempts, backoff: { type, delay }, removeOnComplete: true, removeOnFail: true });
-
-// Worker process — deliverQueuedEmail(job): log first, then send
-const email =
-  (await this.emailLogger.getById(job.data.id)) ??
-  (await this.emailLogger.create(new NewEmail({ ...job.data, status: 'pending' }))); // a throw here sends nothing
-await this.transport(email); // a throw here is retried; on the last attempt the email is marked failed first
-email.markSent();
-await this.emailLogger.update(email); // a failure here is logged, never rethrown
-```
-
-The queue settings come from `EMAIL_QUEUE_NAME` (default `${APP_NAME}-email-queue`),
-`EMAIL_QUEUE_ATTEMPTS` (total tries, default `5`), `EMAIL_QUEUE_RETRY_DELAY` (default `10000` ms) and
-`EMAIL_QUEUE_BACKOFF` (`exponential` or `fixed`).
-
-Rules:
-
-1. **Status moves only from `pending`**: `Email.markSent(sentOn?)` → `sent`, `Email.markFailed(message)`
-   → `failed`. Any other move throws `DomainEntityError`. Mongoose drops `undefined` keys from `$set`,
-   so `update()` cannot clear a stored field; allowing one move per email means a stale `sent_on` or
-   `error_message` can never be left behind. A `sent` email needs `sent_on`, a `failed` one needs
-   `error_message`.
-2. **The body is kept only while `pending`.** Both moves empty it, and the entity rejects a sent or
-   failed email that still has one. The body can carry one-time codes that signup stores only as
-   SHA-256 hashes. The schema does not mark `body` `required`, because Mongoose rejects `''` for a
-   required string. The queued job holds a copy until it finishes; finished jobs are deleted.
-3. **`user_id` is the user who triggered the send**, stored as an ObjectId with `ref: 'user'`.
-   `INewEmailSchema.user_id` is optional in TypeScript only, because the inherited `toFilter()` passes
-   partial filters through `toPersistence()`; the schema still requires it, and `EmailMapper.toDomain()`
-   throws `PersistanceError` for a record without one. **`ttl`** is an informational number of seconds
-   and does not expire the record.
-4. **Records expire after `EMAIL_LOG_TTL_DAYS`** (default `30`) through a TTL index on `createdAt`.
-   When the variable changes, MongoDB keeps the existing index's `expireAfterSeconds`; apply the new
-   value with `collMod`, or drop the index so it is rebuilt.
-5. **Errors pass through unchanged.** `EmailLoggerService` does not translate repository errors
-   (`RepositoryError`, `InfrastructureError`, `PersistanceError`); the email service that calls it
-   decides what a logging failure means for the send.
-6. **Never name a domain service `EmailService`**: auto-registration would give it the token
-   `emailService`, which belongs to the infrastructure email service.
-7. **The queue comes first, the log second.** `enqueueEmail()` makes no database call. The worker logs
-   the email as `pending` before sending it, so a database outage sends nothing and BullMQ retries the
-   job. The id is fixed when the email is queued, so a retry finds the same record; a `DUPLICATE_KEY`
-   from a concurrent run means it is already logged.
-8. **A failed send is rethrown, so BullMQ retries it.** On the last attempt
-   (`attemptsMade + 1 >= EMAIL_QUEUE_ATTEMPTS`) the email is first marked `failed`. An email that is no
-   longer `pending` is not sent again.
-9. **A log update after a successful send is logged, never rethrown**: a retried job would find the
-   email still `pending` and send it a second time. If the job cannot be queued at all,
-   `enqueueEmail()` tries to log the email as `failed`, then rethrows the `QueueError`.
-
-#### 10e. The Notification Log
-
-The notification log records each notification the application sends or tries to send, one record per
-channel. Like the email log (§10d), it follows §10a–§10c and §11a:
-
-- the record shape (`INotification`, `INotificationChannel`, `INotificationStatus`) is in
-  `application/interfaces/infrastructure/notification/notification.interface.ts`;
-- the entity (`NewNotification`, `Notification`) is in `src/domain/app/notification/models/notification.ts`.
-  `Notification` implements `INotification`;
-- the persistence files are in `repositories/mongoose/notification/` (collection `notification_logs`);
-- `INotificationRepository` is in `application/interfaces/repositories/notification/`.
-
-Only the notification infrastructure writes it, through `NotificationLoggerService`
-(`src/infrastructure/notification/notification-log/notification-logger.service.ts`). That service is not
-registered in DI, and it builds its own `NotificationRepository`. Nothing calls it yet: the notification
-manager will, once it is built.
-
-```typescript
-// infrastructure/notification/notification-log/notification-logger.service.ts
-export class NotificationLoggerService {
-  constructor(private readonly notificationRepository: INotificationRepository = new NotificationRepository()) {}
-
-  newId(): string; // an id to log a not-yet-logged notification under later
-  async getById(id: string): Promise<Notification | null>; // null when there is none, like findById
-  async getAll(): Promise<Notification[]>; // newest first
-  async get(offset: number, limit: number): Promise<Notification[]>; // one page, newest first; RangeError when out of range
-  async create(notification: NewNotification): Promise<Notification>;
-  async update(notification: Notification): Promise<Notification | null>;
-}
-```
-
-Rules:
-
-1. **One record per channel.** The same notification sent by email and SMS is two records.
-2. **Two input types.** `INewNotification` is what callers will pass to the notification manager;
-   it has no `id`, `status` or `service_provider`, which the manager sets. `INewNotificationRecord`
-   (`INotification` with an optional `id`) is what builds a `NewNotification`.
-3. **`triggered_on` must be a `Date`.** The entity throws `DomainEntityError` for a string, which is what a
-   queued notification's job data holds after BullMQ's JSON round trip; convert it first.
-4. **Status moves only from `pending`**: `Notification.markSent()` → `sent`, `Notification.markFailed()` →
-   `failed`. Any other move throws `DomainEntityError`, so a job that runs again can neither send a finished
-   notification a second time nor relabel a sent one as failed.
-5. **`channel` and `status` are checked twice**, against `NOTIFICATION_CHANNELS` / `NOTIFICATION_STATUSES`
-   (exported by the entity): in the entity's constructor and in the schema's `enum`.
-6. **`data` is a Mixed field, stored as given.** The schema sets `minimize: false`, so an empty payload is
-   kept as `{}`; `update()` replaces it whole. There is no TTL index: records do not expire.
-7. **Errors pass through unchanged**, as in `EmailLoggerService`: the caller decides what a logging failure
-   means for the send.
-
----
-
-### 11. Domain Layer — Model and Service
-
-#### 11a. Domain Model
-
-**Location**: `src/domain/{feature}/models/{model-name}.ts`
-
-```typescript
-// domain/erp/customer-service/models/customer.ts
-
-export interface INewCustomer {
-  // For user input / creation (id and version optional)
-  id?: string;
-  version?: number; // in an update payload: the version the client read
-  no: string;
-  name: string;
-  balance_lcy?: number;
-  // ...
-}
-
-export interface ICustomer extends INewCustomer {
-  // For existing DB entities (id and version required)
-  id: string;
-  version: number;
-}
-
-export class NewCustomer extends DomainEntity {
-  // For creating new entities
-  protected _id?: string;
-  protected _version?: number;
-  protected _no: string;
-  // ...
-  constructor(data: INewCustomer) {
-    super(); /* ... */
-    if (data.version !== undefined) this._version = NewCustomer.checkVersion(data.version);
-  }
-  get id(): string | undefined {
-    return this._id;
-  }
-  get version(): number | undefined {
-    return this._version; // read-only: no setter
-  }
-  get no(): string {
-    return this._no;
-  }
-}
-
-export class Customer extends NewCustomer {
-  // For existing entities from DB
-  protected _id: string;
-  protected _version: number;
-  constructor(data: ICustomer) {
-    super(data);
-    this._id = data.id;
-    this._version = Customer.checkVersion(data.version); // redeclared fields are reset after super()
-  }
-  get id(): string {
-    return this._id;
-  }
-  get version(): number {
-    return this._version;
-  }
-}
-
-export default Customer;
-```
-
-Every root entity carries a read-only `version` (how many times it has been updated; Mongoose's
-`__v`). Only `BaseRepository.update()` advances it, so it has no setter. API responses include it, and
-`PUT` bodies send it back (§11b).
-
-| Context                     | Type to use          |
-| --------------------------- | -------------------- |
-| Request body / creation     | `INewModel`          |
-| Domain service create param | `INewModel`          |
-| Domain service update param | `Partial<INewModel>` |
-| Repository return           | `Model`              |
-| Domain service return       | `Model`              |
-
-#### 11b. Domain Service
-
-**Location**: `src/domain/{feature}/service/{feature}.service.ts`
-
-```typescript
-// domain/erp/customer-service/service/customer.service.ts
-import { BaseDomainService } from '@/domain/base/service/base.domain.service';
-import { DomainServiceError } from '@/domain/base/service/domain-service.error';
-import type { CustomerRepository } from '@/infrastructure/persistance/database/repositories/mongoose/erp/customer/customer.repository';
-import { NewCustomer, type Customer, type INewCustomer } from '../models/customer';
-import type { TransactionOptions } from '@/application/interfaces/infrastructure/database-mapper.interface';
-
-export class CustomerService extends BaseDomainService {
-  private readonly customerRepository: CustomerRepository;
-
-  constructor(customerRepository: CustomerRepository) {
-    super();
-    this.customerRepository = customerRepository;
-  }
-
-  async createCustomer(data: INewCustomer, transactionOptions?: TransactionOptions): Promise<{ id: string }> {
-    const existing = await this.customerRepository.findOne({ no: data.no }, {}, transactionOptions);
-    if (existing) {
-      throw new DomainServiceError(`Customer with no '${data.no}' already exists`, 'ALREADY_EXISTS');
-    }
-    const customer = await this.customerRepository.create(new NewCustomer(data), transactionOptions);
-    return { id: customer.id };
-  }
-
-  async getCustomers(limit: number, offset: number): Promise<Customer[]> {
-    return this.customerRepository.find({}, limit, offset);
-  }
-
-  async getCustomerById(id: string, transactionOptions?: TransactionOptions): Promise<Customer> {
-    const customer = await this.customerRepository.findById(id, transactionOptions);
-    if (!customer) throw new DomainServiceError(`Customer with id '${id}' not found`, 'NOT_FOUND');
-    return customer;
-  }
-
-  async updateCustomer(
-    id: string,
-    data: Partial<INewCustomer>,
-    transactionOptions?: TransactionOptions,
-  ): Promise<Customer> {
-    const { version, ...changes } = data; // version has no setter: Object.assign() would throw on it
-    const customer = await this.getCustomerById(id, transactionOptions);
-    this.assertVersion(customer, version, 'Customer'); // CONFLICT for a stale version, before any write
-    Object.assign(customer, changes);
-    const updated = await this.customerRepository.update(id, customer, transactionOptions);
-    if (!updated) throw new DomainServiceError(`Customer with id '${id}' not found`, 'NOT_FOUND');
-    return updated;
-  }
-
-  async countCustomers(): Promise<number> {
-    return this.customerRepository.count({});
-  }
-}
-
-export default CustomerService;
-```
-
-**`DomainServiceError` types** (caught automatically by `catchExceptionsWrapper` in `BaseController`):
-
-| Type                      | HTTP status |
-| ------------------------- | ----------- |
-| `'AUTHENTICATION_ERROR'`  | 401         |
-| `'USER_PERMISSION_ERROR'` | 403         |
-| `'NOT_FOUND'`             | 404         |
-| `'ALREADY_EXISTS'`        | 400         |
-| `'CONFLICT'`              | 409         |
-| `'VALIDATION_ERROR'`      | 400         |
-| `'INVALID_OPERATION'`     | 400         |
-| `'INCOMPLETE_MODEL'`      | 400         |
-| `'UNKNOWN_ERROR'`         | 500         |
-| `'INFRASTRUCTURE_ERROR'`  | 503 / 500   |
-
-- Use `'ALREADY_EXISTS'` for a duplicate unique value; `'VALIDATION_ERROR'` for other rule violations.
-- `'INFRASTRUCTURE_ERROR'` is produced only by `wrapInfrastructureErrors()`: 503 when the original
-  infrastructure type (`data.type`) is `NETWORK_ERROR` / `CONNECTION_ERROR`, otherwise 500 — always
-  with a generic message, never the infrastructure error's own.
-- `wrapInfrastructureErrors()` maps a repository's `RepositoryError` (§10c) first: `DUPLICATE_KEY` →
-  `'ALREADY_EXISTS'`, `INVALID_ID` → `'VALIDATION_ERROR'`, `VERSION_CONFLICT` → `'CONFLICT'`, each
-  with a fixed client-safe message (the repository's message holds index names and key values) and
-  without calling `onError`.
-- An `update` takes the `version` the client read: destructure it out of the payload, then call
-  `this.assertVersion(entity, version, 'Name')` right after reading the entity and before any side
-  effect. It throws `'CONFLICT'` for a stale version and does nothing for `undefined` (internal callers
-  write with the version they just read).
-
----
-
-### 12. Application Service (for Transactions / Orchestration)
-
-**Use when**: an operation must span multiple domain services within a single DB transaction, or application-level orchestration is needed.
-
-**Location**: `src/application/services/{feature}/{feature}.application.service.ts`
-
-```typescript
-import { BaseApplicationService } from '../base/base.application.service';
-import type { IDatabaseMapper } from '@/application/interfaces';
-import type { CustomerService } from '@/domain/erp/customer-service/service/customer.service';
-import type { INewCustomer } from '@/domain/erp/customer-service/models/customer';
-
-export class CustomerApplicationService extends BaseApplicationService {
-  private customerService: CustomerService;
-
-  // ⚠️ IDatabaseMapper (as databaseMapperService) MUST be the first constructor parameter
-  constructor(databaseMapperService: IDatabaseMapper, customerService: CustomerService) {
-    super(databaseMapperService);
-    this.customerService = customerService;
-  }
-
-  async createWithRelatedData(data: INewCustomer): Promise<{ id: string }> {
-    return this.dbTransaction(async (transactionOptions) => {
-      // Pass transactionOptions to all domain service calls in the transaction
-      const result = await this.customerService.createCustomer(data, transactionOptions);
-      // ... other domain service calls with same transactionOptions
-      return result;
-    });
-  }
-}
-
-export default CustomerApplicationService;
-```
-
-**`BaseApplicationService`**:
-
-```typescript
-export class BaseApplicationService {
-  private databaseMapperService: IDatabaseMapper;
-  constructor(databaseMapperService: IDatabaseMapper) {
-    this.databaseMapperService = databaseMapperService;
-  }
-
-  async dbTransaction<T>(callback: (options: TransactionOptions) => Promise<T>): Promise<T> {
-    return await this.databaseMapperService.transaction(({ session }) => {
-      return callback({ session });
-    });
-  }
-}
-```
-
-**Errors inside a transaction**: anything the callback throws propagates **unchanged** — a
-`DomainServiceError` keeps its type and HTTP status. Only Mongoose / MongoDB driver failures that
-escape the callback (commit failure, no replica set, lost connection) are translated by
-`MongooseService.transaction()`: into `InfrastructureError` `CONNECTION_ERROR` when the database
-cannot be reached, otherwise `PersistanceError`. Don't catch and re-wrap Mongo errors inside the
-callback yourself: the automatic retry of transient write conflicts only happens while the raw
-labelled `MongoError` escapes it — `BaseRepository.wrapDatabaseErrors()` rethrows those unchanged and
-translates everything else (§10c).
-
----
-
-### 13. Presentation Layer — Controller, Routes, Validators
-
-#### 13a. Controller
-
-**Location**: `src/presentation/http/controllers/{feature}/{model-name}.controller.ts`
-
-```typescript
-import { matchedData } from 'express-validator';
-import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
-import type { CustomerService } from '@/domain/erp/customer-service/service/customer.service';
-import type { CustomerRepository } from '@/infrastructure/persistance/database/repositories/mongoose/erp/customer/customer.repository';
-import type { INewCustomer } from '@/domain/erp/customer-service/models/customer';
-import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
-import { BaseController } from '../base.controller';
-import type { Request, Response } from 'express';
-
-export class CustomerController extends BaseController {
-  private readonly customerService: CustomerService;
-  private readonly customerRepository: CustomerRepository;
-
-  // `logger` goes to BaseController: catchExceptionsWrapper() logs every caught exception through it
-  constructor(customerService: CustomerService, customerRepository: CustomerRepository, logger: ILogger) {
-    super(logger);
-    this.customerService = customerService;
-    this.customerRepository = customerRepository;
-  }
-
-  async create(req: Request, res: Response): Promise<Response> {
-    const response = await this.catchExceptionsWrapper(async () => {
-      const data = matchedData<INewCustomer>(req);
-      const result = await this.customerService.createCustomer(data);
-      return ApiResponseUtils.apiOkResponse(201, false, null, 'Customer created successfully', result);
-    });
-    return ApiResponseUtils.createResponse(response, res);
-  }
-
-  async getAll(req: Request, res: Response): Promise<Response> {
-    const response = await this.catchExceptionsWrapper(async () => {
-      const totalCount = await this.customerRepository.count({});
-      const paginator = this.getPaginator(req, totalCount);
-      const result = await this.customerService.getCustomers(paginator.getResultsPerPage(), paginator.getOffset());
-      return ApiResponseUtils.apiOkResponse(200, true, paginator, 'Customers retrieved successfully', result);
-    });
-    return ApiResponseUtils.createResponse(response, res);
-  }
-
-  // ... getById, update, delete follow the same pattern
-}
-
-export default CustomerController;
-```
-
-**Key rules**:
-
-- **Always** wrap logic in `this.catchExceptionsWrapper()` — it logs and maps every thrown error: `PaginationException` / `RouteParamException` / `DomainEntityError` → 400, `DomainServiceError` → per type, `InfrastructureError` and anything unexpected → generic 503/500 (never the error's message)
-- **Always** use `matchedData()` to extract validated request data
-- **Always** inject the repository directly to call `count()` for pagination total
-- **Always** use `this.getPaginator(req, totalCount)` — it validates `?page=` and `?limit=` params
-- **Must** `export default ClassName` for Awilix auto-registration
-
-#### 13b. Validator
-
-**Location**: `src/presentation/http/validators/{feature}/{model-name}.validator.ts`
-
-```typescript
-import type { Schema } from 'express-validator';
-
-export const newCustomerValidator = (): Schema => ({
-  no: { notEmpty: true, isString: true, errorMessage: 'Customer number is required' },
-  name: { notEmpty: true, isString: true, errorMessage: 'Customer name is required' },
-  balance_lcy: { optional: true, isNumeric: true },
-});
-
-export const updateCustomerValidator = (): Schema => ({
-  name: { optional: true, isString: true },
-  balance_lcy: { optional: true, isNumeric: true },
-});
-```
-
-#### 13c. Routes
-
-**Location**: `src/presentation/http/routes/{feature}.routes.ts`
-
-```typescript
-import { Router, type Response } from 'express';
-import { container } from '@/app/core/service.container';
-import type { LoginService } from '@/domain/auth/service/login.service';
-import type { AuthenticatedRequest } from '@/app/core/utils/request/authenticated-request';
-import { UserValidatorMiddleware } from '../middleware/UserValidatorMiddleware';
-import { RequestValidatorMiddleware } from '../middleware/RequestValidatorMiddleware';
-import { newCustomerValidator, updateCustomerValidator } from '../validators/customer/customer.validator';
-import type { CustomerController } from '../controllers/customer/customer.controller';
-
-const router = Router();
-const loginServiceProvider = () => container.resolve<LoginService>('loginService');
-
-router.post(
-  '/create',
-  UserValidatorMiddleware(loginServiceProvider),
-  RequestValidatorMiddleware(newCustomerValidator()),
-  (req: AuthenticatedRequest, res: Response) => {
-    container.resolve<CustomerController>('customerController').create(req, res);
-  },
-);
-
-router.get('/', UserValidatorMiddleware(loginServiceProvider), (req: AuthenticatedRequest, res: Response) => {
-  container.resolve<CustomerController>('customerController').getAll(req, res);
-});
-
-router.get('/:id', UserValidatorMiddleware(loginServiceProvider), (req: AuthenticatedRequest, res: Response) => {
-  container.resolve<CustomerController>('customerController').getById(req, res);
-});
-
-router.put(
-  '/:id',
-  UserValidatorMiddleware(loginServiceProvider),
-  RequestValidatorMiddleware(updateCustomerValidator()),
-  (req: AuthenticatedRequest, res: Response) => {
-    container.resolve<CustomerController>('customerController').update(req, res);
-  },
-);
-
-router.delete('/:id', UserValidatorMiddleware(loginServiceProvider), (req: AuthenticatedRequest, res: Response) => {
-  container.resolve<CustomerController>('customerController').delete(req, res);
-});
-
-export { router as CustomerRoutes };
-```
-
-**Middleware rules**:
-
-- `UserValidatorMiddleware` — authenticates the JWT token and attaches `req.user`; **every protected route must use it**
-- `RequestValidatorMiddleware` — runs express-validator schema against the request body; use for create/update routes
-
----
-
-## Key Benefits of This Pattern
-
-### 1. **Complete Separation of Concerns**
-
-- **Drivers** (`ICoreDriver`): Raw client connections (Mongoose, Redis, etc.)
-- **Services** (`IBaseInfrastructureService`): Application-facing API implementations
-- **Factories** (`IServiceFactory<T>`): Determine implementations from env vars at boot
-- **Application layer**: Uses only interfaces, never imports concrete infrastructure classes
-
-### 2. **Easy Technology Swapping**
-
-Change from local storage to AWS S3:
-
-- Update `.env`: `STORAGE_DRIVER=aws`
-- Implement `AWSStorageService implements IStorage`
-- Add `case 'aws':` in `StorageServiceFactory.create()`
-- **Zero changes** to application/domain/presentation code
-
-### 3. **Testability**
-
-```typescript
-// Easy to mock in tests — depend only on the interface
-const mockStorage: IStorage = {
-  serviceName: () => 'storage',
-  singleton: () => true,
-  deferred: () => false,
-  getDriver: () => null,
-  createFile: jest.fn(),
-  readFile: jest.fn(),
-  deleteFile: jest.fn(),
-  // ...
+export type RequestConfig = {
+  url: string;
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  headers?: Record<string, string>;
+  params?: Record<string, string>;
+  data?: Record<string, unknown> | Record<string, unknown>[] | undefined;
+  timeout?: number;
 };
 ```
 
-### 4. **Boot-time Initialization**
+**Use cases:**
 
-- `InfrastructureManager.init()` runs before any request is handled
-- All infrastructure services are registered in the Awilix container before routes are mounted
-- `autoRegisterApplicationComponents()` runs after infrastructure is ready, ensuring repositories/services can resolve their dependencies
+- a request that was sent but failed (DNS, refused, timeout, redirects, unreadable response) → `InfrastructureError`
+  `NETWORK_ERROR` with `data: { method, url, code, error }`, never the request headers
+- a request that can't be set up (invalid URL, unserializable body) → the original error, unchanged
+- a failing host → its breaker opens (card 10) and requests to it throw `CircuitOpenError` unsent; other hosts are
+  unaffected
+- a batch body → `data` accepts an array of objects. Keep the explicit `| undefined`: the project compiles with
+  `exactOptionalPropertyTypes`. `GET` / `DELETE` ignore `data`
+- the request shape → `RequestConfig` is its only definition; `HTTPClientService.createRequest()` takes it too, so
+  never redeclare it inline
+- settings → `HTTP_CLIENT_TIMEOUT` (5000 ms), `HTTP_CLIENT_CIRCUIT_FAILURE_THRESHOLD` (5),
+  `HTTP_CLIENT_CIRCUIT_RESET_TIMEOUT` (30000 ms)
 
-### 5. **Infrastructure Independence**
+**Reference:** `src/application/interfaces/infrastructure/http-client.interface.ts`,
+`src/infrastructure/http/http-client.service.ts`
 
-- Domain layer never imports from `infrastructure/`
-- Application services inject dependencies by interface type, resolved from the DI container
-- Swap any infrastructure technology without touching business logic
+## Changing and testing
 
----
+### 14. Add a driver without touching the inner layers
 
-## Summary
+**Rule:** A new provider for an existing service is a new driver folder plus one `case` in its factory. The
+interface, the DI token and every caller stay as they are.
+**Why:** Callers depend on the interface only (card 1), so they can't tell which driver runs.
 
-The infrastructure initialization lifecycle:
+For example, S3 storage (illustrative; nothing below exists yet):
 
-```
-index.ts
-  → new InfiniteNodeApplication(routes, shutdownManager)
-      → new InfrastructureManager()
-      → infrastructureManager.init(container)
-            → for each FactoryClass in infrastructureLoader:
-                  factory = new FactoryClass()
-                  created = await factory.create()          ← reads env vars, inits driver if needed
-                  container.register({ [factory.name()]: asValue(created) or singleton closure })
-            → resolve every factory.name()                  ← closures get their dependencies by name
-            → track services in build order                 ← health check + shutdown (reverse order)
-      → autoRegisterApplicationComponents()                  ← scans *.service.ts, *.repository.ts, *.controller.ts
-      → express app.use(routes)
-```
+1. `src/infrastructure/storage/s3/driver/`: `s3.config.ts` (card 2), `s3.driver.ts` implementing
+   `ICoreDriver<S3Client, IS3Config>` with a `health()`, and `s3.driver.loader.ts` (card 3).
+2. `src/infrastructure/storage/s3/s3-storage.service.ts` implementing `IStorage` with the same semantics: `null` /
+   `[]` for missing paths, `STORAGE_ERROR` for failures (card 9), behind a breaker (card 10).
+3. In `StorageServiceFactory.create()`, replace the `'aws'` case's "not yet implemented" throw with the new service.
+4. Document `STORAGE_DRIVER=aws` and the new variables in `.env.example`; add specs (card 15).
 
-**Adding a new infrastructure service** (complete checklist):
+**Use cases:**
 
-```
-☐ Create config interface extending IDriverConfig (inside service folder)
-☐ Create driver implementing ICoreDriver<ClientType, ConfigType> (if needed)
-☐ Create driver loader function (if driver needed)
-☐ Create application interface extending IBaseInfrastructureService (in application/interfaces/infrastructure/)
-☐ Create service implementation (implements both interface AND IBaseInfrastructureService)
-☐ Create factory class implementing IServiceFactory<YourInterface> — name() returns the serviceName() literal;
-  create() returns a synchronous closure if the service needs other infrastructure services
-☐ Export factory from infrastructure/index.ts
-☐ Add factory class to infrastructureLoader array in infrastructure.loader.ts (any position)
-```
+- the new provider can't honour the contract → change the interface first, for every driver, and list it as a
+  breaking change (§13.3)
+- a feature only one provider has → don't widen the shared interface for it without agreeing it first
 
-**Adding a new API endpoint** (complete checklist):
+### 15. Test against the interface
 
-```
-☐ Step 1: Domain model (INewModel, IModel, NewModel, Model) in domain/{feature}/models/
-      ☐ Optional: Type guard in domain/{feature}/models/guards/{name}.guards.ts — only if narrowing is needed
-☐ Step 2: Mongoose schema + model (INewModelSchema only!) in infrastructure/persistance/.../mongoose/{feature}/
-☐ Step 3: Mapper (toDomain, toPersistence) — use intersection type for _id
-☐ Step 4: Repository extends BaseRepository — export default
-☐ Step 5: Domain service extends BaseDomainService — inject repository, use TransactionOptions — export default
-☐ Step 6: Application service extends BaseApplicationService (only if transactions needed) — export default
-☐ Step 7: Validator (express-validator Schema functions)
-☐ Step 8: Controller extends BaseController — inject service + repository — export default
-☐ Step 9: Routes — wire middleware + controller resolution from DI container, then register in routes/index.ts
-☐ Step 10: Seeder (only if the resource has default/bootstrap data) — {feature}.seeder.ts in
-      infrastructure/persistance/database/seeders/, exporting seed{Feature}()/clear{Feature}(),
-      registered BY HAND in seeders/seeder.ts (dependency-ordered)
+**Rule:** Unit-test inner layers against a plain object that implements the interface with `jest.fn()`. Test each
+infrastructure class in its own spec next to it.
+**Why:** The interface is the whole contract, so a test that satisfies it needs no Redis, MongoDB or SMTP server.
+
+```typescript
+emailService = {
+  serviceName: jest.fn(() => 'emailService' as const),
+  singleton: jest.fn(() => true as const),
+  deferred: jest.fn(() => false as const),
+  getDriver: jest.fn(),
+  sendEmail: jest.fn(),
+  emailQueueName: jest.fn(),
+  enqueueEmail: jest.fn(),
+  deliverQueuedEmail: jest.fn(),
+};
 ```
 
-<!-- keep in sync with: Docs/prompts/API_Resource_Guide.md, Docs/prompts/Domain_Model_Repository_Mapper_Guide.md -->
+**Use cases:**
 
-**Full resource file set** (reference — the complete set of files that make up one resource; some
-are conditional as noted):
+- a factory → one test per driver value, plus the `DRIVER_ERROR` default
+  (`push-notification-service.factory.spec.ts`, `email-service.factory.spec.ts`)
+- a service → mock the client and assert the translation, including that errors which are not the driver's pass
+  through unchanged (`redis-cache.service.spec.ts`, `http-client.service.spec.ts`)
+- the manager and the breaker → `infrastructure.manager.spec.ts`, `circuit-breaker.spec.ts`
+- a test against a real database → its own database name in `connectToTestDB()` (§6.7)
 
-| #   | Layer / File                           | Path pattern                                                                                      | Purpose                                                                                                                                           |
-| --- | -------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Route                                  | `src/presentation/http/routes/{feature}.routes.ts`                                                | Wires middleware and binds URLs to controller methods resolved from the DI container                                                              |
-| 2   | Controller                             | `src/presentation/http/controllers/{feature}/{name}.controller.ts`                                | Parses HTTP requests, calls the service, shapes HTTP responses                                                                                    |
-| 3   | Application Service _(optional)_       | `src/application/services/{feature}/{name}.application.service.ts`                                | Orchestrates a transaction spanning multiple domain services — only when one operation must span more than one domain service                     |
-| 4   | Domain Service                         | `src/domain/{feature}/service/{name}.service.ts`                                                  | Business logic and orchestration for one domain model; calls the repository                                                                       |
-| 5   | Domain Model _(+ optional Type Guard)_ | `src/domain/{feature}/models/{name}.ts` (+ `src/domain/{feature}/models/guards/{name}.guards.ts`) | Source of truth for the resource's shape and invariants (`INewX`, `IX`, `NewX`, `X`); the guard narrows a union/unknown to this model when needed |
-| 6   | Persistence Repository                 | `src/infrastructure/persistance/database/repositories/mongoose/{feature}/{name}.repository.ts`    | CRUD and custom queries against MongoDB via Mongoose; extends `BaseRepository`                                                                    |
-| 7   | Persistence Model (schema)             | `src/infrastructure/persistance/database/repositories/mongoose/{feature}/{name}.model.ts`         | `INew{Model}Schema` interface + Mongoose `Schema`/`model()` — `INew{Model}Schema` only                                                            |
-| 8   | Persistence Mapper                     | `src/infrastructure/persistance/database/repositories/mongoose/{feature}/{name}.mapper.ts`        | Translates between the Mongoose document shape and the domain model (`toDomain`/`toPersistence`)                                                  |
-| 9   | Seeder _(if applicable)_               | `src/infrastructure/persistance/database/seeders/{feature}.seeder.ts`                             | Bootstrap/default data — exports `seed{Feature}()`/`clear{Feature}()`, registered by hand (dependency-ordered) in `seeders/seeder.ts`             |
+**Reference:** `src/application/services/auth/account-recovery.application.service.spec.ts`
 
-> **Caveat:** the mongoose repository directory name does not always match the domain feature
-> folder name (e.g. domain feature `auth` maps to mongoose directories `roles/` and `resources/`
-> for `role.ts`/`resource.ts`). Always verify against an existing analogous resource rather than
-> assuming strict 1:1 folder naming across layers.
+## Checklist: a new infrastructure service
 
-> ⚠️ **Keep the file set in sync.** The domain model is the source of truth for a resource's
-> shape. Any change to it — adding, removing, renaming, or retyping a field, or changing a
-> validation invariant — is **not complete** until it has been propagated through every other file
-> in the set that touches the changed field:
->
-> - **Persistence model/schema** — add/remove/rename the corresponding schema field and its type
-> - **Persistence mapper** — update `toDomain`/`toPersistence` for the field
-> - **Persistence repository** — update any custom queries, filters, or indexes that reference the field
-> - **Validator** — update the express-validator schema for the field
-> - **Controller** — update request/response shape (DTOs, serialized fields) that exposes the field
-> - **Seeder** — update default/bootstrap data to match the new shape, if the resource has a seeder
->
-> A change that touches only the domain model is incomplete. Treat "the domain model changed" as a
-> trigger to grep the resource's other files (route, controller, application service, domain
-> service, mapper, persistence model, repository, seeder) for the affected field name before
-> considering the work done.
+```
+☐ 1  Interface extending IBaseInfrastructureService: literal serviceName(), singleton(): true, deferred(): false,
+     @throws by error type; exported from application/interfaces/index.ts (card 1)
+☐ 2  {driver}.config.ts extending IDriverConfig; env vars read and validated there; .env.example updated (card 2)
+☐ 3  Driver implementing ICoreDriver (health() for a remote dependency) and its loader (card 3)
+☐ 4  Service implementing the interface: try only around driver calls; shutdown() if it holds connections (cards 8, 9)
+☐ 5  A circuit breaker built in the factory, for a remote dependency that isn't retried (card 10)
+☐ 6  Factory: name() === serviceName(); switch on {NAME}_DRIVER; DRIVER_ERROR default; closure if it needs other
+     services (cards 4, 5)
+☐ 7  Exported from src/infrastructure/{name}/index.ts and added to infrastructureLoader (card 6)
+☐ 8  A friendly name in the health check, if the token doesn't read well (card 11)
+☐ 9  Specs for the driver, the service and the factory (card 15)
+☐ 10 The CLAUDE.md §11 table and this file's Services table; JSDoc (§12.5) and the §13.2 checks
+```
+
+## Known gaps
+
+Code that does not follow the cards above yet:
+
+- `SocketServiceFactory` throws `SOCKET_ERROR` for an unsupported `SOCKET_DRIVER`, not `DRIVER_ERROR`
+  (`src/infrastructure/socket/socket-service.factory.ts`).
+- `HTTPClientServiceFactory` has no `{NAME}_DRIVER` switch: axios is the only implementation.
+- Nothing reads `IDriverConfig.singleton`, `deferred` or `optional`, so the `*_SERVICE_OPTIONAL` variables have no
+  effect. `storageConfig()` returns `singleton: false, deferred: true`, the opposite of `LocalStorageService`.
+- The SMTP and SES drivers' `shutdown()` is never called: `BaseEmailService` has no `shutdown()`.
+- When a factory's `create()` throws, the drivers that earlier factories already connected are not closed: services
+  join the shutdown list only in the manager's third phase.
+- With the default drivers, storage (`getDriver()` returns `null`) and in-memory push (its driver's `client()` is
+  `undefined`) are reported `disconnected`. The overall status is therefore `degraded`, and `/health` and
+  `/health/ready` answer 503. Found by reading the code, not reproduced.
+- `IDatabase` (`src/application/interfaces/infrastructure/db.interface.ts`) has no implementation.
+- No service implements `isShuttingDown()`.
+- `MongooseService.shutdown()` throws `PersistanceError` without the original error as its cause.

@@ -192,7 +192,7 @@ npm start
   2.  Loads config via configLoader()
   3.  Creates Express app and HTTP server
   4.  Registers httpServer, expressServer and appMetadata (name, version, url, port, environment) into Awilix container
-  5.  Initializes infrastructure services (DI) via `InfrastructureManager`: cache, database mapper (Mongoose), queue, socket, storage, email, notification, http client, logger
+  5.  Initializes infrastructure services (DI) via `InfrastructureManager`: cache, database mapper (Mongoose), queue, socket, storage, email, push notification, http client, logger
   6.  Builds middleware stack (cookie-parser, session, CORS, helmet, rate-limit with Redis store, morgan, JSON, urlencoded, content-type, request logger)
   7.  Mounts /health, /health/live, /health/ready
   8.  Mounts routes at {API_URL_PREFIX} (default /api/v1)
@@ -205,19 +205,19 @@ Located in src/app/core/config:
 - app.config.ts: App meta, baseUrl, apiUrlPrefix, port
 - server.config.ts: SSL flags and certs (optional)
 - middleware.config.ts: Builds middleware options from env; rate-limit uses a Redis store wired via the DI container (cache)
-- service/\*: Each service has a strongly-typed config structure (cache, db, mongoose, queue, socket, storage, email, notification, logging)
+- service/\*: Each service has a strongly-typed config structure (cache, db, mongoose, queue, socket, storage, email, push notification, logging)
 - config.ts: Aggregates the above into INodeApplicationConfig
 
 ### Dependency Injection (Awilix)
 
 - Container in src/app/core/service.container.ts, using CLASSIC injection mode (constructor
   parameter names must match DI token names)
-- Infrastructure services (cache, db, queue, socket, logger, email, notification, storage, http)
+- Infrastructure services (cache, db, queue, socket, logger, email, push notification, storage, http)
   are registered by `InfrastructureManager.init()`, iterating the factory list in
   src/infrastructure/infrastructure.loader.ts
 - `autoRegisterApplicationComponents()` glob-discovers application services, domain services,
-  repositories, and controllers and registers each under a camelCase token derived from its class
-  name (e.g. `CustomerService` → `customerService`)
+  repositories, and controllers and registers each under a camelCase token derived from its file
+  name (e.g. `role.service.ts` → `roleService`)
 
 ### Middleware pipeline
 

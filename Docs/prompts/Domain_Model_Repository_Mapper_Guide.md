@@ -11,8 +11,10 @@ document database (MongoDB via Mongoose):
 
 plus the **repository** that ties them together. The `UserGroup` example is real code from this
 repository; the `Order` example is an illustrative walkthrough of the aggregate/sub-document
-pattern for when a feature needs it. For where these artifacts sit inside the infrastructure
-layer (drivers, factories, DI registration), see `Docs/architecture/infrastructure-layer-pattern.md`.
+pattern for when a feature needs it. For where these artifacts sit in the application and how a
+request reaches them, see `Docs/architecture/application-architecture.md`; for the infrastructure
+services they run on (drivers, factories, DI registration), see
+`Docs/architecture/infrastructure-layer-pattern.md`.
 
 Two worked examples run through the whole guide:
 
@@ -21,7 +23,7 @@ Two worked examples run through the whole guide:
 
 ---
 
-<!-- keep in sync with: Docs/architecture/infrastructure-layer-pattern.md, Docs/prompts/API_Resource_Guide.md -->
+<!-- keep in sync with: Docs/architecture/application-architecture.md, Docs/prompts/API_Resource_Guide.md -->
 
 ## Where This Guide Fits in the Full Resource File Set
 
@@ -42,7 +44,7 @@ by the other two guides.
 | 9   | Seeder _(if applicable)_               | No — see `Docs/prompts/Database_Seeding_Guide.md` |
 
 Path patterns for all nine, and the caveat about mongoose directory names not always matching
-domain feature folder names, are in `Docs/architecture/infrastructure-layer-pattern.md`.
+domain feature folder names, are in `Docs/architecture/application-architecture.md` §12.
 
 If a change to the domain model needs to ripple into the other five files, see the keep-in-sync
 callout at the end of the `## End-to-End Checklist` below.
@@ -809,6 +811,8 @@ toPersistence(data: NewOrder): INewOrderSchema {
 ## Related Documents
 
 - `./Database_Seeding_Guide.md` — initializing the database with default data
-- `Docs/architecture/infrastructure-layer-pattern.md` — where these artifacts sit
-  in the infrastructure layer, DI registration, drivers and factories
+- `Docs/architecture/application-architecture.md` — where these artifacts sit in the
+  application, DI registration, and how a request reaches them
+- `Docs/architecture/infrastructure-layer-pattern.md` — the infrastructure services they run
+  on: drivers, factories, health and shutdown
 - Root `CLAUDE.md` — the rule set these patterns belong to (`AGENTS.md` points to it)

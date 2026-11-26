@@ -13,5 +13,6 @@ Further reading, linked from `CLAUDE.md` §1:
 - `Docs/prompts/API_Resource_Guide.md`: building a full resource, layer by layer
 - `Docs/prompts/Domain_Model_Repository_Mapper_Guide.md`: domain models, schemas, mappers, sub-documents
 - `Docs/prompts/Database_Seeding_Guide.md`: seeders
+- `Docs/architecture/application-architecture.md`: how the layers, processes, request flow and errors fit together
 - `Docs/architecture/infrastructure-layer-pattern.md`: infrastructure services in depth
 - `Docs/features/`: feature reference (email, notifications)

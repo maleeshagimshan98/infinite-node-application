@@ -2795,7 +2795,7 @@ router.use('/posts', BlogRoutes);
 - [ ] Test endpoints
 
 > ⚠️ **Keep the file set in sync.** The domain model is the source of truth for a resource's
-> shape (this list mirrors the file set enumerated in `Docs/architecture/infrastructure-layer-pattern.md`
+> shape (this list mirrors the file set enumerated in `Docs/architecture/application-architecture.md` §12
 > and `Docs/prompts/Domain_Model_Repository_Mapper_Guide.md`). Any change to it — adding, removing,
 > renaming, or retyping a field, or changing a validation invariant — is **not complete** until it
 > has been propagated through every other file in the set that touches the changed field:

@@ -49,7 +49,8 @@ Grafana's otel-lgtm stack (UI 3300, OTLP 4318).
 | `Docs/prompts/API_Resource_Guide.md`                      | Building a full resource, layer by layer                             |
 | `Docs/prompts/Domain_Model_Repository_Mapper_Guide.md`    | Domain models, schemas, mappers, sub-documents                       |
 | `Docs/prompts/Database_Seeding_Guide.md`                  | Seeders                                                              |
-| `Docs/architecture/infrastructure-layer-pattern.md`       | Infrastructure services, bootstrap and shutdown in depth             |
+| `Docs/architecture/application-architecture.md`           | How the layers, processes, request flow and errors fit together      |
+| `Docs/architecture/infrastructure-layer-pattern.md`       | Infrastructure services in depth: contracts, lifecycle, failures     |
 | `Docs/features/email.md`, `Docs/features/notification.md` | Email drivers and email log; push notifications and notification log |
 | `Docs/TODO.yml`                                           | Planned work                                                         |
 
@@ -137,7 +138,8 @@ src/
 ### 4.1 Default-export every auto-registered class
 
 **Rule:** A class in a file matching one of these globs must end with `export default ClassName;`. It is registered
-under its camelCase class name.
+under its camelCased file name (`role.service.ts` → `roleService`), which equals the camelCased class name when the
+file is named after its class (§12.4).
 **Why:** `service.container.ts` auto-registers the default export of every matching file.
 
 | Glob (under `src/`)                                                   | Process      | Example → token                                         |
