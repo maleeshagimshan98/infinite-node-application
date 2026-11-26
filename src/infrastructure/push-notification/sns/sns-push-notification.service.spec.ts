@@ -43,7 +43,7 @@ const TOPIC_ARN = 'arn:aws:sns:us-east-1:123456789012:broadcast';
  */
 function driverConfig(broadcastTopicArn: string | undefined): ISNSConfig {
   return {
-    driverName: 'notification',
+    driverName: 'pushNotification',
     singleton: true,
     deferred: false,
     region: 'us-east-1',
@@ -122,10 +122,10 @@ describe('SNSPushNotificationService', () => {
     ).toThrow(SnsError);
   });
 
-  it('is the notification service, registered as a non-deferred singleton', () => {
+  it('is the push notification service, registered as a non-deferred singleton', () => {
     const { service } = createService();
 
-    expect(service.serviceName()).toBe('notification');
+    expect(service.serviceName()).toBe('pushNotification');
     expect(service.singleton()).toBe(true);
     expect(service.deferred()).toBe(false);
   });
@@ -297,23 +297,6 @@ describe('SNSPushNotificationService', () => {
     expect(service.circuitBreakerStatuses()).toEqual([
       { name: 'aws_sns', state: 'closed', failureCount: 0, failureThreshold: 0 },
     ]);
-  });
-
-  it('rejects every notification it is asked to queue', async () => {
-    const { service } = createService();
-
-    const thrown = await service
-      .enqueueNotification({
-        triggered_by: 'test',
-        triggered_on: new Date(),
-        topic: 'inbox',
-        channel: 'push notification',
-        data: { default: 'Hello' },
-      })
-      .catch((e: unknown) => e);
-
-    expect(thrown).toBeInstanceOf(InfrastructureError);
-    expect(thrown).toMatchObject({ type: 'NOTIFICATION_ERROR' });
   });
 
   it('shuts the driver down', async () => {

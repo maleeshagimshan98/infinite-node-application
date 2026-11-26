@@ -6,8 +6,7 @@ import { PublishCommand, SNSServiceException } from '@aws-sdk/client-sns';
 
 import type { ICircuitBreaker } from '@/application/interfaces/infrastructure/core/circuit-breaker.interface';
 import type { ICircuitBreakerStatus } from '@/application/interfaces/infrastructure/core/circuit-breaker-status.interface';
-import type { INotificationManager } from '@/application/interfaces/infrastructure/notification/notification-manager.interface';
-import type { INewNotification } from '@/application/interfaces/infrastructure/notification/notification.interface';
+import type { IPushNotificationService } from '@/application/interfaces/infrastructure/push-notification/push-notification-service.interface';
 import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { SnsError } from './error/sns.error';
@@ -108,7 +107,7 @@ function toSnsMessage(message: Record<string, unknown>): string {
  * service.
  *
  * @class SNSPushNotificationService
- * @implements {INotificationManager}
+ * @implements {IPushNotificationService}
  *
  * @example
  * ```typescript
@@ -120,7 +119,7 @@ function toSnsMessage(message: Record<string, unknown>): string {
  * });
  * ```
  */
-export class SNSPushNotificationService implements INotificationManager {
+export class SNSPushNotificationService implements IPushNotificationService {
   private readonly driver: SNSDriver;
 
   /**
@@ -156,12 +155,12 @@ export class SNSPushNotificationService implements INotificationManager {
   }
 
   /**
-   * Get the service name for this notification implementation
+   * Get the service name for this push notification implementation
    *
-   * @returns {'notification'} The service name identifier
+   * @returns {'pushNotification'} The service name identifier
    */
-  serviceName(): 'notification' {
-    return 'notification';
+  serviceName(): 'pushNotification' {
+    return 'pushNotification';
   }
 
   /**
@@ -232,7 +231,7 @@ export class SNSPushNotificationService implements INotificationManager {
    * @param {Record<string, unknown>} message - A `default` string, plus optional payloads keyed by SNS platform
    * (`GCM`, `APNS`, …); object payloads are serialized to JSON
    * @returns {Promise<void>} resolving when SNS has accepted the notification
-   * @throws {InfrastructureError} NOTIFICATION_ERROR when NOTIFICATION_SNS_BROADCAST_TOPIC_ARN is not set
+   * @throws {InfrastructureError} NOTIFICATION_ERROR when PUSH_NOTIFICATION_SNS_BROADCAST_TOPIC_ARN is not set
    * @throws {TypeError} When the message has no `default` string or cannot be serialized; nothing is published
    * @throws {SnsError} NOTIFICATION_ERROR when SNS cannot be reached or refuses the notification
    * @throws {CircuitOpenError} CONNECTION_ERROR when the SNS circuit is open and the notification was not attempted
@@ -241,22 +240,11 @@ export class SNSPushNotificationService implements INotificationManager {
     const topicArn = this.driver.config().broadcastTopicArn;
     if (!topicArn) {
       throw new InfrastructureError(
-        'The SNS push notification driver cannot broadcast: NOTIFICATION_SNS_BROADCAST_TOPIC_ARN is not set',
+        'The SNS push notification driver cannot broadcast: PUSH_NOTIFICATION_SNS_BROADCAST_TOPIC_ARN is not set',
         'NOTIFICATION_ERROR',
       );
     }
     await this.publish({ TopicArn: topicArn }, topicArn, message);
-  }
-
-  /**
-   * Rejects every notification: queueing and logging belong to the notification manager, which is not built yet
-   *
-   * @param {INewNotification} _notification - The notification to queue
-   * @returns {Promise<void>} Never resolves; always rejects
-   * @throws {InfrastructureError} NOTIFICATION_ERROR always
-   */
-  async enqueueNotification(_notification: INewNotification): Promise<void> {
-    throw new InfrastructureError('The SNS push notification driver cannot queue notifications', 'NOTIFICATION_ERROR');
   }
 
   /**

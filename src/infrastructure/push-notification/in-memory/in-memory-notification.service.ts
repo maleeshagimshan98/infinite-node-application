@@ -2,8 +2,7 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { INotificationManager } from '@/application/interfaces/infrastructure/notification/notification-manager.interface';
-import type { INewNotification } from '@/application/interfaces/infrastructure/notification/notification.interface';
+import type { IPushNotificationService } from '@/application/interfaces/infrastructure/push-notification/push-notification-service.interface';
 import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import type { InMemoryNotificationDriver } from './driver/in-memory-notification.driver';
@@ -15,7 +14,7 @@ import type { InMemoryNotificationDriver } from './driver/in-memory-notification
  * This implementation serves as a placeholder and should be replaced with real providers in production.
  *
  * @class InMemoryNotificationService
- * @implements {INotificationManager}
+ * @implements {IPushNotificationService}
  *
  * @example
  * ```typescript
@@ -27,7 +26,7 @@ import type { InMemoryNotificationDriver } from './driver/in-memory-notification
  * await notificationService.broadcastNotification({ title: 'Announcement', body: 'System maintenance' });
  * ```
  */
-export class InMemoryNotificationService implements INotificationManager {
+export class InMemoryNotificationService implements IPushNotificationService {
   /**
    * The notification driver instance
    *
@@ -53,12 +52,12 @@ export class InMemoryNotificationService implements INotificationManager {
   }
 
   /**
-   * Get the service name for this notification implementation
+   * Get the service name for this push notification implementation
    *
-   * @returns {'notification'} The service name identifier
+   * @returns {'pushNotification'} The service name identifier
    */
-  serviceName(): 'notification' {
-    return 'notification';
+  serviceName(): 'pushNotification' {
+    return 'pushNotification';
   }
 
   /**
@@ -157,16 +156,5 @@ export class InMemoryNotificationService implements INotificationManager {
         'NOTIFICATION_ERROR',
       );
     }
-  }
-
-  /**
-   * Rejects every notification: the in-memory driver has no queue to put it on
-   *
-   * @param {INewNotification} _notification - The notification to queue
-   * @returns {Promise<void>} Never resolves; always rejects
-   * @throws {InfrastructureError} NOTIFICATION_ERROR always
-   */
-  async enqueueNotification(_notification: INewNotification): Promise<void> {
-    throw new InfrastructureError('The in-memory notification driver cannot queue notifications', 'NOTIFICATION_ERROR');
   }
 }

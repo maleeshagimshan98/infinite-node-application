@@ -186,7 +186,7 @@ export class InfrastructureHealthCheckService implements IHealthCheck {
       emailService: 'email',
       queue: 'queue',
       logger: 'logger',
-      notification: 'notification',
+      pushNotification: 'push_notification',
       socket: 'socket',
     };
 

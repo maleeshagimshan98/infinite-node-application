@@ -14,7 +14,7 @@ export * from './cache';
 export * from './storage';
 export * from './logger';
 export * from './email';
-export * from './notification';
+export * from './push-notification';
 export * from './queue';
 export * from './socket';
 export * from './http';

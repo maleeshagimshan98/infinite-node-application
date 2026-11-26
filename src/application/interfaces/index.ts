@@ -17,7 +17,7 @@ export * from './infrastructure/storage.interface';
 export * from './infrastructure/email-service.interface';
 export * from './infrastructure/logger.interface';
 export * from './infrastructure/cache.interface';
-export * from './infrastructure/notification/notification-manager.interface';
+export * from './infrastructure/push-notification/push-notification-service.interface';
 export * from './infrastructure/notification/notification.interface';
 export * from './infrastructure/queue.interface';
 export * from './infrastructure/socket.interface';

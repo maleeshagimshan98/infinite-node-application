@@ -24,20 +24,20 @@ export interface ISNSConfig extends IDriverConfig {
  * @returns {ISNSConfig} The SNS driver settings.
  */
 export const snsConfig = (): ISNSConfig => ({
-  driverName: 'notification',
+  driverName: 'pushNotification',
   singleton: true,
   deferred: false,
-  optional: process.env.NOTIFICATION_SERVICE_OPTIONAL === 'true' || false,
-  region: process.env.NOTIFICATION_SNS_REGION || undefined,
-  broadcastTopicArn: process.env.NOTIFICATION_SNS_BROADCAST_TOPIC_ARN || undefined,
+  optional: process.env.PUSH_NOTIFICATION_SERVICE_OPTIONAL === 'true' || false,
+  region: process.env.PUSH_NOTIFICATION_SNS_REGION || undefined,
+  broadcastTopicArn: process.env.PUSH_NOTIFICATION_SNS_BROADCAST_TOPIC_ARN || undefined,
   // The SDK's default for both is 0, which never times out.
-  connectionTimeout: Number(process.env.NOTIFICATION_SNS_CONNECTION_TIMEOUT) || 5000,
-  requestTimeout: Number(process.env.NOTIFICATION_SNS_REQUEST_TIMEOUT) || 10000,
+  connectionTimeout: Number(process.env.PUSH_NOTIFICATION_SNS_CONNECTION_TIMEOUT) || 5000,
+  requestTimeout: Number(process.env.PUSH_NOTIFICATION_SNS_REQUEST_TIMEOUT) || 10000,
   circuitBreaker: {
     // Not `Number(...) || 5`: that would turn an explicit 0 (open on the first failure) into 5.
-    failureThreshold: process.env.NOTIFICATION_CIRCUIT_FAILURE_THRESHOLD
-      ? Number(process.env.NOTIFICATION_CIRCUIT_FAILURE_THRESHOLD)
+    failureThreshold: process.env.PUSH_NOTIFICATION_CIRCUIT_FAILURE_THRESHOLD
+      ? Number(process.env.PUSH_NOTIFICATION_CIRCUIT_FAILURE_THRESHOLD)
       : 5,
-    resetTimeout: Number(process.env.NOTIFICATION_CIRCUIT_RESET_TIMEOUT) || 30000,
+    resetTimeout: Number(process.env.PUSH_NOTIFICATION_CIRCUIT_RESET_TIMEOUT) || 30000,
   },
 });

@@ -20,8 +20,8 @@ export const NOTIFICATION_STATUSES: readonly INotificationStatus[] = ['pending',
  * A notification record that is not logged yet. The id is optional: the log assigns one unless the notification
  * was given one when it was queued.
  *
- * Named apart from `INewNotification` (`notification.interface.ts`), which is what callers hand to
- * `INotificationManager.enqueueNotification()`.
+ * Named apart from `INewNotification` (`notification.interface.ts`), which is what callers will hand to the
+ * planned notification manager.
  */
 export type INewNotificationRecord = Omit<INotification, 'id'> & { id?: string; version?: number };
 

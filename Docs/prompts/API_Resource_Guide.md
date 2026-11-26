@@ -1496,7 +1496,7 @@ export class MyService extends BaseDomainService {
   it keeps its connection and memory (see `CLAUDE.md` §11.5 Close every queue processor you start)
 - `emailService` (IEmailService) - SMTP email
 - `storage` (IStorage) - Local/cloud storage; `readFile()` returns `null` and `listFiles()` returns `[]` for a missing path
-- `notification` (INotificationManager) - Notification service
+- `pushNotification` (IPushNotificationService) - Push notification service
 - `socket` (ISocket) - Socket.IO
 - `httpClient` (IHTTPClient) - External HTTP calls (see `CLAUDE.md` §11.6 for its error behaviour)
 - `database_mapper` (IDatabaseMapper) - Database transactions; errors thrown inside the callback propagate unchanged
@@ -1841,7 +1841,7 @@ export const infrastructureLoader: InfrastructureFactoryClass[] = [
   CacheServiceFactory,
   EmailServiceFactory,
   LoggerServiceFactory,
-  NotificationServiceFactory,
+  PushNotificationServiceFactory,
   DatabaseMapperServiceFactory,
   QueueServiceFactory,
   SocketServiceFactory,

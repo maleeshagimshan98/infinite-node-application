@@ -57,12 +57,13 @@ src/
       email-service.factory.ts        ← EmailServiceFactory implements IServiceFactory<IEmailService>
     http/                             ← HTTP client service
     logger/                           ← Logging service (e.g. Winston)
-    notification/                     ← Notification service (NOTIFICATION_DRIVER: inmemory | aws-sns)
-      in-memory/                      ← InMemoryNotificationService + in-memory driver
-      sns/                            ← SNSPushNotificationService + AWS SNS driver (@aws-sdk/client-sns)
+    notification/                     ← Notification log (the planned notification manager will live here)
       notification-log/
         notification-logger.service.ts ← NotificationLoggerService — keeps the notification log (§10e); not in DI
-      notification-service.factory.ts ← NotificationServiceFactory implements IServiceFactory<INotificationManager>
+    push-notification/                ← Push notification service (PUSH_NOTIFICATION_DRIVER: inmemory | aws-sns)
+      in-memory/                      ← InMemoryNotificationService + in-memory driver
+      sns/                            ← SNSPushNotificationService + AWS SNS driver (@aws-sdk/client-sns)
+      push-notification-service.factory.ts ← PushNotificationServiceFactory implements IServiceFactory<IPushNotificationService>
     queue/                            ← Message queue service
     socket/                           ← WebSocket service (Socket.io)
 
@@ -140,8 +141,9 @@ src/
         queue.interface.ts            ← IQueue (processJobs starts a worker; closeWorkers closes it — §9a)
         socket.interface.ts           ← ISocket
         notification/
-          notification-manager.interface.ts ← INotificationManager
           notification.interface.ts         ← INotification + INotificationChannel + INotificationStatus + INewNotification
+        push-notification/
+          push-notification-service.interface.ts ← IPushNotificationService (DI token `pushNotification`)
         health-check.interface.ts     ← IHealthCheck
         infrastructure-manager.interface.ts ← IInfrastructureManager
       repositories/
@@ -723,7 +725,7 @@ import type { IServiceFactory } from './core/interfaces/service.factory.interfac
 import { CacheServiceFactory } from './cache';
 import { EmailServiceFactory } from './email';
 import { LoggerServiceFactory } from './logger';
-import { NotificationServiceFactory } from './notification';
+import { PushNotificationServiceFactory } from './push-notification';
 import { DatabaseMapperServiceFactory } from './persistance/database/service';
 import { QueueServiceFactory } from './queue';
 import { SocketServiceFactory } from './socket/socket-service.factory';
@@ -736,7 +738,7 @@ export const infrastructureLoader: InfrastructureFactoryClass[] = [
   CacheServiceFactory,
   EmailServiceFactory,
   LoggerServiceFactory,
-  NotificationServiceFactory,
+  PushNotificationServiceFactory,
   DatabaseMapperServiceFactory,
   QueueServiceFactory,
   SocketServiceFactory,
@@ -1181,7 +1183,7 @@ channel. Like the email log (§10d), it follows §10a–§10c and §11a:
 Only the notification infrastructure writes it, through `NotificationLoggerService`
 (`src/infrastructure/notification/notification-log/notification-logger.service.ts`). That service is not
 registered in DI, and it builds its own `NotificationRepository`. Nothing calls it yet: the notification
-manager will, once `enqueueNotification()` is implemented.
+manager will, once it is built.
 
 ```typescript
 // infrastructure/notification/notification-log/notification-logger.service.ts
@@ -1200,7 +1202,7 @@ export class NotificationLoggerService {
 Rules:
 
 1. **One record per channel.** The same notification sent by email and SMS is two records.
-2. **Two input types.** `INewNotification` is what callers pass to `INotificationManager.enqueueNotification()`;
+2. **Two input types.** `INewNotification` is what callers will pass to the notification manager;
    it has no `id`, `status` or `service_provider`, which the manager sets. `INewNotificationRecord`
    (`INotification` with an optional `id`) is what builds a `NewNotification`.
 3. **`triggered_on` must be a `Date`.** The entity throws `DomainEntityError` for a string, which is what a

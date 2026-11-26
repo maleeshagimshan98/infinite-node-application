@@ -2,7 +2,7 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import { SnsError } from '@/infrastructure/notification/sns/error/sns.error';
+import { SnsError } from '@/infrastructure/push-notification/sns/error/sns.error';
 
 /**
  * Determine whether a failed publish means SNS is unreachable or failing, as opposed to it answering and refusing

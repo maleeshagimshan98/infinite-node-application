@@ -2,9 +2,9 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
-import type { INotificationManager } from '@/application/interfaces/infrastructure/notification/notification-manager.interface';
+import type { IPushNotificationService } from '@/application/interfaces/infrastructure/push-notification/push-notification-service.interface';
 import { CircuitBreaker } from '@/infrastructure/core/circuit-breaker/circuit-breaker';
-import { isSnsOutage } from '@/infrastructure/notification/sns/error/sns-error.guards';
+import { isSnsOutage } from '@/infrastructure/push-notification/sns/error/sns-error.guards';
 import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { InMemoryNotificationService } from './in-memory/in-memory-notification.service';
@@ -15,46 +15,47 @@ import { snsDriverLoader } from './sns/driver/sns.driver.loader';
 import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 
 /**
- * Factory class for creating notification service instances
+ * Factory class for creating push notification service instances
  *
- * Provides methods to instantiate notification services with their respective drivers.
+ * Provides methods to instantiate push notification services with their respective drivers.
  * The factory handles driver creation, initialization, and service instantiation.
  *
- * @class NotificationServiceFactory
+ * @class PushNotificationServiceFactory
  *
  * @example
  * ```typescript
- * const factory = new NotificationServiceFactory();
- * const notification = await factory.create();
+ * const factory = new PushNotificationServiceFactory();
+ * const pushNotification = await factory.create();
  * ```
  */
-export class NotificationServiceFactory implements IServiceFactory<INotificationManager> {
+export class PushNotificationServiceFactory implements IServiceFactory<IPushNotificationService> {
   /**
    * Returns the DI registration name of the service this factory builds
    *
-   * @returns {'notification'} Service registration name
+   * @returns {'pushNotification'} Service registration name
    */
-  name(): 'notification' {
-    return 'notification';
+  name(): 'pushNotification' {
+    return 'pushNotification';
   }
 
   /**
-   * Creates an In-Memory notification service instance
+   * Creates an In-Memory push notification service instance
    *
    * This method creates and initializes the InMemoryNotificationDriver,
    * then constructs and returns an InMemoryNotificationService with the initialized driver.
    *
-   * @returns {Promise<INotificationManager>} A promise that resolves to an initialized In-Memory notification service instance
+   * @returns {Promise<IPushNotificationService>} A promise that resolves to an initialized In-Memory push
+   * notification service instance
    * @throws {Error} If driver initialization fails
    *
    * @example
    * ```typescript
-   * const factory = new NotificationServiceFactory();
-   * const notification = await factory.createInMemoryNotificationService();
-   * await notification.sendNotification('user123', { title: 'Hello', body: 'World' });
+   * const factory = new PushNotificationServiceFactory();
+   * const pushNotification = await factory.createInMemoryNotificationService();
+   * await pushNotification.sendNotification('user123', { title: 'Hello', body: 'World' });
    * ```
    */
-  async createInMemoryNotificationService(): Promise<INotificationManager> {
+  async createInMemoryNotificationService(): Promise<IPushNotificationService> {
     return new InMemoryNotificationService(await inMemoryNotificationDriverLoader());
   }
 
@@ -62,11 +63,11 @@ export class NotificationServiceFactory implements IServiceFactory<INotification
    * Creates the AWS SNS push notification service. Publishes are guarded by a circuit breaker that counts only
    * outages, not notifications SNS refuses.
    *
-   * @returns {Promise<INotificationManager>} A promise that resolves to an SNS push notification service instance
+   * @returns {Promise<IPushNotificationService>} A promise that resolves to an SNS push notification service instance
    * @throws {DriverError} If no AWS region is configured
    * @throws {RangeError} If the configured circuit breaker settings are invalid
    */
-  async createSNSPushNotificationService(): Promise<INotificationManager> {
+  async createSNSPushNotificationService(): Promise<IPushNotificationService> {
     const driver = await snsDriverLoader();
     const circuitBreaker = new CircuitBreaker({
       name: 'aws_sns',
@@ -77,25 +78,25 @@ export class NotificationServiceFactory implements IServiceFactory<INotification
   }
 
   /**
-   * Creates a notification service instance based on the configured notification driver type
+   * Creates a push notification service instance based on the configured push notification driver
    *
    * This is a generic factory method that routes to specific service creation methods
-   * based on the configured notification driver.
+   * based on `PUSH_NOTIFICATION_DRIVER`.
    *
-   * @returns {Promise<INotificationManager>} A promise that resolves to a notification service instance
-   * @throws {InfrastructureError} If the notification type is not supported
+   * @returns {Promise<IPushNotificationService>} A promise that resolves to a push notification service instance
+   * @throws {InfrastructureError} DRIVER_ERROR if the push notification driver is not supported
    * @throws {DriverError} If the SNS driver is selected and no AWS region is configured
    * @throws {RangeError} If the SNS driver is selected and its circuit breaker settings are invalid
    *
    * @example
    * ```typescript
-   * const factory = new NotificationServiceFactory();
-   * const notification = await factory.create();
-   * await notification.broadcastNotification({ title: 'System Update', body: 'Maintenance scheduled' });
+   * const factory = new PushNotificationServiceFactory();
+   * const pushNotification = await factory.create();
+   * await pushNotification.broadcastNotification({ title: 'System Update', body: 'Maintenance scheduled' });
    * ```
    */
-  async create(): Promise<INotificationManager> {
-    const notificationType = process.env.NOTIFICATION_DRIVER || 'inmemory';
+  async create(): Promise<IPushNotificationService> {
+    const notificationType = process.env.PUSH_NOTIFICATION_DRIVER || 'inmemory';
     switch (notificationType.toLowerCase()) {
       case 'in-memory':
       case 'inmemory':
@@ -111,7 +112,7 @@ export class NotificationServiceFactory implements IServiceFactory<INotification
       //   return await this.createOneSignalNotificationService();
 
       default:
-        throw new InfrastructureError(`Unsupported notification type: ${notificationType}`, 'DRIVER_ERROR', {
+        throw new InfrastructureError(`Unsupported push notification driver: ${notificationType}`, 'DRIVER_ERROR', {
           notificationType,
         });
     }

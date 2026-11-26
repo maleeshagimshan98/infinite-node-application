@@ -15,13 +15,13 @@ import type { ISNSConfig } from './sns.config';
 import type { ListTopicsCommandOutput } from '@aws-sdk/client-sns';
 
 const SNS_ENV = [
-  'NOTIFICATION_SNS_REGION',
-  'NOTIFICATION_SNS_BROADCAST_TOPIC_ARN',
-  'NOTIFICATION_SNS_CONNECTION_TIMEOUT',
-  'NOTIFICATION_SNS_REQUEST_TIMEOUT',
-  'NOTIFICATION_CIRCUIT_FAILURE_THRESHOLD',
-  'NOTIFICATION_CIRCUIT_RESET_TIMEOUT',
-  'NOTIFICATION_SERVICE_OPTIONAL',
+  'PUSH_NOTIFICATION_SNS_REGION',
+  'PUSH_NOTIFICATION_SNS_BROADCAST_TOPIC_ARN',
+  'PUSH_NOTIFICATION_SNS_CONNECTION_TIMEOUT',
+  'PUSH_NOTIFICATION_SNS_REQUEST_TIMEOUT',
+  'PUSH_NOTIFICATION_CIRCUIT_FAILURE_THRESHOLD',
+  'PUSH_NOTIFICATION_CIRCUIT_RESET_TIMEOUT',
+  'PUSH_NOTIFICATION_SERVICE_OPTIONAL',
   'AWS_REGION',
   'AWS_PROFILE',
 ];
@@ -34,7 +34,7 @@ const SNS_ENV = [
  */
 function driverConfig(region: string | undefined): ISNSConfig {
   return {
-    driverName: 'notification',
+    driverName: 'pushNotification',
     singleton: true,
     deferred: false,
     region,
@@ -80,13 +80,13 @@ describe('SNS driver', () => {
     });
 
     it('reads every setting from the environment', () => {
-      process.env.NOTIFICATION_SNS_REGION = 'eu-west-1';
-      process.env.NOTIFICATION_SNS_BROADCAST_TOPIC_ARN = 'arn:aws:sns:eu-west-1:123456789012:broadcast';
-      process.env.NOTIFICATION_SNS_CONNECTION_TIMEOUT = '2000';
-      process.env.NOTIFICATION_SNS_REQUEST_TIMEOUT = '4000';
-      process.env.NOTIFICATION_CIRCUIT_FAILURE_THRESHOLD = '0';
-      process.env.NOTIFICATION_CIRCUIT_RESET_TIMEOUT = '60000';
-      process.env.NOTIFICATION_SERVICE_OPTIONAL = 'true';
+      process.env.PUSH_NOTIFICATION_SNS_REGION = 'eu-west-1';
+      process.env.PUSH_NOTIFICATION_SNS_BROADCAST_TOPIC_ARN = 'arn:aws:sns:eu-west-1:123456789012:broadcast';
+      process.env.PUSH_NOTIFICATION_SNS_CONNECTION_TIMEOUT = '2000';
+      process.env.PUSH_NOTIFICATION_SNS_REQUEST_TIMEOUT = '4000';
+      process.env.PUSH_NOTIFICATION_CIRCUIT_FAILURE_THRESHOLD = '0';
+      process.env.PUSH_NOTIFICATION_CIRCUIT_RESET_TIMEOUT = '60000';
+      process.env.PUSH_NOTIFICATION_SERVICE_OPTIONAL = 'true';
 
       expect(snsConfig()).toMatchObject({
         region: 'eu-west-1',

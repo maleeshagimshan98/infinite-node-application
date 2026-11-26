@@ -62,7 +62,7 @@ export class SNSDriver implements ICoreDriver<SNSClient, ISNSConfig> {
     } catch (error) {
       client.destroy();
       throw new DriverError(
-        'SNS region is not configured: set NOTIFICATION_SNS_REGION or AWS_REGION',
+        'SNS region is not configured: set PUSH_NOTIFICATION_SNS_REGION or AWS_REGION',
         error instanceof Error ? error : undefined,
       );
     }

@@ -76,7 +76,7 @@ src/
 └── infrastructure/
     ├── core/                    # Driver and circuit-open errors, circuit breaker, driver and factory interfaces
     ├── persistance/database/    # Mongoose service, repositories/mongoose/{feature}/, seeders/, indexes/
-    ├── cache/ email/ health/ http/ logger/ notification/ queue/ socket/ storage/
+    ├── cache/ email/ health/ http/ logger/ notification/ push-notification/ queue/ socket/ storage/
     ├── infrastructure.loader.ts # The list of service factories
     └── infrastructure.manager.ts
 ```
@@ -160,7 +160,7 @@ under its camelCase class name.
 **Use cases:**
 
 - infrastructure services → `database_mapper`, `cache`, `logger`, `queue`, `emailService`, `storage`,
-  `notification`, `socket`, `httpClient` (§11)
+  `pushNotification`, `socket`, `httpClient` (§11)
 - an application service → `database_mapper` first (§8.1)
 - a controller → `logger` for `BaseController` (§9.2)
 
@@ -780,17 +780,17 @@ role or no loaded resources is a refusal (`User.hasPermission()` → `Role.hasPe
 
 ## 11. Infrastructure services
 
-| Token             | Interface              | Service                                                                                           |
-| ----------------- | ---------------------- | ------------------------------------------------------------------------------------------------- |
-| `database_mapper` | `IDatabaseMapper`      | MongoDB via Mongoose; transactions (§8)                                                           |
-| `cache`           | `ICache`               | Redis                                                                                             |
-| `logger`          | `ILogger`              | Winston (+ OpenTelemetry log export)                                                              |
-| `queue`           | `IQueue`               | BullMQ (§11.5)                                                                                    |
-| `emailService`    | `IEmailService`        | SMTP or AWS SES, behind a circuit breaker (`Docs/features/email.md`)                              |
-| `storage`         | `IStorage`             | Local file storage; `readFile()` returns `null` and `listFiles()` returns `[]` for a missing path |
-| `notification`    | `INotificationManager` | In-memory placeholder or AWS SNS push (`Docs/features/notification.md`)                           |
-| `socket`          | `ISocket`              | Socket.IO (API process only)                                                                      |
-| `httpClient`      | `IHTTPClient`          | Axios, one circuit breaker per host (§11.6)                                                       |
+| Token              | Interface                  | Service                                                                                           |
+| ------------------ | -------------------------- | ------------------------------------------------------------------------------------------------- |
+| `database_mapper`  | `IDatabaseMapper`          | MongoDB via Mongoose; transactions (§8)                                                           |
+| `cache`            | `ICache`                   | Redis                                                                                             |
+| `logger`           | `ILogger`                  | Winston (+ OpenTelemetry log export)                                                              |
+| `queue`            | `IQueue`                   | BullMQ (§11.5)                                                                                    |
+| `emailService`     | `IEmailService`            | SMTP or AWS SES, behind a circuit breaker (`Docs/features/email.md`)                              |
+| `storage`          | `IStorage`                 | Local file storage; `readFile()` returns `null` and `listFiles()` returns `[]` for a missing path |
+| `pushNotification` | `IPushNotificationService` | In-memory placeholder or AWS SNS push (`Docs/features/notification.md`)                           |
+| `socket`           | `ISocket`                  | Socket.IO (API process only)                                                                      |
+| `httpClient`       | `IHTTPClient`              | Axios, one circuit breaker per host (§11.6)                                                       |
 
 ### 11.1 Add a service with the driver → service → factory pattern
 
@@ -914,9 +914,9 @@ Each request method takes an `Omit<RequestConfig, 'method'>`.
 - **Email** (`Docs/features/email.md`): send with `enqueueEmail(new NewEmail({ ..., status: 'pending' }))`; only the
   email infrastructure writes the email log; an email's body and `error_message` never leave the API.
   `EMAIL_DRIVER` is `smtp` (default) or `aws-ses`; anything else fails startup.
-- **Notifications** (`Docs/features/notification.md`): `NOTIFICATION_DRIVER` is `inmemory` (default, sends nothing)
-  or `aws-sns`. `enqueueNotification()` rejects every notification until the notification manager exists. The
-  notification log is built but nothing writes it yet.
+- **Push notifications** (`Docs/features/notification.md`): `PUSH_NOTIFICATION_DRIVER` is `inmemory` (default,
+  sends nothing) or `aws-sns`. Queueing and logging belong to the planned notification manager (DI token
+  `notification`); the notification log is built but nothing writes it yet.
 
 ---
 

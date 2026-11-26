@@ -46,7 +46,7 @@ export const inMemoryNotificationConfig = (): IInMemoryNotificationConfig => ({
   singleton: true,
   deferred: false,
   params: {
-    maxQueueSize: Number(process.env.NOTIFICATION_MAX_QUEUE_SIZE) || 1000,
-    enableLogging: process.env.NOTIFICATION_LOGGING === 'true',
+    maxQueueSize: Number(process.env.PUSH_NOTIFICATION_MAX_QUEUE_SIZE) || 1000,
+    enableLogging: process.env.PUSH_NOTIFICATION_LOGGING === 'true',
   },
 });

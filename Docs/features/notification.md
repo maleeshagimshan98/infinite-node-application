@@ -8,43 +8,43 @@ notification yet: the notification manager that will do both is planned (`Docs/T
 
 ## Parts
 
-| Part                                                                                                                   | Location                                                                                    |
-| ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `INotificationManager` (DI token `notification`)                                                                       | `src/application/interfaces/infrastructure/notification/notification-manager.interface.ts`  |
-| Record shape (`INotification`, `INotificationChannel`, `INotificationStatus`) and enqueue input (`INewNotification`)   | `src/application/interfaces/infrastructure/notification/notification.interface.ts`          |
-| `NotificationServiceFactory`: picks the driver from `NOTIFICATION_DRIVER`                                              | `src/infrastructure/notification/notification-service.factory.ts`                           |
-| `InMemoryNotificationService` (placeholder; sends nothing)                                                             | `src/infrastructure/notification/in-memory/`                                                |
-| `SNSPushNotificationService` (`@aws-sdk/client-sns`)                                                                   | `src/infrastructure/notification/sns/`                                                      |
+| Part                                                                                                                 | Location                                                                                             |
+| -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `IPushNotificationService` (DI token `pushNotification`)                                                             | `src/application/interfaces/infrastructure/push-notification/push-notification-service.interface.ts` |
+| Record shape (`INotification`, `INotificationChannel`, `INotificationStatus`) and enqueue input (`INewNotification`) | `src/application/interfaces/infrastructure/notification/notification.interface.ts`                   |
+| `PushNotificationServiceFactory`: picks the driver from `PUSH_NOTIFICATION_DRIVER`                                   | `src/infrastructure/push-notification/push-notification-service.factory.ts`                          |
+| `InMemoryNotificationService` (placeholder; sends nothing)                                                           | `src/infrastructure/push-notification/in-memory/`                                                    |
+| `SNSPushNotificationService` (`@aws-sdk/client-sns`)                                                                 | `src/infrastructure/push-notification/sns/`                                                          |
 | Entity (`NOTIFICATION_CHANNELS`, `NOTIFICATION_STATUSES`, `INewNotificationRecord`, `INotificationRecord`, `NewNotification`, `Notification`) | `src/domain/app/notification/models/notification.ts`                                        |
-| Schema, mapper, repository (`notification_logs` collection)                                                            | `src/infrastructure/persistance/database/repositories/mongoose/notification/`               |
-| `INotificationRepository` (type alias of `IBaseRepository<Notification, NewNotification>` for now)                     | `src/application/interfaces/repositories/notification/notification.repository.interface.ts` |
-| `NotificationLoggerService` (`newId`, `getById`, `getAll`, `get(offset, limit)`, `create`, `update`)                   | `src/infrastructure/notification/notification-log/notification-logger.service.ts`           |
+| Schema, mapper, repository (`notification_logs` collection)                                                          | `src/infrastructure/persistance/database/repositories/mongoose/notification/`                        |
+| `INotificationRepository` (type alias of `IBaseRepository<Notification, NewNotification>` for now)                   | `src/application/interfaces/repositories/notification/notification.repository.interface.ts`          |
+| `NotificationLoggerService` (`newId`, `getById`, `getAll`, `get(offset, limit)`, `create`, `update`)                 | `src/infrastructure/notification/notification-log/notification-logger.service.ts`                    |
 
 ## Settings
 
-| Variable                                                                       | Default         | Meaning                                                                                  |
-| ------------------------------------------------------------------------------ | --------------- | ---------------------------------------------------------------------------------------- |
-| `NOTIFICATION_DRIVER`                                                          | `inmemory`      | `inmemory` / `in-memory` or `aws-sns`. Any other value fails startup with `DRIVER_ERROR` |
-| `NOTIFICATION_SNS_REGION`                                                      | `AWS_REGION`    | SNS region. Startup fails with `DriverError` when neither is set                         |
-| `NOTIFICATION_SNS_BROADCAST_TOPIC_ARN`                                         | —               | The topic every device is subscribed to; needed only for broadcasts                      |
-| `NOTIFICATION_SNS_CONNECTION_TIMEOUT`, `NOTIFICATION_SNS_REQUEST_TIMEOUT`      | `5000`, `10000` | SNS timeouts (ms)                                                                        |
-| `NOTIFICATION_CIRCUIT_FAILURE_THRESHOLD`, `NOTIFICATION_CIRCUIT_RESET_TIMEOUT` | `5`, `30000`    | The `aws_sns` circuit breaker                                                            |
+| Variable                                                                                 | Default         | Meaning                                                                                  |
+| ---------------------------------------------------------------------------------------- | --------------- | ---------------------------------------------------------------------------------------- |
+| `PUSH_NOTIFICATION_DRIVER`                                                               | `inmemory`      | `inmemory` / `in-memory` or `aws-sns`. Any other value fails startup with `DRIVER_ERROR` |
+| `PUSH_NOTIFICATION_SNS_REGION`                                                           | `AWS_REGION`    | SNS region. Startup fails with `DriverError` when neither is set                         |
+| `PUSH_NOTIFICATION_SNS_BROADCAST_TOPIC_ARN`                                              | —               | The topic every device is subscribed to; needed only for broadcasts                      |
+| `PUSH_NOTIFICATION_SNS_CONNECTION_TIMEOUT`, `PUSH_NOTIFICATION_SNS_REQUEST_TIMEOUT`      | `5000`, `10000` | SNS timeouts (ms)                                                                        |
+| `PUSH_NOTIFICATION_CIRCUIT_FAILURE_THRESHOLD`, `PUSH_NOTIFICATION_CIRCUIT_RESET_TIMEOUT` | `5`, `30000`    | The `aws_sns` circuit breaker                                                            |
 
 ## Sending (AWS SNS)
 
 ### 1. Publish to one device or to the broadcast topic
 
 **Rule:** `sendNotification(to, message)` publishes to one device; `to` is the device's SNS platform endpoint ARN.
-`broadcastNotification(message)` publishes to `NOTIFICATION_SNS_BROADCAST_TOPIC_ARN`.
+`broadcastNotification(message)` publishes to `PUSH_NOTIFICATION_SNS_BROADCAST_TOPIC_ARN`.
 **Why:** The service is a thin wrapper around SNS `Publish`. Creating platform endpoints and subscribing them to the
 topic is not part of it.
 **Use cases:**
 
-- broadcast without `NOTIFICATION_SNS_BROADCAST_TOPIC_ARN` → throws `InfrastructureError` `NOTIFICATION_ERROR`
-- `enqueueNotification()` → rejects every notification on every driver, because queueing and logging belong to the
+- broadcast without `PUSH_NOTIFICATION_SNS_BROADCAST_TOPIC_ARN` → throws `InfrastructureError` `NOTIFICATION_ERROR`
+- queueing and logging a notification → not part of the push notification service; they belong to the planned
   notification manager (card 5)
 
-**Reference:** `src/infrastructure/notification/sns/sns-push-notification.service.ts`
+**Reference:** `src/infrastructure/push-notification/sns/sns-push-notification.service.ts`
 
 ### 2. Give every message a `default` string
 
@@ -83,7 +83,7 @@ service triggered it and when, the topic, the channel, the provider that deliver
 
 ### 5. Only the notification infrastructure writes the log
 
-**Rule:** The notification manager (`INotificationManager`, DI token `notification`) will log through
+**Rule:** The planned notification manager (DI token `notification`) will log through
 `NotificationLoggerService`, as the email service does through `EmailLoggerService`. `NotificationLoggerService` is not
 in DI: the notification manager will build it, and it builds its own `NotificationRepository`.
 **Use cases:**
@@ -101,7 +101,7 @@ in DI: the notification manager will build it, and it builds its own `Notificati
 **Rule:** Sending the same notification by email and SMS logs two records. Build each `NewNotification` from
 `INewNotificationRecord`, not `INewNotification`. A logged `Notification` is built from
 `INotificationRecord = INotification & { version: number }`.
-**Why:** `INewNotification` is what callers pass to `enqueueNotification()`. It has no `id`, `status` or
+**Why:** `INewNotification` is what callers will pass to the notification manager. It has no `id`, `status` or
 `service_provider`; the notification manager sets them. `INotification` itself leaves the version out, because the
 version is a persistence concern.
 

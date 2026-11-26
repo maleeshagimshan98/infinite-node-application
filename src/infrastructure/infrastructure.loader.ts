@@ -7,7 +7,7 @@ import type { IBaseInfrastructureService } from '@/application/interfaces/infras
 import { CacheServiceFactory } from './cache';
 import { EmailServiceFactory } from './email';
 import { LoggerServiceFactory } from './logger';
-import { NotificationServiceFactory } from './notification';
+import { PushNotificationServiceFactory } from './push-notification';
 import { DatabaseMapperServiceFactory } from './persistance/database/service';
 import { QueueServiceFactory } from './queue';
 import { SocketServiceFactory } from './socket/socket-service.factory';
@@ -22,7 +22,7 @@ export const infrastructureLoader: InfrastructureFactoryClass[] = [
   CacheServiceFactory,
   EmailServiceFactory,
   LoggerServiceFactory,
-  NotificationServiceFactory,
+  PushNotificationServiceFactory,
   DatabaseMapperServiceFactory,
   QueueServiceFactory,
   SocketServiceFactory,

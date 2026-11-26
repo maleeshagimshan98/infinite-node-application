@@ -4,15 +4,13 @@
 
 import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
 
-import type { INewNotification } from './notification.interface';
-
-export interface INotificationManager extends IBaseInfrastructureService {
+export interface IPushNotificationService extends IBaseInfrastructureService {
   /**
    * The DI registration name of this service; it equals its factory's `name()`.
    *
-   * @returns {'notification'} Always `notification`.
+   * @returns {'pushNotification'} Always `pushNotification`.
    */
-  serviceName(): 'notification';
+  serviceName(): 'pushNotification';
   /**
    * Whether the DI container registers this service as a singleton.
    *
@@ -52,13 +50,4 @@ export interface INotificationManager extends IBaseInfrastructureService {
    * the notification was not attempted.
    */
   broadcastNotification(message: Record<string, unknown>): Promise<void>;
-
-  /**
-   * Queue a notification to be logged and sent
-   *
-   * @param {INewNotification} notification - The notification to send; the service sets its id, status and provider
-   * @returns {Promise<void>} resolving once the notification is queued
-   * @throws {InfrastructureError} NOTIFICATION_ERROR always, until the notification manager exists.
-   */
-  enqueueNotification(notification: INewNotification): Promise<void>;
 }
