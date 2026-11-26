@@ -129,7 +129,9 @@ export class UserGroupService extends BaseDomainService {
   }
 
   /**
-   * Update an existing user group.
+   * Update an existing user group. Making the group the default writes twice (the old default is unset first, then
+   * this group is set), so a caller that changes `default` passes the session of a transaction, which
+   * `UserGroupApplicationService.update()` opens.
    *
    * @param {string} id - The ID of the user group to update.
    * @param {Partial<INewUserGroup>} updateData - The fields to update, and the `version` of the user group the caller
@@ -139,6 +141,8 @@ export class UserGroupService extends BaseDomainService {
    * @throws {DomainServiceError} NOT_FOUND when no user group exists with the given id, or the current default group could not be unset.
    * @throws {DomainServiceError} CONFLICT when `updateData.version` is not the group's current version (checked before
    * any write), or the group or the current default group changed during the update.
+   * @throws {DomainServiceError} INVALID_OPERATION when `updateData.default` is false and the group is the default
+   * group: a default is unset only by making another group the default.
    * @throws {DomainServiceError} ALREADY_EXISTS when another user group already has the requested name.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
@@ -158,6 +162,13 @@ export class UserGroupService extends BaseDomainService {
         throw new DomainServiceError(`The User Group with the id equal to ${id} could not be found.`, 'NOT_FOUND');
       }
       this.assertVersion(existingGroup, version, 'User Group');
+
+      if (changes.default === false && existingGroup.default) {
+        throw new DomainServiceError(
+          'The default user group cannot be unset. Make another group the default instead.',
+          'INVALID_OPERATION',
+        );
+      }
 
       if (changes.name && changes.name !== existingGroup.name) {
         const duplicateGroup = await this.getByName(changes.name, transactionOptions);
@@ -246,7 +257,9 @@ export class UserGroupService extends BaseDomainService {
   }
 
   /**
-   * Set a user group as the default, unsetting the current default group if one exists.
+   * Set a user group as the default, unsetting the current default group if one exists. The two writes must succeed
+   * together, so the caller passes the session of a transaction, which `UserGroupApplicationService.setAsDefault()`
+   * opens.
    *
    * @param {string} id - The ID of the user group to set as default.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.

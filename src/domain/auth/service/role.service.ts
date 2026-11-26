@@ -133,7 +133,9 @@ export class RoleService extends BaseDomainService {
   }
 
   /**
-   * Update a role by its id.
+   * Update a role by its id. Making the role the default writes twice (the old default is unset first, then this role
+   * is set), so a caller that changes `default` passes the session of a transaction, which
+   * `RoleApplicationService.update()` opens.
    *
    * @param {string} id - The role id.
    * @param {Partial<INewRole>} data - The fields to update, and the `version` of the role the caller read. Without a
@@ -144,6 +146,8 @@ export class RoleService extends BaseDomainService {
    * resource_permissions entry references a resource id that does not exist.
    * @throws {DomainServiceError} CONFLICT when `data.version` is not the role's current version (checked before any
    * write), or the role or the current default role changed during the update.
+   * @throws {DomainServiceError} INVALID_OPERATION when `data.default` is false and the role is the default role: a
+   * default is unset only by making another role the default.
    * @throws {DomainServiceError} ALREADY_EXISTS when renaming to a name already used by another role.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
@@ -155,6 +159,13 @@ export class RoleService extends BaseDomainService {
       const { version, ...changes } = data;
       const existingRole = await this.getById(id, transactionOptions);
       this.assertVersion(existingRole, version, 'Role');
+
+      if (changes.default === false && existingRole.default) {
+        throw new DomainServiceError(
+          'The default role cannot be unset. Make another role the default instead.',
+          'INVALID_OPERATION',
+        );
+      }
 
       if (changes.name && changes.name !== existingRole.name) {
         const duplicateRole = await this.getByName(changes.name, transactionOptions);
@@ -250,10 +261,14 @@ export class RoleService extends BaseDomainService {
     entries: INewResourcePermission[],
     transactionOptions?: TransactionOptions,
   ): Promise<void> {
-    const found = await Promise.all(
-      entries.map((rp) => this.resourceRepository.findById(rp.resource_id, transactionOptions)),
-    );
-    const missing = entries.filter((_, i) => !found[i]).map((rp) => rp.resource_id);
+    // One lookup at a time: parallel operations on one transaction's session are undefined behaviour in Mongoose.
+    const missing: string[] = [];
+    for (const rp of entries) {
+      const resource = await this.resourceRepository.findById(rp.resource_id, transactionOptions);
+      if (!resource) {
+        missing.push(rp.resource_id);
+      }
+    }
     if (missing.length > 0) {
       throw new DomainServiceError(`The following Resource ids could not be found: ${missing.join(', ')}`, 'NOT_FOUND');
     }

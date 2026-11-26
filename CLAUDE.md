@@ -66,7 +66,7 @@ src/
 ├── presentation/http/           # routes/, controllers/, validators/, middleware/
 ├── application/
 │   ├── interfaces/              # Every cross-layer contract: repositories/, infrastructure/, errors/, worker/, app/
-│   ├── services/{feature}/      # Application services (multi-service transactions)
+│   ├── services/{feature}/      # Application services (database transactions)
 │   └── workers/{feature}/       # Queue workers (worker process only)
 ├── domain/
 │   ├── base/                    # DomainEntity, DomainEntityError, BaseDomainService, DomainServiceError
@@ -442,7 +442,8 @@ gets `DUPLICATE_KEY` → `ALREADY_EXISTS` (400).
 **Use cases:**
 
 - a conditional rule ("one default role") → `RoleSchema.index({ default: 1 }, { unique: true, partialFilterExpression: { default: true } })`;
-  switching the flag must unset the old default first
+  switching the flag must unset the old default first, in the same transaction (`RoleApplicationService.update()`,
+  §8.1), and the current default is never unset on its own (`INVALID_OPERATION`)
 - the current unique indexes → `users.email`, `roles.name`, `roles.default` (partial), `resources.name`,
   `user-groups.name`, `user-groups.default` (partial), `email_verification_codes.email` (partial,
   `status: 'pending'`), `password_reset_codes.email` (partial, `status: 'active'`), `login_records.token`
@@ -581,13 +582,25 @@ async update(id: string, data: Partial<INewResource>, transactionOptions?: Trans
 
 File: `src/application/services/{feature}/{name}.application.service.ts`, `export default`.
 
-### 8.1 Use an application service only for a multi-service transaction
+### 8.1 Start every database transaction in an application service
 
-**Rule:** Create one only when an operation spans several domain services in one transaction. It extends
-`BaseApplicationService`, and its first constructor parameter is `database_mapper: IDatabaseMapper`, passed to
-`super(database_mapper)`.
-**Why:** Single-service operations belong in the domain service; the parameter name is the DI token (§4.2).
-**Reference:** `src/application/services/auth/signup.application.service.ts`
+**Rule:** When an operation must run in a database transaction (several writes that succeed or fail together, in one
+domain service or several), an application service starts it with `dbTransaction()`. Domain services never open a
+transaction; they take `transactionOptions` and pass it down (§7.5). An operation that needs no transaction stays in
+the domain service. The application service extends `BaseApplicationService`, and its first constructor parameter is
+`database_mapper: IDatabaseMapper`, passed to `super(database_mapper)`.
+**Why:** One place owns the transaction boundary, so a multi-write operation can't run half-done because its caller
+forgot the session. The parameter name is the DI token (§4.2).
+**Use cases:**
+
+- several domain services → `SignupApplicationService.register()` (default group and role, user, verification code)
+- several writes of one service → `AccountRecoveryApplicationService.forgotPassword()`,
+  `RoleApplicationService.update()` and `UserGroupApplicationService` (switching the default unsets the old one first)
+- the controller calls the application service for that operation and the domain service for the rest
+  (`RoleController`)
+
+**Reference:** `src/application/services/auth/signup.application.service.ts`; one service:
+`src/application/services/auth/role.application.service.ts`
 
 ### 8.2 Run the work in `dbTransaction()` and pass `{ session }` everywhere
 
@@ -1072,7 +1085,7 @@ throw new InfrastructureError(`Failed: ${error instanceof Error ? error.message 
 ☐ 3  Mapper extending BaseMapper; toVersion() in toDomain, never __v in toPersistence (§6.2, §6.3)
 ☐ 4  Repository interface in application/interfaces/repositories/ + repository extending BaseRepository (§6.4)
 ☐ 5  Domain service; update() checks the version (§7)
-☐ 6  Application service, only for a multi-service transaction (§8)
+☐ 6  Application service, for any operation that needs a database transaction (§8)
 ☐ 7  Create and update validators; update requires version (§9.1)
 ☐ 8  Controller (§9.2–§9.4)
 ☐ 9  Routes, mounted in routes/index.ts (§9.5, §9.6 when role-limited)
@@ -1118,8 +1131,6 @@ Run `npm test` too; a pull request records all of these.
 - **Notification log:** built, not wired; no endpoints yet.
 - **OpenTelemetry:** phases 1–4 built (`src/app/core/telemetry/`); 5–7 not started
   (`Docs/plans/OpenTelemetry_Implementation_Plan.md`).
-- **Default role / group switch:** unique indexes allow only one default, but switching it is not one transaction: a
-  failure between the two writes can leave no default.
 - **Versioned deletes:** not started; `delete(id)` does not check the version (§6.8).
 
 Planned work: `Docs/TODO.yml`.

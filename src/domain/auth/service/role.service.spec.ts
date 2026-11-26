@@ -3,7 +3,8 @@
  */
 
 import { Role } from '@/domain/auth/models/role';
-import type { IRole } from '@/domain/auth/models/role';
+import { Resource } from '@/domain/auth/models/resource';
+import type { IRole, INewResourcePermission } from '@/domain/auth/models/role';
 import type {
   IBaseRepository,
   IVersionedEntity,
@@ -49,11 +50,12 @@ function role(overrides: Partial<IRole> = {}): Role {
 
 describe('RoleService.update', () => {
   let roleRepository: jest.Mocked<IRoleRepository>;
+  let resourceRepository: jest.Mocked<IResourceRepository>;
   let service: RoleService;
 
   beforeEach(() => {
     roleRepository = mockRepository();
-    const resourceRepository: jest.Mocked<IResourceRepository> = mockRepository();
+    resourceRepository = mockRepository();
     const userRepository: jest.Mocked<IUserRepository> = mockRepository();
     service = new RoleService(roleRepository, resourceRepository, userRepository);
   });
@@ -105,6 +107,54 @@ describe('RoleService.update', () => {
       [DEFAULT_ROLE_ID, false, 7],
       [ROLE_ID, true, 2],
     ]);
+  });
+
+  it('refuses to unset the default role with INVALID_OPERATION, before any write', async () => {
+    roleRepository.findById.mockResolvedValue(role({ default: true }));
+
+    await expect(service.update(ROLE_ID, { default: false, version: 2 })).rejects.toMatchObject({
+      name: 'DomainServiceError',
+      type: 'INVALID_OPERATION',
+    });
+    expect(roleRepository.update).not.toHaveBeenCalled();
+  });
+
+  it('accepts default: false on a role that is not the default', async () => {
+    roleRepository.findById.mockResolvedValue(role());
+    roleRepository.update.mockImplementation(async (_id, item) =>
+      role({ default: item.default, version: item.version + 1 }),
+    );
+
+    await expect(service.update(ROLE_ID, { default: false, version: 2 })).resolves.toMatchObject({
+      default: false,
+      version: 3,
+    });
+    expect(roleRepository.findOne).not.toHaveBeenCalled();
+  });
+
+  it('looks up each granted resource one at a time, in the caller transaction', async () => {
+    const transactionOptions = { session: 'session-1' };
+    const entries: INewResourcePermission[] = ['65f1a2b3c4d5e6f708192a40', '65f1a2b3c4d5e6f708192a41'].map(
+      (resource_id) => ({ resource_id, permission: { read: true, write: false, update: false, delete: false } }),
+    );
+    let inFlight = 0;
+    let maxInFlight = 0;
+    resourceRepository.findById.mockImplementation(async (id) => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await Promise.resolve();
+      inFlight -= 1;
+      return new Resource({ id, version: 0, name: `resource-${id}` });
+    });
+    roleRepository.findById.mockResolvedValue(role());
+    roleRepository.update.mockImplementation(async (_id, item) => role({ version: item.version + 1 }));
+
+    await service.update(ROLE_ID, { resource_permissions: entries, version: 2 }, transactionOptions);
+
+    expect(resourceRepository.findById.mock.calls).toEqual(
+      entries.map((entry) => [entry.resource_id, transactionOptions]),
+    );
+    expect(maxInFlight).toBe(1);
   });
 
   it('turns a VERSION_CONFLICT from the repository (a concurrent write) into CONFLICT', async () => {

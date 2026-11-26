@@ -6,6 +6,7 @@ import { matchedData } from 'express-validator';
 
 import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import type { RoleService } from '@/domain/auth/service/role.service';
+import type { RoleApplicationService } from '@/application/services/auth/role.application.service';
 import type { IRoleRepository } from '@/application/interfaces/repositories/auth/role.repository.interface';
 import type { INewRole } from '@/domain/auth/models/role';
 import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
@@ -17,6 +18,7 @@ import type { Request, Response } from 'express';
 export class RoleController extends BaseController {
   constructor(
     private roleService: RoleService,
+    private roleApplicationService: RoleApplicationService, // update() runs in a transaction
     private roleRepository: IRoleRepository,
     logger: ILogger,
   ) {
@@ -75,8 +77,10 @@ export class RoleController extends BaseController {
   }
 
   /**
-   * Update a role by its id. The body carries the `version` of the role the client read: a stale version is answered
-   * with 409 (CONFLICT) and nothing changes, and the response carries the new version.
+   * Update a role by its id, in one transaction, so making it the default unsets the old default atomically. The body
+   * carries the `version` of the role the client read: a stale version is answered with 409 (CONFLICT) and nothing
+   * changes, and the response carries the new version. `default: false` on the default role is answered with 400
+   * (INVALID_OPERATION).
    *
    * @param {Request} req - The incoming request object.
    * @param {Response} res - The response object.
@@ -85,7 +89,7 @@ export class RoleController extends BaseController {
   async update(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
       const data = matchedData<Partial<INewRole>>(req);
-      const result = await this.roleService.update(this.getStringParam(req, 'id'), data);
+      const result = await this.roleApplicationService.update(this.getStringParam(req, 'id'), data);
 
       return ApiResponseUtils.apiOkResponse(200, false, null, 'Role updated successfully', result);
     });
