@@ -26,8 +26,8 @@ try {
   setupSignalHandlers(shutdownManager);
   setupErrorHandlers(shutdownManager);
 
-  // Start the application
-  app.listen();
+  // Initialize everything, then open the port
+  app.start();
 } catch (error) {
   console.error('Failed to initialize InfiniteNodeApplication:', error);
   process.exit(1);

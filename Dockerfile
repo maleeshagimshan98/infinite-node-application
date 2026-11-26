@@ -26,7 +26,7 @@ ENV NODE_ENV=development
 RUN npm ci --include=dev
 COPY tsconfig.json ./
 COPY . .
-EXPOSE 3001
+EXPOSE 3000
 # Let orchestrator handle service dependencies; app has retry logic
 CMD ["dumb-init", "npm", "run", "dev"]
 
@@ -50,18 +50,18 @@ COPY --from=build --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=build --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=build --chown=nodejs:nodejs /app/package*.json ./
 
-# Create logs directory and set permissions for non-root user
-RUN mkdir -p /app/logs && chown nodejs:nodejs /app/logs
+# Create the logs and local storage (STORAGE_ROOT_PATH default ./storage) directories for the non-root user
+RUN mkdir -p /app/logs /app/storage && chown nodejs:nodejs /app/logs /app/storage
 
 # Switch to non-root user
 USER nodejs
 
-# Expose the application port
-EXPOSE 3001
+# Expose the application port (NODE_PORT, default 3000)
+EXPOSE 3000
 
-# Health check for container orchestration (liveness probe)
+# Health check for container orchestration (liveness probe). Shell form, so NODE_PORT is read when the check runs.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD curl -f http://localhost:3001/api/v1/health/live || exit 1
+  CMD curl -f "http://localhost:${NODE_PORT:-3000}/api/v1/health/live" || exit 1
 
 # Start the application (orchestrator handles service dependencies)
 CMD ["dumb-init", "npm", "start"]

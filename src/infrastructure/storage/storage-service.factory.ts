@@ -6,6 +6,7 @@ import type { IStorage } from '@/application/interfaces/infrastructure/storage.i
 import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { LocalStorageService } from './local/local-storage.service';
+import { localStorageDriverLoader } from './local/driver/local-storage.driver.loader';
 
 import type { IServiceFactory } from '../core/interfaces/service.factory.interface';
 
@@ -22,12 +23,13 @@ export class StorageServiceFactory implements IServiceFactory<IStorage> {
   }
 
   /**
-   * Create a storage service instance using the provided local file storage driver
+   * Create the local file system storage service, with its root folder ready to use
    *
    * @returns {Promise<IStorage>} implementation
+   * @throws {DriverError} When the root folder can't be created, or can't be read or written.
    */
   async createLocalStorageService(): Promise<IStorage> {
-    return new LocalStorageService();
+    return new LocalStorageService(await localStorageDriverLoader());
   }
 
   /**
@@ -35,13 +37,14 @@ export class StorageServiceFactory implements IServiceFactory<IStorage> {
    * Currently supports local storage only, but can be extended for other providers
    *
    * @returns {Promise<IStorage>} implementation
-   * @throws {InfrastructureError} if driver is not supported
+   * @throws {InfrastructureError} DRIVER_ERROR if the driver is not supported
+   * @throws {DriverError} When the local storage root folder can't be created, or can't be read or written.
    */
   async create(): Promise<IStorage> {
     const driver = process.env.STORAGE_DRIVER || 'filesystem';
     switch (driver) {
       case 'filesystem':
-        return new LocalStorageService();
+        return await this.createLocalStorageService();
 
       case 'aws':
         throw new InfrastructureError('AWS S3 storage service not yet implemented', 'DRIVER_ERROR', {

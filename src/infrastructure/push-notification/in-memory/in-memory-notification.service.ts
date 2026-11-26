@@ -79,7 +79,8 @@ export class InMemoryNotificationService implements IPushNotificationService {
   }
 
   /**
-   * Returns the underlying notification driver instance
+   * Returns the underlying notification driver instance. The health check reads it: the in-memory driver has
+   * nothing remote to probe, so a driver that exists counts as connected.
    *
    * @returns {unknown} The notification driver
    *
@@ -89,7 +90,7 @@ export class InMemoryNotificationService implements IPushNotificationService {
    * ```
    */
   getDriver(): unknown {
-    return this.driver.client();
+    return this.driver;
   }
 
   /**

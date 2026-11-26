@@ -1,6 +1,8 @@
 node_modules
 dist
 logs
+# Local file storage root (STORAGE_ROOT_PATH default); anchored so src/infrastructure/storage/ is not ignored
+/storage/
 #Docs
 .env
 .env.*

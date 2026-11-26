@@ -275,9 +275,8 @@ docker compose up -d --build
 
 Important notes
 
-- Healthcheck probes `http://localhost:3001/api/v1/health/live`. Either set `NODE_PORT=3001`
-  inside the container, or change the `EXPOSE`/`HEALTHCHECK` line in the Dockerfile and the
-  compose port mapping to match your chosen `NODE_PORT`
+- Healthcheck probes `http://localhost:${NODE_PORT}/api/v1/health/live` (port 3000 by default).
+  If you change `NODE_PORT`, change the compose port mapping and the Dockerfile's `EXPOSE` to match
 - Outside Compose, the app expects MongoDB and Redis reachable at whatever `MONGODB_URI` /
   `REDIS_SERVER_URL` point to — supply those to target external services instead
 - Hand-filling `.env.production` as shown above is fine for local/quick Compose testing only —
@@ -328,7 +327,7 @@ without external services, except `base-repository.spec.ts`, which needs a real 
 - 429 Too many requests: Ensure Redis is reachable; the rate limiter uses a Redis store via the DI cache service
 - Transaction/session errors on signup or seeding: `MONGODB_URI` is missing `?replicaSet=rs0`, or the replica set was never initiated — connect with `mongosh` and run `rs.status()` to confirm. For a from-scratch native setup, see [`Docs/guides/REPLICA_SET_SETUP_GUIDE.md`](Docs/guides/REPLICA_SET_SETUP_GUIDE.md). Over HTTP this shows only as a generic 500 — look in the server log for `PersistanceError` `Failed to execute transaction: Transaction numbers are only allowed on a replica set member or mongos`
 - A generic 500/503 from any endpoint: infrastructure error details are never returned to the client — check the server log for the full error
-- Health check failing in Docker: Ensure NODE_PORT matches the healthcheck port (3001 by default in Dockerfile) or adjust Dockerfile
+- Health check failing in Docker: the image's healthcheck calls `/api/v1/health/live` on `NODE_PORT` (default 3000); check that `API_URL_PREFIX` is still `/api/v1/`
 - Logs not created: Confirm write permissions to ./logs in container/host
 - More seeding-specific issues: see [`Docs/Getting_Started.md`](Docs/Getting_Started.md#7-troubleshooting)
 

@@ -8,6 +8,7 @@ import * as path from 'path';
 
 import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
+import { localStorageDriverLoader } from './driver/local-storage.driver.loader';
 import { LocalStorageService } from './local-storage.service';
 
 describe('LocalStorageService not-found handling', () => {
@@ -18,7 +19,7 @@ describe('LocalStorageService not-found handling', () => {
   beforeAll(async () => {
     root = await fs.mkdtemp(path.join(os.tmpdir(), 'local-storage-spec-'));
     process.env.STORAGE_ROOT_PATH = root;
-    service = new LocalStorageService();
+    service = new LocalStorageService(await localStorageDriverLoader());
   });
 
   afterAll(async () => {

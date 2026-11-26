@@ -2,9 +2,17 @@
  * Copyright - 2026 - Maleesha Gimshan (www.github.com/maleeshagimshan98)
  */
 
+import * as fs from 'fs/promises';
+import * as os from 'os';
+import * as path from 'path';
+
 import type { IBaseInfrastructureService } from '@/application/interfaces/infrastructure/core/base-infrastructure-service.interface';
 import type { ICircuitBreakerStatus } from '@/application/interfaces/infrastructure/core/circuit-breaker-status.interface';
 import type { IDriverHealthStatus } from '@/infrastructure/core/driver/core.driver';
+import { inMemoryNotificationDriverLoader } from '@/infrastructure/push-notification/in-memory/driver/in-memory-notification.driver.loader';
+import { InMemoryNotificationService } from '@/infrastructure/push-notification/in-memory/in-memory-notification.service';
+import { localStorageDriverLoader } from '@/infrastructure/storage/local/driver/local-storage.driver.loader';
+import { LocalStorageService } from '@/infrastructure/storage/local/local-storage.service';
 
 import { InfrastructureHealthCheckService } from './infrastructure-health-check.service';
 
@@ -86,5 +94,45 @@ describe('InfrastructureHealthCheckService circuit breakers', () => {
     const result = await healthCheck.checkHealth();
 
     expect(result.status).toBe('healthy');
+  });
+});
+
+describe('InfrastructureHealthCheckService with the default storage and push drivers', () => {
+  const originalRoot = process.env.STORAGE_ROOT_PATH;
+  let root: string;
+
+  beforeAll(async () => {
+    root = await fs.mkdtemp(path.join(os.tmpdir(), 'health-default-drivers-spec-'));
+    process.env.STORAGE_ROOT_PATH = root;
+  });
+
+  afterAll(async () => {
+    process.env.STORAGE_ROOT_PATH = originalRoot;
+    await fs.rm(root, { recursive: true, force: true });
+  });
+
+  it('reports healthy: local storage and in-memory push count as connected', async () => {
+    const healthCheck = new InfrastructureHealthCheckService();
+    healthCheck.registerService(fakeService('database_mapper', connected));
+    healthCheck.registerService(new LocalStorageService(await localStorageDriverLoader()));
+    healthCheck.registerService(new InMemoryNotificationService(await inMemoryNotificationDriverLoader()));
+
+    const result = await healthCheck.checkHealth();
+
+    expect(result.services.storage?.status).toBe('connected');
+    expect(result.services.push_notification?.status).toBe('connected');
+    expect(result.status).toBe('healthy');
+  });
+
+  it('reports degraded once the storage root folder is gone', async () => {
+    const healthCheck = new InfrastructureHealthCheckService();
+    healthCheck.registerService(fakeService('database_mapper', connected));
+    healthCheck.registerService(new LocalStorageService(await localStorageDriverLoader()));
+    await fs.rm(root, { recursive: true, force: true });
+
+    const result = await healthCheck.checkHealth();
+
+    expect(result.services.storage?.status).toBe('disconnected');
+    expect(result.status).toBe('degraded');
   });
 });

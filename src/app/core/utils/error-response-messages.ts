@@ -5,6 +5,8 @@ class ErrorResponseMessages {
   private static _REQUEST_VALIDATION_ERROR: string =
     'The request data is invalid. Please check the provided information and try again.';
   private static _NOT_FOUND_ERROR: string = 'The requested resource could not be found.';
+  private static _MALFORMED_REQUEST_BODY_ERROR: string = 'The request body is not valid JSON.';
+  private static _REQUEST_BODY_TOO_LARGE_ERROR: string = 'The request body is too large.';
   private static _NO_AUTHORIZATION_HEADER_ERROR: string = 'No authorization header with a token present in the request';
   private static _INVALID_AUTHORIZATION_HEADER_ERROR: string = 'Authorization token is invalid';
   private static _EXPIRED_AUTHORIZATION_HEADER_ERROR: string = 'Authorization token is expired, login again';
@@ -61,6 +63,24 @@ class ErrorResponseMessages {
    */
   public static REQUEST_VALIDATION_ERROR(): string {
     return this._REQUEST_VALIDATION_ERROR;
+  }
+
+  /**
+   * Get the client-facing message for a request body that is not valid JSON (400).
+   *
+   * @returns {string} The message.
+   */
+  public static MALFORMED_REQUEST_BODY(): string {
+    return this._MALFORMED_REQUEST_BODY_ERROR;
+  }
+
+  /**
+   * Get the client-facing message for a request body over the size limit (413).
+   *
+   * @returns {string} The message.
+   */
+  public static REQUEST_BODY_TOO_LARGE(): string {
+    return this._REQUEST_BODY_TOO_LARGE_ERROR;
   }
 
   /**

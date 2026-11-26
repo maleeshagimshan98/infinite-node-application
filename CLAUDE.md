@@ -790,6 +790,10 @@ role or no loaded resources is a refusal (`User.hasPermission()` → `Role.hasPe
   types; the original travels in `data.type`.
 - `UserValidatorMiddleware` answers an `INFRASTRUCTURE_ERROR` during authentication with the same generic 503/500 (an
   outage is not an authentication failure); any other `DomainServiceError` there is a 401 with its message.
+- Outside the controllers, two app-level handlers mounted after every route (`src/app/core/middleware/`) answer in
+  JSON. `notFoundMiddleware` gives a request no route matched a 404. `errorHandlerMiddleware` gives a body the JSON
+  parser rejects a 400 (not valid JSON) or a 413 (too large), with a fixed message, and anything else the generic 500,
+  logged with its stack.
 
 ---
 

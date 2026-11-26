@@ -14,10 +14,13 @@ import { scopePerRequest } from 'awilix-express';
 
 import { InfrastructureManager } from '@/infrastructure/infrastructure.manager';
 import type { IInfrastructureManager } from '@/application/interfaces/infrastructure/infrastructure-manager.interface';
+import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
 
 import { StartupBanner } from './core/utils/startup-banner';
 import { configLoader } from './core/config/config';
 import { coreMiddleware } from './core/middleware/core.middleware';
+import { errorHandlerMiddleware } from './core/middleware/error-handler.middleware';
+import { notFoundMiddleware } from './core/middleware/not-found.middleware';
 import { InfiniteNodeError } from './core/errors/InfiniteNodeError';
 import { autoRegisterApplicationComponents, container, registerAppMetadata } from './core/service.container';
 import { ShutdownPriority } from './core/shutdown/shutdown-priority.enum';
@@ -77,17 +80,21 @@ class InfiniteNodeApplication {
    */
   private shutdownManager: ShutdownManager | undefined;
 
+  private readonly routes: Router;
+
   /**
    * Constructor for InfiniteNodeApplication
    *
-   * Initializes the express server, HTTP server, and core services, and registers the servers and
-   * the app metadata in the DI container. Also sets up the application routes.
+   * Creates the express server and the HTTP server, registers the shutdown hooks, and registers the servers and the
+   * app metadata in the DI container. Nothing is initialized or mounted yet, and the port stays closed: `start()`
+   * does that.
    *
    * @param {Router} routes - The main application router containing all route definitions
    * @param {ShutdownManager} shutdownManager - Optional shutdown manager for graceful shutdown
    * @throws {InfiniteNodeError} If there is an error during initialization
    */
   constructor(routes: Router, shutdownManager?: ShutdownManager) {
+    this.routes = routes;
     try {
       this.shutdownManager = shutdownManager as ShutdownManager | undefined;
       this.container = container;
@@ -107,30 +114,6 @@ class InfiniteNodeApplication {
       this.startupBanner.printBanner();
 
       this.infrastructureManager = new InfrastructureManager();
-      this.infrastructureManager
-        .init(this.container)
-        .then(async () => {
-          // Auto-register services, repositories, and controllers
-          autoRegisterApplicationComponents();
-
-          await this.initCoreMiddleware();
-          this.express_server.use(scopePerRequest(this.container));
-          this.express_server.use(config.app.apiUrlPrefix, routes);
-
-          this.startupBanner?.printStartupInfo({
-            appName: config.app.name,
-            serverUrl: config.app.baseUrl,
-            bindAddress: this.getServerBindString(),
-          });
-        })
-        .catch((error) => {
-          const logger = this.container.resolve<Logger>('logger', { allowUnregistered: true });
-          if (logger && typeof logger.error === 'function') {
-            logger.error('Error during application initialization', { error });
-          }
-          this.startupBanner?.printInitializationError(error);
-          process.exit(1);
-        });
     } catch (error) {
       if (this.startupBanner) {
         this.startupBanner.printFatalError(error as Error);
@@ -139,6 +122,56 @@ class InfiniteNodeApplication {
       }
       process.exit(1);
     }
+  }
+
+  /**
+   * Start the API: initialize everything, then open the port. Requests are accepted only once the routes and the
+   * fallback handlers are mounted. Any error during init is logged and the process exits with code 1.
+   *
+   * @returns {void}
+   */
+  start(): void {
+    this.init()
+      .then(() => {
+        this.listen();
+        this.startupBanner?.printStartupInfo({
+          appName: config.app.name,
+          serverUrl: config.app.baseUrl,
+          bindAddress: this.getServerBindString(),
+        });
+      })
+      .catch((error: unknown) => {
+        const logger = this.container.resolve<Logger>('logger', { allowUnregistered: true });
+        if (logger && typeof logger.error === 'function') {
+          logger.error('Error during application initialization', { error });
+        }
+        this.startupBanner?.printInitializationError(error instanceof Error ? error : new Error(String(error)));
+        process.exit(1);
+      });
+  }
+
+  /**
+   * Initialize the infrastructure services, register the application components, and mount the core middleware,
+   * the routes, the not-found handler and the error handler, in that order.
+   *
+   * @returns {Promise<void>} Resolves once the application is ready to serve requests.
+   * @throws {InfrastructureError} DRIVER_ERROR when an infrastructure service can't be built or resolved.
+   * @throws {DriverError} When a driver can't connect or initialize.
+   * @throws {InfiniteNodeError} When a core middleware is not a function.
+   */
+  private async init(): Promise<void> {
+    await this.infrastructureManager.init(this.container);
+
+    // Auto-register services, repositories, and controllers
+    autoRegisterApplicationComponents();
+
+    await this.initCoreMiddleware();
+    this.express_server.use(scopePerRequest(this.container));
+    this.express_server.use(config.app.apiUrlPrefix, this.routes);
+
+    // Fallbacks, after every route: a JSON 404 for an unmatched request, then the last-resort error handler.
+    this.express_server.use(notFoundMiddleware());
+    this.express_server.use(errorHandlerMiddleware(this.container.resolve<ILogger>('logger')));
   }
 
   /**
@@ -329,12 +362,11 @@ class InfiniteNodeApplication {
   }
 
   /**
-   * Listen to the server
+   * Open the port. Called by `start()` once everything is mounted, never before.
    *
    * @returns {void}
-   * @throws {InfiniteNodeError} If the server instance is not found
    */
-  listen(): void {
+  private listen(): void {
     this.httpServer.listen(config.app.port);
     this.httpServer.on('error', (error: NodeJS.ErrnoException) => this.onListenError(error, config.app.port));
     this.httpServer.on('clientError', (error: Error, socket: net.Socket) => this.onClientError(error, socket));

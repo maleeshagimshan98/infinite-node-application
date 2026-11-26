@@ -74,7 +74,7 @@ copy the layout of `src/infrastructure/email/` for a new one.
 | `logger`           | `ILogger`                  | `LOGGING_DRIVER` (winston)            | `WinstonLoggerService`                                      | —       | —            | ✅           |
 | `emailService`     | `IEmailService`            | `EMAIL_DRIVER` (smtp)                 | `SMTPEmailService`, `SESEmailService`                       | ✅      | one          | —            |
 | `pushNotification` | `IPushNotificationService` | `PUSH_NOTIFICATION_DRIVER` (inmemory) | `InMemoryNotificationService`, `SNSPushNotificationService` | —       | SNS only     | SNS only     |
-| `storage`          | `IStorage`                 | `STORAGE_DRIVER` (filesystem)         | `LocalStorageService` (no driver)                           | —       | —            | —            |
+| `storage`          | `IStorage`                 | `STORAGE_DRIVER` (filesystem)         | `LocalStorageService`                                       | —       | —            | —            |
 | `socket`           | `ISocket`                  | `SOCKET_DRIVER` (socketio)            | `SocketIOService` (API process only)                        | —       | —            | ✅           |
 | `httpClient`       | `IHTTPClient`              | none                                  | `HTTPClientService` (axios, no driver)                      | —       | one per host | —            |
 
@@ -166,8 +166,7 @@ export const mongooseConfig = (): IMongooseConfig => ({
 - credentials for AWS → never in env config; the SDK's default provider chain supplies them
   (`Docs/features/email.md` card 9)
 - every new variable → documented in `.env.example`, in the service's section
-- a service without a driver → reads its config in its own constructor (`LocalStorageService` → `storageConfig()`);
-  the HTTP client reads its three settings in its factory
+- the one service without a driver (the HTTP client) → reads its three settings in its factory
 
 **Reference:** `src/infrastructure/persistance/database/service/database-mapper/driver/mongoose.config.ts`,
 `src/infrastructure/email/smtp/driver/smtp.config.ts`
@@ -219,8 +218,9 @@ export const mongooseDriverLoader = async (): Promise<MongooseDriver> => {
   code 1
 - the service constructor → guard the client with `if (!client)` and throw the service's own error
   (`MongooseService` → `PersistanceError`), never `instanceof Object` (§11.3)
-- nothing to connect → no driver: `LocalStorageService.getDriver()` returns `null`, `HTTPClientService.getDriver()`
-  returns axios
+- nothing to connect at all → no driver: only `HTTPClientService`, whose `getDriver()` returns axios
+- a local resource (the storage root folder) → still a driver: `LocalStorageDriver.init()` creates the folder and
+  fails startup when it can't be read and written, and its `health()` checks that it still can
 - a placeholder that sends nothing (in-memory push) → still a driver, so the factory keeps the same shape for every
   implementation
 
@@ -567,7 +567,9 @@ How `/health` is computed:
 - `circuitBreakerStatuses()` → shown as the service's `circuit_breakers`
 - the public response → keeps each service's `status`, `latency` and breakers' state and counts. It drops `message`
   and breaker names, which the controller logs, so `health()` messages may name hosts but must never hold secrets
-- a service with no driver → reported `disconnected` (see Known gaps)
+- `getDriver()` → return the driver itself, never its `client()` or `null`: a falsy value is reported
+  `disconnected`. A driver with nothing to probe (in-memory push) needs no `health()`: a driver that exists counts as
+  connected
 
 **Reference:** `src/infrastructure/health/infrastructure-health-check.service.ts`,
 `src/presentation/http/controllers/health/health.controller.ts`
@@ -735,17 +737,12 @@ emailService = {
 
 Code that does not follow the cards above yet:
 
-- `SocketServiceFactory` throws `SOCKET_ERROR` for an unsupported `SOCKET_DRIVER`, not `DRIVER_ERROR`
-  (`src/infrastructure/socket/socket-service.factory.ts`).
 - `HTTPClientServiceFactory` has no `{NAME}_DRIVER` switch: axios is the only implementation.
 - Nothing reads `IDriverConfig.singleton`, `deferred` or `optional`, so the `*_SERVICE_OPTIONAL` variables have no
   effect. `storageConfig()` returns `singleton: false, deferred: true`, the opposite of `LocalStorageService`.
 - The SMTP and SES drivers' `shutdown()` is never called: `BaseEmailService` has no `shutdown()`.
 - When a factory's `create()` throws, the drivers that earlier factories already connected are not closed: services
   join the shutdown list only in the manager's third phase.
-- With the default drivers, storage (`getDriver()` returns `null`) and in-memory push (its driver's `client()` is
-  `undefined`) are reported `disconnected`. The overall status is therefore `degraded`, and `/health` and
-  `/health/ready` answer 503. Found by reading the code, not reproduced.
 - `IDatabase` (`src/application/interfaces/infrastructure/db.interface.ts`) has no implementation.
 - No service implements `isShuttingDown()`.
 - `MongooseService.shutdown()` throws `PersistanceError` without the original error as its cause.

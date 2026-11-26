@@ -31,6 +31,9 @@ jest-tmp
 logs
 *.log
 
+# Local file storage root (only the top-level folder; src/infrastructure/storage is kept)
+/storage
+
 # Docker
 Dockerfile*
 .dockerignore

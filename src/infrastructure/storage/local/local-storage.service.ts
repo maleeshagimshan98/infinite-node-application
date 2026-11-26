@@ -8,7 +8,7 @@ import * as path from 'path';
 import type { IStorage } from '@/application/interfaces/infrastructure/storage.interface';
 import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
-import { storageConfig } from './local-file-storage.config';
+import type { LocalStorageDriver } from './driver/local-storage.driver';
 
 /**
  * Determine whether a file system error means the path does not exist.
@@ -33,7 +33,7 @@ function isNotFoundError(e: unknown): boolean {
  *
  * @example
  * ```typescript
- * const storageService = new LocalStorageService(); // rooted at STORAGE_ROOT_PATH
+ * const storageService = new LocalStorageService(await localStorageDriverLoader()); // rooted at STORAGE_ROOT_PATH
  *
  * await storageService.createFile('documents/file.txt', Buffer.from('content'));
  * const content = await storageService.readFile('documents/file.txt');
@@ -49,17 +49,26 @@ export class LocalStorageService implements IStorage {
    */
   private readonly rootPath: string;
 
+  private readonly driver: LocalStorageDriver;
+
   /**
-   * Creates an instance of LocalStorageService, rooted at the configured `STORAGE_ROOT_PATH`
+   * Creates an instance of LocalStorageService, rooted at its driver's root folder (`STORAGE_ROOT_PATH`)
+   *
+   * @param {LocalStorageDriver} driver - The initialized local storage driver.
+   * @throws {InfrastructureError} STORAGE_ERROR when the driver has not been initialized.
    *
    * @example
    * ```typescript
-   * const service = new LocalStorageService();
+   * const service = new LocalStorageService(await localStorageDriverLoader());
    * ```
    */
-  constructor() {
-    const config = storageConfig();
-    this.rootPath = config.params.rootPath;
+  constructor(driver: LocalStorageDriver) {
+    const rootPath = driver.client();
+    if (!rootPath) {
+      throw new InfrastructureError('Invalid local storage driver provided to LocalStorageService', 'STORAGE_ERROR');
+    }
+    this.driver = driver;
+    this.rootPath = rootPath;
   }
 
   /**
@@ -90,12 +99,12 @@ export class LocalStorageService implements IStorage {
   }
 
   /**
-   * Local storage uses the file system directly and has no driver.
+   * Get the local storage driver; the health check calls its `health()`.
    *
-   * @returns {unknown} Always null.
+   * @returns {unknown} The local storage driver.
    */
   getDriver(): unknown {
-    return null;
+    return this.driver;
   }
 
   /**

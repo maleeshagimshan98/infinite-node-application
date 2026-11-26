@@ -152,16 +152,21 @@ only the libraries loaded after it.
    - creates the Express app and an HTTP server around it, and tracks open connections;
    - registers the shutdown hooks (below);
    - registers `httpServer`, `expressServer` and `appMetadata` in the container. The socket driver needs
-     `httpServer`, so this happens before infrastructure;
-   - starts `InfrastructureManager.init()` without awaiting it.
-4. **Signal and process error handlers**, then **`listen()`**: the port opens now.
-5. **When `init()` resolves:**
-   1. `autoRegisterApplicationComponents()`;
-   2. the core middleware, in this order: `cookieParser`, `session`, `cors`, `helmet`, `rateLimit` (Redis store
+     `httpServer`, so this happens before infrastructure.
+
+   Nothing is initialized yet, and the port is still closed.
+4. **Signal and process error handlers**, then **`start()`**, which runs `init()`:
+   1. `InfrastructureManager.init()`: every infrastructure service, connected;
+   2. `autoRegisterApplicationComponents()`;
+   3. the core middleware, in this order: `cookieParser`, `session`, `cors`, `helmet`, `rateLimit` (Redis store
       through `cache`, falling back to memory), `morgan`, `json` (10 MB), `urlencoded`, `contentType` (JSON), and a
       request `logger`;
-   3. `scopePerRequest(container)`;
-   4. the routes, under `apiUrlPrefix` (default `/api/v1/`).
+   4. `scopePerRequest(container)`;
+   5. the routes, under `apiUrlPrefix` (default `/api/v1/`);
+   6. `notFoundMiddleware()`: a JSON 404 for any request no route matched;
+   7. `errorHandlerMiddleware(logger)`: the last-resort error handler (section 9).
+5. **`listen()`**: only now does the port open, so a request can never reach a half-mounted app. Until then a
+   client gets a refused connection, and orchestrators keep the instance out of rotation.
 
 If any step fails, the error is logged and the process exits with code 1.
 
@@ -286,6 +291,16 @@ HTTP status + message (generic for infrastructure failures; the full error is lo
 The full status table is `CLAUDE.md` §10. In a worker there is no controller: an error that leaves a job goes to
 BullMQ, which retries the job and logs the failure.
 
+Two app-level handlers, mounted after every route, catch what never reaches a controller:
+
+- `notFoundMiddleware()` (`src/app/core/middleware/not-found.middleware.ts`) answers a request that no route matched
+  with a JSON 404.
+- `errorHandlerMiddleware(logger)` (`src/app/core/middleware/error-handler.middleware.ts`) answers the rest:
+  - a body the JSON parser rejects → 400 (not valid JSON) or 413 (over the 10 MB limit), with a fixed message, logged
+    as a warning;
+  - any other error → the generic 500, logged as an error with its stack. The error's message never reaches the
+    client.
+
 ## 10. Keeping data consistent
 
 Three mechanisms work together:
@@ -375,7 +390,9 @@ The repository interface (`src/application/interfaces/repositories/{feature}/`) 
 OTLP 4318).
 
 **Image** (`Dockerfile`): `base` → `development` (runs `npm run dev`) and `build` (`npm run build`, then prunes dev
-dependencies) → `production` (runs `dist/` as a non-root user under `dumb-init`).
+dependencies) → `production` (runs `dist/` as a non-root user under `dumb-init`). The production image creates
+`/app/logs` and `/app/storage` (the local storage root) for that user, exposes 3000, and health-checks
+`/api/v1/health/live` on `NODE_PORT` (default 3000).
 
 **Without Docker:** `npm run dev` / `npm run worker:dev` (or both under pm2 with `npm run dev:all`), and
 `ecosystem.prod.config.js` for both compiled processes.
@@ -387,20 +404,16 @@ tagged `latest` and with the commit SHA. The ECS services and their infrastructu
 
 Behaviour that differs from what you might expect. Planned work: `CLAUDE.md` §14 and `Docs/TODO.yml`.
 
-- The port opens before the middleware and routes are mounted (`listen()` runs while infrastructure is still
-  starting), so a request in the first moments of boot gets Express's default 404.
-- There is no 404 handler or error-handling middleware: an unknown route gets Express's default response.
 - `scopePerRequest()` is mounted, but routes resolve controllers from the root container, so no request scope is used.
 - `server.config.ts` reads `SSL_ENABLED`, `SSL_KEY_PATH` and `SSL_CERT_PATH`, but nothing uses them: the server is
   plain HTTP, and TLS ends at the proxy.
-- The production image exposes and health-checks port 3001, while the app listens on `NODE_PORT` (3000 by default and
-  in Compose), so the image's `HEALTHCHECK` can't reach it.
 - A failure during boot exits with code 1 without running the shutdown hooks.
 - `base.application.service.ts` matches the auto-registration glob and has a default export, so
   `baseApplicationService` is registered with a constructor parameter (`databaseMapperService`) that no token matches.
   Nothing resolves it, so it never fails.
-- With the default drivers, `/health` and `/health/ready` report `degraded` (503); see the Known gaps in
-  `Docs/architecture/infrastructure-layer-pattern.md`.
+- Route handlers call their controller without returning its promise, so an error that escapes
+  `catchExceptionsWrapper()` becomes an unhandled rejection (which shuts the process down) instead of reaching the
+  error handler.
 
 ## 15. Related documents
 

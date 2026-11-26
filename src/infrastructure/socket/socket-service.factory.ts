@@ -45,7 +45,7 @@ export class SocketServiceFactory implements IServiceFactory<ISocket> {
    * Creates a socket service instance based on the configured socket driver type
    *
    * @returns {Promise<ISocket>} A socket service instance
-   * @throws {InfrastructureError} If the socket type is not supported
+   * @throws {InfrastructureError} DRIVER_ERROR if the socket driver is not supported
    *
    * @example
    * ```typescript
@@ -69,7 +69,7 @@ export class SocketServiceFactory implements IServiceFactory<ISocket> {
       //   return this.createPusherService(driver as PusherClient);
 
       default:
-        throw new InfrastructureError(`Unsupported socket type: ${socketType}`, 'SOCKET_ERROR', {
+        throw new InfrastructureError(`Unsupported socket type: ${socketType}`, 'DRIVER_ERROR', {
           socketType,
         });
     }
