@@ -156,5 +156,12 @@ export default [
       'jsdoc/tag-lines': ['error', 'any', { startLines: 1 }],
     },
   },
+  {
+    // Seeders are command-line scripts that report progress on the console (CLAUDE.md §16).
+    files: ['src/infrastructure/persistance/database/seeders/**/*.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
   prettier, // Disable conflicting ESLint rules that Prettier handles
 ];
