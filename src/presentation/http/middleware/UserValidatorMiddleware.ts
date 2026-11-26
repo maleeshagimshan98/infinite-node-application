@@ -20,7 +20,7 @@ export const UserValidatorMiddleware =
 
     if (!token) {
       const apiResponse = APIResponseUtils.noAuthorizationHeaderFoundResponse();
-      res.status(apiResponse.getCode()).send(apiResponse.toJson());
+      APIResponseUtils.createResponse(apiResponse, res);
       return;
     }
 
@@ -28,7 +28,7 @@ export const UserValidatorMiddleware =
       const loginApplicationService = loginApplicationServiceProvider();
       if (!loginApplicationService) {
         const apiResponse = APIResponseUtils.getServerErrorAPIResponse();
-        res.status(apiResponse.getCode()).send(apiResponse.toJson());
+        APIResponseUtils.createResponse(apiResponse, res);
         return;
       }
       // Validate the token (cache-backed) and resolve the full user object
@@ -38,7 +38,7 @@ export const UserValidatorMiddleware =
 
       if (!user) {
         const apiResponse = APIResponseUtils.invalidAuthorizationHeaderResponse();
-        res.status(apiResponse.getCode()).send(apiResponse.toJson());
+        APIResponseUtils.createResponse(apiResponse, res);
         return;
       }
 
@@ -51,12 +51,12 @@ export const UserValidatorMiddleware =
           error.type === 'INFRASTRUCTURE_ERROR'
             ? APIResponseUtils.infrastructureErrorResponse(error.data.type)
             : APIResponseUtils.apiErrorResponse(401, error.message);
-        res.status(apiResponse.getCode()).send(apiResponse.toJson());
+        APIResponseUtils.createResponse(apiResponse, res);
         return;
       }
 
       // Handle unexpected errors
       const apiResponse = APIResponseUtils.invalidAuthorizationHeaderResponse();
-      res.status(apiResponse.getCode()).send(apiResponse.toJson());
+      APIResponseUtils.createResponse(apiResponse, res);
     }
   };
