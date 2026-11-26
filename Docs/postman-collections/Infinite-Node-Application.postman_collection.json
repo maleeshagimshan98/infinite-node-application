@@ -35,6 +35,21 @@
       "key": "roleVersion",
       "value": "0",
       "type": "string"
+    },
+    {
+      "key": "userETag",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "resourceETag",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "roleETag",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -122,8 +137,11 @@
                 "exec": [
                   "if (pm.response.code === 201) {",
                   "    const jsonData = pm.response.json();",
-                  "    if (jsonData.data && jsonData.data.id) {",
-                  "        pm.environment.set('userId', jsonData.data.id);",
+                  "    // `data` is always an array: a single record is its first item",
+                  "    const item = Array.isArray(jsonData.data) ? jsonData.data[0] : jsonData.data;",
+                  "    if (item && item.id) {",
+                  "        pm.collectionVariables.set('userId', item.id);",
+                  "        pm.environment.set('userId', item.id);",
                   "    }",
                   "}"
                 ],
@@ -220,10 +238,12 @@
               "script": {
                 "exec": [
                   "if (pm.response.code === 201) {",
-                  "    const jsonData = pm.response.json();",
-                  "    if (jsonData.data && jsonData.data.token) {",
-                  "        pm.collectionVariables.set('authToken', jsonData.data.token);",
-                  "        pm.environment.set('authToken', jsonData.data.token);",
+                  "    // The access token comes in the Authorization response header; the body holds only the user's id and status",
+                  "    const authHeader = pm.response.headers.get('Authorization');",
+                  "    if (authHeader) {",
+                  "        const token = authHeader.replace('Bearer ', '');",
+                  "        pm.collectionVariables.set('authToken', token);",
+                  "        pm.environment.set('authToken', token);",
                   "    }",
                   "}"
                 ],
@@ -248,7 +268,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["{{apiPrefix}}", "auth", "login"]
             },
-            "description": "Login with email and password credentials"
+            "description": "Login with email and password credentials. A suspended account is answered with 401 \"This account is suspended\"."
           },
           "response": []
         },
@@ -259,7 +279,8 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "if (pm.response.code === 200) {",
+                  "// No data in the body, so a success is answered with 204",
+                  "if (pm.response.code === 200 || pm.response.code === 204) {",
                   "    const authHeader = pm.response.headers.get('Authorization');",
                   "    if (authHeader) {",
                   "        const token = authHeader.replace('Bearer ', '');",
@@ -317,7 +338,8 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "if (pm.response.code === 200) {",
+                  "// No data in the body, so a success is answered with 204",
+                  "if (pm.response.code === 200 || pm.response.code === 204) {",
                   "    pm.collectionVariables.set('authToken', '');",
                   "    pm.environment.set('authToken', '');",
                   "}"
@@ -404,7 +426,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["{{apiPrefix}}", "auth", "reset-password"]
             },
-            "description": "Reset password using verification code received via email"
+            "description": "Reset password using verification code received via email. Ends every session of the user: every access token issued before the reset is answered with 401 from then on."
           },
           "response": []
         }
@@ -422,11 +444,20 @@
                 "exec": [
                   "if (pm.response.code === 201) {",
                   "    const jsonData = pm.response.json();",
-                  "    if (jsonData.data && jsonData.data.id) {",
-                  "        pm.environment.set('userId', jsonData.data.id);",
+                  "    // `data` is always an array: a single record is its first item",
+                  "    const item = Array.isArray(jsonData.data) ? jsonData.data[0] : jsonData.data;",
+                  "    if (item && item.id) {",
+                  "        pm.collectionVariables.set('userId', item.id);",
+                  "        pm.environment.set('userId', item.id);",
                   "    }",
-                  "    if (jsonData.data && typeof jsonData.data.version === 'number') {",
-                  "        pm.environment.set('userVersion', jsonData.data.version);",
+                  "    if (item && typeof item.version === 'number') {",
+                  "        pm.collectionVariables.set('userVersion', item.version);",
+                  "        pm.environment.set('userVersion', item.version);",
+                  "    }",
+                  "    const etag = pm.response.headers.get('ETag');",
+                  "    if (etag) {",
+                  "        pm.collectionVariables.set('userETag', etag);",
+                  "        pm.environment.set('userETag', etag);",
                   "    }",
                   "}"
                 ],
@@ -506,7 +537,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["{{apiPrefix}}", "users", "{{userId}}"]
             },
-            "description": "Get a single user by its id. Stores its `version` in `{{userVersion}}` for Update User."
+            "description": "Get a single user by its id. Stores its `version` in `{{userVersion}}` and its `ETag` header in `{{userETag}}`, for Update User and Delete User. Repeating the request with `If-None-Match: <ETag>` is answered with 304 while it is unchanged."
           },
           "response": [],
           "event": [
@@ -516,8 +547,16 @@
                 "exec": [
                   "if (pm.response.code === 200) {",
                   "    const jsonData = pm.response.json();",
-                  "    if (jsonData.data && typeof jsonData.data.version === 'number') {",
-                  "        pm.environment.set('userVersion', jsonData.data.version);",
+                  "    // `data` is always an array: a single record is its first item",
+                  "    const item = Array.isArray(jsonData.data) ? jsonData.data[0] : jsonData.data;",
+                  "    if (item && typeof item.version === 'number') {",
+                  "        pm.collectionVariables.set('userVersion', item.version);",
+                  "        pm.environment.set('userVersion', item.version);",
+                  "    }",
+                  "    const etag = pm.response.headers.get('ETag');",
+                  "    if (etag) {",
+                  "        pm.collectionVariables.set('userETag', etag);",
+                  "        pm.environment.set('userETag', etag);",
                   "    }",
                   "}"
                 ],
@@ -539,6 +578,12 @@
                 "key": "Authorization",
                 "value": "Bearer {{authToken}}",
                 "type": "text"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{userETag}}",
+                "type": "text",
+                "disabled": true
               }
             ],
             "body": {
@@ -550,7 +595,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["{{apiPrefix}}", "users", "{{userId}}"]
             },
-            "description": "Update a user by its id. The body must carry the `version` of the user you read: Create, Get By Id and Update store it in `{{userVersion}}`. A stale version is answered with 409 (CONFLICT) and nothing changes; read the user again and retry."
+            "description": "Update a user by its id. Send the version of the user you read either as `version` in the body (`{{userVersion}}`) or as its ETag in the `If-Match` header (`{{userETag}}`; enable the header and drop `version` from the body). Create, Get By Id and Update store both. A stale `version` is answered with 409 (CONFLICT), a stale `If-Match` with 412 (Precondition Failed), and nothing changes; read it again and retry. Sending neither, or both with different versions, is answered with 400. A new `password`, or a `status` other than `active`, ends every session of the user, including the one making this request: log in again afterwards."
           },
           "response": [],
           "event": [
@@ -560,8 +605,16 @@
                 "exec": [
                   "if (pm.response.code === 200) {",
                   "    const jsonData = pm.response.json();",
-                  "    if (jsonData.data && typeof jsonData.data.version === 'number') {",
-                  "        pm.environment.set('userVersion', jsonData.data.version);",
+                  "    // `data` is always an array: a single record is its first item",
+                  "    const item = Array.isArray(jsonData.data) ? jsonData.data[0] : jsonData.data;",
+                  "    if (item && typeof item.version === 'number') {",
+                  "        pm.collectionVariables.set('userVersion', item.version);",
+                  "        pm.environment.set('userVersion', item.version);",
+                  "    }",
+                  "    const etag = pm.response.headers.get('ETag');",
+                  "    if (etag) {",
+                  "        pm.collectionVariables.set('userETag', etag);",
+                  "        pm.environment.set('userETag', etag);",
                   "    }",
                   "}"
                 ],
@@ -579,14 +632,26 @@
                 "key": "Authorization",
                 "value": "Bearer {{authToken}}",
                 "type": "text"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{userETag}}",
+                "type": "text"
               }
             ],
             "url": {
               "raw": "{{baseUrl}}{{apiPrefix}}/users/{{userId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["{{apiPrefix}}", "users", "{{userId}}"]
+              "path": ["{{apiPrefix}}", "users", "{{userId}}"],
+              "query": [
+                {
+                  "key": "version",
+                  "value": "{{userVersion}}",
+                  "disabled": true
+                }
+              ]
             },
-            "description": "Delete a user by its id"
+            "description": "Delete a user by its id. Send the version of the user you read, as its ETag in `If-Match` (`{{userETag}}`) or as the `version` query parameter (`{{userVersion}}`; enable it and disable the header). Without either the request is answered with 400; a stale `If-Match` with 412, a stale `version` with 409, and nothing is deleted."
           },
           "response": []
         }
@@ -604,11 +669,20 @@
                 "exec": [
                   "if (pm.response.code === 201) {",
                   "    const jsonData = pm.response.json();",
-                  "    if (jsonData.data && jsonData.data.id) {",
-                  "        pm.environment.set('resourceId', jsonData.data.id);",
+                  "    // `data` is always an array: a single record is its first item",
+                  "    const item = Array.isArray(jsonData.data) ? jsonData.data[0] : jsonData.data;",
+                  "    if (item && item.id) {",
+                  "        pm.collectionVariables.set('resourceId', item.id);",
+                  "        pm.environment.set('resourceId', item.id);",
                   "    }",
-                  "    if (jsonData.data && typeof jsonData.data.version === 'number') {",
-                  "        pm.environment.set('resourceVersion', jsonData.data.version);",
+                  "    if (item && typeof item.version === 'number') {",
+                  "        pm.collectionVariables.set('resourceVersion', item.version);",
+                  "        pm.environment.set('resourceVersion', item.version);",
+                  "    }",
+                  "    const etag = pm.response.headers.get('ETag');",
+                  "    if (etag) {",
+                  "        pm.collectionVariables.set('resourceETag', etag);",
+                  "        pm.environment.set('resourceETag', etag);",
                   "    }",
                   "}"
                 ],
@@ -688,7 +762,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["{{apiPrefix}}", "auth", "resources", "{{resourceId}}"]
             },
-            "description": "Get a single resource by its id. Stores its `version` in `{{resourceVersion}}` for Update Resource."
+            "description": "Get a single resource by its id. Stores its `version` in `{{resourceVersion}}` and its `ETag` header in `{{resourceETag}}`, for Update Resource and Delete Resource. Repeating the request with `If-None-Match: <ETag>` is answered with 304 while it is unchanged."
           },
           "response": [],
           "event": [
@@ -698,8 +772,16 @@
                 "exec": [
                   "if (pm.response.code === 200) {",
                   "    const jsonData = pm.response.json();",
-                  "    if (jsonData.data && typeof jsonData.data.version === 'number') {",
-                  "        pm.environment.set('resourceVersion', jsonData.data.version);",
+                  "    // `data` is always an array: a single record is its first item",
+                  "    const item = Array.isArray(jsonData.data) ? jsonData.data[0] : jsonData.data;",
+                  "    if (item && typeof item.version === 'number') {",
+                  "        pm.collectionVariables.set('resourceVersion', item.version);",
+                  "        pm.environment.set('resourceVersion', item.version);",
+                  "    }",
+                  "    const etag = pm.response.headers.get('ETag');",
+                  "    if (etag) {",
+                  "        pm.collectionVariables.set('resourceETag', etag);",
+                  "        pm.environment.set('resourceETag', etag);",
                   "    }",
                   "}"
                 ],
@@ -721,6 +803,12 @@
                 "key": "Authorization",
                 "value": "Bearer {{authToken}}",
                 "type": "text"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{resourceETag}}",
+                "type": "text",
+                "disabled": true
               }
             ],
             "body": {
@@ -732,7 +820,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["{{apiPrefix}}", "auth", "resources", "{{resourceId}}"]
             },
-            "description": "Update a resource by its id. The body must carry the `version` of the resource you read: Create, Get By Id and Update store it in `{{resourceVersion}}`. A stale version is answered with 409 (CONFLICT) and nothing changes; read the resource again and retry."
+            "description": "Update a resource by its id. Send the version of the resource you read either as `version` in the body (`{{resourceVersion}}`) or as its ETag in the `If-Match` header (`{{resourceETag}}`; enable the header and drop `version` from the body). Create, Get By Id and Update store both. A stale `version` is answered with 409 (CONFLICT), a stale `If-Match` with 412 (Precondition Failed), and nothing changes; read it again and retry. Sending neither, or both with different versions, is answered with 400."
           },
           "response": [],
           "event": [
@@ -742,8 +830,16 @@
                 "exec": [
                   "if (pm.response.code === 200) {",
                   "    const jsonData = pm.response.json();",
-                  "    if (jsonData.data && typeof jsonData.data.version === 'number') {",
-                  "        pm.environment.set('resourceVersion', jsonData.data.version);",
+                  "    // `data` is always an array: a single record is its first item",
+                  "    const item = Array.isArray(jsonData.data) ? jsonData.data[0] : jsonData.data;",
+                  "    if (item && typeof item.version === 'number') {",
+                  "        pm.collectionVariables.set('resourceVersion', item.version);",
+                  "        pm.environment.set('resourceVersion', item.version);",
+                  "    }",
+                  "    const etag = pm.response.headers.get('ETag');",
+                  "    if (etag) {",
+                  "        pm.collectionVariables.set('resourceETag', etag);",
+                  "        pm.environment.set('resourceETag', etag);",
                   "    }",
                   "}"
                 ],
@@ -761,14 +857,26 @@
                 "key": "Authorization",
                 "value": "Bearer {{authToken}}",
                 "type": "text"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{resourceETag}}",
+                "type": "text"
               }
             ],
             "url": {
               "raw": "{{baseUrl}}{{apiPrefix}}/auth/resources/{{resourceId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["{{apiPrefix}}", "auth", "resources", "{{resourceId}}"]
+              "path": ["{{apiPrefix}}", "auth", "resources", "{{resourceId}}"],
+              "query": [
+                {
+                  "key": "version",
+                  "value": "{{resourceVersion}}",
+                  "disabled": true
+                }
+              ]
             },
-            "description": "Delete a resource by its id"
+            "description": "Delete a resource by its id. Send the version of the resource you read, as its ETag in `If-Match` (`{{resourceETag}}`) or as the `version` query parameter (`{{resourceVersion}}`; enable it and disable the header). Without either the request is answered with 400; a stale `If-Match` with 412, a stale `version` with 409, and nothing is deleted."
           },
           "response": []
         }
@@ -786,11 +894,20 @@
                 "exec": [
                   "if (pm.response.code === 201) {",
                   "    const jsonData = pm.response.json();",
-                  "    if (jsonData.data && jsonData.data.id) {",
-                  "        pm.environment.set('roleId', jsonData.data.id);",
+                  "    // `data` is always an array: a single record is its first item",
+                  "    const item = Array.isArray(jsonData.data) ? jsonData.data[0] : jsonData.data;",
+                  "    if (item && item.id) {",
+                  "        pm.collectionVariables.set('roleId', item.id);",
+                  "        pm.environment.set('roleId', item.id);",
                   "    }",
-                  "    if (jsonData.data && typeof jsonData.data.version === 'number') {",
-                  "        pm.environment.set('roleVersion', jsonData.data.version);",
+                  "    if (item && typeof item.version === 'number') {",
+                  "        pm.collectionVariables.set('roleVersion', item.version);",
+                  "        pm.environment.set('roleVersion', item.version);",
+                  "    }",
+                  "    const etag = pm.response.headers.get('ETag');",
+                  "    if (etag) {",
+                  "        pm.collectionVariables.set('roleETag', etag);",
+                  "        pm.environment.set('roleETag', etag);",
                   "    }",
                   "}"
                 ],
@@ -870,7 +987,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["{{apiPrefix}}", "auth", "roles", "{{roleId}}"]
             },
-            "description": "Get a single role by its id. Stores its `version` in `{{roleVersion}}` for Update Role."
+            "description": "Get a single role by its id. Stores its `version` in `{{roleVersion}}` and its `ETag` header in `{{roleETag}}`, for Update Role and Delete Role. Repeating the request with `If-None-Match: <ETag>` is answered with 304 while it is unchanged."
           },
           "response": [],
           "event": [
@@ -880,8 +997,16 @@
                 "exec": [
                   "if (pm.response.code === 200) {",
                   "    const jsonData = pm.response.json();",
-                  "    if (jsonData.data && typeof jsonData.data.version === 'number') {",
-                  "        pm.environment.set('roleVersion', jsonData.data.version);",
+                  "    // `data` is always an array: a single record is its first item",
+                  "    const item = Array.isArray(jsonData.data) ? jsonData.data[0] : jsonData.data;",
+                  "    if (item && typeof item.version === 'number') {",
+                  "        pm.collectionVariables.set('roleVersion', item.version);",
+                  "        pm.environment.set('roleVersion', item.version);",
+                  "    }",
+                  "    const etag = pm.response.headers.get('ETag');",
+                  "    if (etag) {",
+                  "        pm.collectionVariables.set('roleETag', etag);",
+                  "        pm.environment.set('roleETag', etag);",
                   "    }",
                   "}"
                 ],
@@ -903,6 +1028,12 @@
                 "key": "Authorization",
                 "value": "Bearer {{authToken}}",
                 "type": "text"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{roleETag}}",
+                "type": "text",
+                "disabled": true
               }
             ],
             "body": {
@@ -914,7 +1045,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["{{apiPrefix}}", "auth", "roles", "{{roleId}}"]
             },
-            "description": "Update a role by its id. The body must carry the `version` of the role you read: Create, Get By Id and Update store it in `{{roleVersion}}`. A stale version is answered with 409 (CONFLICT) and nothing changes; read the role again and retry."
+            "description": "Update a role by its id. Send the version of the role you read either as `version` in the body (`{{roleVersion}}`) or as its ETag in the `If-Match` header (`{{roleETag}}`; enable the header and drop `version` from the body). Create, Get By Id and Update store both. A stale `version` is answered with 409 (CONFLICT), a stale `If-Match` with 412 (Precondition Failed), and nothing changes; read it again and retry. Sending neither, or both with different versions, is answered with 400."
           },
           "response": [],
           "event": [
@@ -924,8 +1055,16 @@
                 "exec": [
                   "if (pm.response.code === 200) {",
                   "    const jsonData = pm.response.json();",
-                  "    if (jsonData.data && typeof jsonData.data.version === 'number') {",
-                  "        pm.environment.set('roleVersion', jsonData.data.version);",
+                  "    // `data` is always an array: a single record is its first item",
+                  "    const item = Array.isArray(jsonData.data) ? jsonData.data[0] : jsonData.data;",
+                  "    if (item && typeof item.version === 'number') {",
+                  "        pm.collectionVariables.set('roleVersion', item.version);",
+                  "        pm.environment.set('roleVersion', item.version);",
+                  "    }",
+                  "    const etag = pm.response.headers.get('ETag');",
+                  "    if (etag) {",
+                  "        pm.collectionVariables.set('roleETag', etag);",
+                  "        pm.environment.set('roleETag', etag);",
                   "    }",
                   "}"
                 ],
@@ -943,14 +1082,26 @@
                 "key": "Authorization",
                 "value": "Bearer {{authToken}}",
                 "type": "text"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{roleETag}}",
+                "type": "text"
               }
             ],
             "url": {
               "raw": "{{baseUrl}}{{apiPrefix}}/auth/roles/{{roleId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["{{apiPrefix}}", "auth", "roles", "{{roleId}}"]
+              "path": ["{{apiPrefix}}", "auth", "roles", "{{roleId}}"],
+              "query": [
+                {
+                  "key": "version",
+                  "value": "{{roleVersion}}",
+                  "disabled": true
+                }
+              ]
             },
-            "description": "Delete a role by its id"
+            "description": "Delete a role by its id. Send the version of the role you read, as its ETag in `If-Match` (`{{roleETag}}`) or as the `version` query parameter (`{{roleVersion}}`; enable it and disable the header). Without either the request is answered with 400; a stale `If-Match` with 412, a stale `version` with 409, and nothing is deleted."
           },
           "response": []
         }

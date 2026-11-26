@@ -96,3 +96,60 @@ describe('UserService', () => {
     expect(updated.email).toBe('jane@example.com');
   });
 });
+
+describe('UserService one operation at a time', () => {
+  it('looks the role and the user group up one at a time, in the caller transaction', async () => {
+    const transactionOptions = { session: 'session-1' };
+    const userRepository: jest.Mocked<IUserRepository> = mockRepository();
+    const roleRepository: jest.Mocked<IRoleRepository> = mockRepository();
+    const userGroupRepository: jest.Mocked<IUserGroupRepository> = mockRepository();
+    userRepository.findById.mockResolvedValue(storedUser());
+    userRepository.update.mockImplementation(async (_id, item) => item);
+    let releaseRole: () => void = () => undefined;
+    roleRepository.findById.mockImplementation(
+      () =>
+        new Promise<Role>((resolve) => {
+          releaseRole = (): void =>
+            resolve(new Role({ id: 'role-1', version: 0, name: 'Member', default: true, resource_permissions: [] }));
+        }),
+    );
+    userGroupRepository.findById.mockResolvedValue(
+      new UserGroup({ id: 'group-1', version: 0, name: 'Default', description: '', discount: 0, default: true }),
+    );
+    const service = new UserService(userRepository, roleRepository, userGroupRepository);
+
+    const updating = service.update(USER_ID, { status: 'suspended', version: 4 }, transactionOptions);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(roleRepository.findById).toHaveBeenCalledWith('role-1', transactionOptions);
+    expect(userGroupRepository.findById).not.toHaveBeenCalled();
+
+    releaseRole();
+    await updating;
+    expect(userGroupRepository.findById).toHaveBeenCalledWith('group-1', transactionOptions);
+  });
+});
+
+describe('UserService.delete', () => {
+  let userRepository: jest.Mocked<IUserRepository>;
+  let service: UserService;
+
+  beforeEach(() => {
+    userRepository = mockRepository();
+    service = new UserService(userRepository, mockRepository(), mockRepository());
+  });
+
+  it('rejects a stale client version with CONFLICT, without deleting', async () => {
+    userRepository.findById.mockResolvedValue(storedUser());
+
+    await expect(service.delete(USER_ID, 3)).rejects.toMatchObject({ type: 'CONFLICT' });
+    expect(userRepository.delete).not.toHaveBeenCalled();
+  });
+
+  it('deletes only at the version it read', async () => {
+    userRepository.findById.mockResolvedValue(storedUser());
+    userRepository.delete.mockResolvedValue(storedUser());
+
+    await expect(service.delete(USER_ID, 4)).resolves.toMatchObject({ id: USER_ID });
+    expect(userRepository.delete).toHaveBeenCalledWith(USER_ID, 4, undefined);
+  });
+});

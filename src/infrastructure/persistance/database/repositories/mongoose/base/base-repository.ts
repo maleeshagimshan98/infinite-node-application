@@ -93,7 +93,8 @@ export abstract class BaseRepository<
    * @param {string} operation - The operation name, used in the (log-only) error message.
    * @param {() => Promise<T>} fn - The operation to run, including its mapper calls.
    * @returns {Promise<T>} The resolved value of `fn` when it succeeds.
-   * @throws {RepositoryError} INVALID_ID for a malformed ObjectId; DUPLICATE_KEY for a unique index violation.
+   * @throws {RepositoryError} INVALID_ID for a malformed ObjectId; DUPLICATE_KEY for a unique index violation;
+   * VERSION_CONFLICT when `fn` throws it (a stale conditional write), unchanged.
    * @throws {InfrastructureError} CONNECTION_ERROR when the database cannot be reached.
    * @throws {PersistanceError} For any other Mongoose / MongoDB failure.
    */
@@ -362,49 +363,74 @@ export abstract class BaseRepository<
       if (model) {
         return this.mapper.toDomain(model);
       }
-      // Nothing matched: either no document has this id, or it has moved past item.version. Only this failure path
-      // pays for the extra read.
-      if (await this.mongooseModel.exists({ _id: id }).session(session)) {
-        throw new RepositoryError(
-          `${this.mongooseModel.modelName}.update failed: version ${item.version} of ${id} is stale`,
-          'VERSION_CONFLICT',
-          { id, version: item.version },
-        );
-      }
+      await this.throwIfStale('update', id, item.version, session);
       return null;
     });
   }
 
   /**
-   * Delete a document by its ID
+   * Delete a document by its ID, only while its stored version (`__v`) still equals `version`. A delete decided on a
+   * stale read (e.g. a role checked as not the default, then made the default by another request) therefore fails
+   * instead of removing a document that changed since.
    *
    * @param {string} id - The ID of the document to delete
-   * @param {TransactionOptions | undefined} transactionOptions Optional MongoDB session for transaction support
-   * @returns {Promise<DomainModel | null>} Resolves to the deleted document, or null if not found
-   * @throws {RepositoryError} INVALID_ID when `id` is not a valid ObjectId.
+   * @param {number} version - The version of the document the caller read and decided to delete
+   * @param {TransactionOptions | undefined} transactionOptions - Optional MongoDB session for transaction support
+   * @returns {Promise<DomainModel | null>} Resolves to the deleted document, or null if no document with the given ID is found
+   * @throws {RepositoryError} VERSION_CONFLICT when the document was updated after it was read at `version`; INVALID_ID when `id` is not a valid ObjectId.
    * @throws {InfrastructureError} CONNECTION_ERROR when the database cannot be reached.
    * @throws {PersistanceError} For any other database failure.
    */
-  public async delete(id: string, transactionOptions?: TransactionOptions): Promise<DomainModel | null> {
+  public async delete(
+    id: string,
+    version: number,
+    transactionOptions?: TransactionOptions,
+  ): Promise<DomainModel | null> {
     return this.wrapDatabaseErrors('delete', async () => {
-      let query = this.mongooseModel.findByIdAndDelete(id);
+      const session =
+        transactionOptions && transactionOptions.session
+          ? (transactionOptions.session as mongoose.mongo.ClientSession)
+          : null;
+      let query = this.mongooseModel.findOneAndDelete({ _id: id, __v: version });
 
       const paths = this.populateOptions();
       if (paths.length > 0) {
         query = query.populate(paths);
       }
 
-      const model = await query
-        .session(
-          transactionOptions && transactionOptions.session
-            ? (transactionOptions.session as mongoose.mongo.ClientSession)
-            : null,
-        )
-        .exec();
-      if (!model) {
-        return null;
+      const model = await query.session(session).exec();
+      if (model) {
+        return this.mapper.toDomain(model);
       }
-      return this.mapper.toDomain(model);
+      await this.throwIfStale('delete', id, version, session);
+      return null;
     });
+  }
+
+  /**
+   * After a conditional write (`{ _id: id, __v: version }`) matched nothing, tell the two causes apart: no document has
+   * the id (the caller returns null), or the document has moved past `version`. Only this failure path pays for the
+   * extra read.
+   *
+   * @param {string} operation - The operation name, used in the (log-only) error message.
+   * @param {string} id - The ID the write targeted.
+   * @param {number} version - The version the write was conditioned on.
+   * @param {mongoose.mongo.ClientSession | null} session - The session the write ran in, if any.
+   * @returns {Promise<void>} Resolves when no document has the id.
+   * @throws {RepositoryError} VERSION_CONFLICT when a document with the id exists at another version.
+   */
+  private async throwIfStale(
+    operation: string,
+    id: string,
+    version: number,
+    session: mongoose.mongo.ClientSession | null,
+  ): Promise<void> {
+    if (await this.mongooseModel.exists({ _id: id }).session(session)) {
+      throw new RepositoryError(
+        `${this.mongooseModel.modelName}.${operation} failed: version ${version} of ${id} is stale`,
+        'VERSION_CONFLICT',
+        { id, version },
+      );
+    }
   }
 }

@@ -678,7 +678,7 @@ export default ModelRepository;
 - `find(filter: Partial<NewModel>, limit?: number, offset?: number, sort?: Record<string, 1 | -1>, transactionOptions?: TransactionOptions): Promise<Model[]>`
 - `count(filter: Partial<NewModel>, transactionOptions?: TransactionOptions): Promise<number>`
 - `update(id: string, item: Model, transactionOptions?: TransactionOptions): Promise<Model | null>` — a conditional write: only while the stored version equals `item.version`, advancing it by one. Returns the model at its new version, `null` for an unknown id, or throws `RepositoryError` `VERSION_CONFLICT` for a stale version. Pass the model you read and changed, never a `NewModel`
-- `delete(id: string, transactionOptions?: TransactionOptions): Promise<Model | null>`
+- `delete(id: string, version: number, transactionOptions?: TransactionOptions): Promise<Model | null>` — a conditional delete: only while the stored version equals `version` (the version the domain service read). Returns the deleted model, `null` for an unknown id, or throws `RepositoryError` `VERSION_CONFLICT` for a stale version
 
 `TransactionOptions` is `{ session?: unknown }`, imported from `@/application/interfaces/infrastructure/database-mapper.interface`.
 
@@ -818,20 +818,25 @@ export class ModelService extends BaseDomainService {
   }
 
   /**
-   * Delete a model by ID.
+   * Delete a model by ID, at the version read here: a model changed between the checks and the delete is not deleted.
    *
    * @param {string} id - Model ID
+   * @param {number} [version] - The version of the model the client read; undefined skips the client check
    * @param {TransactionOptions} transactionOptions - Optional transaction session
    * @returns {Promise<Model>} The deleted model
    * @throws {DomainServiceError} NOT_FOUND when the model does not exist, or when the delete itself fails
+   * @throws {DomainServiceError} CONFLICT when `version` is stale, or the model changed before it was deleted
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
-  async delete(id: string, transactionOptions?: TransactionOptions): Promise<Model> {
+  async delete(id: string, version?: number, transactionOptions?: TransactionOptions): Promise<Model> {
     return this.wrapInfrastructureErrors<Model>(async () => {
-      await this.getById(id, transactionOptions);
+      const existing = await this.getById(id, transactionOptions);
+      // CONFLICT before any check; a no-op when no version is given (internal callers).
+      this.assertVersion(existing, version, 'Model');
 
-      const deleted = await this.modelRepository.delete(id, transactionOptions);
+      // Deletes only while the stored version is still existing.version — a change after the checks fails it.
+      const deleted = await this.modelRepository.delete(id, existing.version, transactionOptions);
       if (!deleted) {
         throw new DomainServiceError('Model could not be deleted', 'NOT_FOUND');
       }
@@ -863,6 +868,7 @@ export default ModelService;
 - Inject repositories via constructor
 - **Always check model existence** when retrieving from repository
 - **`update()` takes the client's `version`**: destructure it out of the payload, call `this.assertVersion(entity, version, 'Name')` right after reading the entity and before any side effect, then `Object.assign()` the remaining changes onto the entity you read and pass that entity to `repository.update()`
+- **`delete(id, version?, transactionOptions?)` takes the client's `version` too**: read the entity, `assertVersion()` first, run the checks, then `repository.delete(id, entity.version, transactionOptions)`
 - Look up by email with `normalizeEmail(email)`
 - Throw `DomainServiceError` for business rule violations with appropriate error types
 - Service file must match pattern: `**/service/*.service.{ts,js}`
@@ -1020,11 +1026,14 @@ export const newModelValidator = (): Schema => {
 
 export const updateModelValidator = (): Schema => {
   return {
-    // Required: the version of the model the client read (from a GET); a stale one is answered with 409.
+    // The version of the model the client read (from a GET); a stale one is answered with 409. Optional here because
+    // If-Match can carry it instead: the controller requires one of the two.
     version: {
+      in: ['body'],
+      optional: true,
       isInt: { options: { min: 0 } },
       toInt: true,
-      errorMessage: 'version is required: the integer version of the model you read',
+      errorMessage: 'version must be the integer version of the model you read',
     },
     name: {
       optional: true,
@@ -1035,6 +1044,19 @@ export const updateModelValidator = (): Schema => {
       isIn: {
         options: [['active', 'inactive', 'pending']],
       },
+    },
+  };
+};
+
+export const deleteModelValidator = (): Schema => {
+  return {
+    // DELETE .../:id?version=N, when the version is not sent in If-Match
+    version: {
+      in: ['query'],
+      optional: true,
+      isInt: { options: { min: 0 } },
+      toInt: true,
+      errorMessage: 'version must be the integer version of the model you read',
     },
   };
 };
@@ -1055,7 +1077,7 @@ export const updateModelValidator = (): Schema => {
 - Export function returning `Schema` object
 - Use `errorMessage` for custom error messages
 - Create separate validators for create/update operations
-- **Every update validator requires `version`** (`isInt` with `min: 0`, `toInt`); `matchedData()` hands it to the service inside `Partial<INewModel>`
+- **Every update and delete validator takes `version`** (`in: ['body']` / `in: ['query']`, `optional`, `isInt` with `min: 0`, `toInt`). It is optional because `If-Match` can carry it instead; the controller's `withExpectedVersion()` requires one of the two
 
 ---
 
@@ -1158,15 +1180,23 @@ export class ModelController extends BaseController {
       // catchExceptionsWrapper will catch it and convert to appropriate response
       const result = await this.modelService.getById(id);
 
-      return ApiResponseUtils.apiOkResponse(200, false, null, 'Model retrieved successfully', result);
+      // The ETag carries the version: the client sends it back in If-Match on update or delete
+      return ApiResponseUtils.apiOkResponse(
+        200,
+        false,
+        null,
+        'Model retrieved successfully',
+        result,
+        this.entityTagHeader(result.version, result),
+      );
     });
 
     return ApiResponseUtils.createResponse(response, res);
   }
 
   /**
-   * Update model. The body carries the `version` the client read; a stale one is answered with 409 (CONFLICT)
-   * and nothing changes.
+   * Update model. The request carries the version the client read, as `version` in the body or as the ETag in
+   * `If-Match`; a stale one is answered with 409 (CONFLICT), or 412 when it came in `If-Match`, and nothing changes.
    *
    * @param {Request} req - The incoming request object
    * @param {Response} res - The response object
@@ -1176,16 +1206,27 @@ export class ModelController extends BaseController {
     const response = await this.catchExceptionsWrapper(async () => {
       const { id } = req.params;
       const data = matchedData<Partial<INewModel>>(req);
-      const result = await this.modelService.update(id, data);
+      // Neither If-Match nor version, or both with different versions, is a 400
+      const result = await this.withExpectedVersion(req, data.version, (version) =>
+        this.modelService.update(id, { ...data, version }),
+      );
 
-      return ApiResponseUtils.apiOkResponse(200, false, null, 'Model updated successfully', result);
+      return ApiResponseUtils.apiOkResponse(
+        200,
+        false,
+        null,
+        'Model updated successfully',
+        result,
+        this.entityTagHeader(result.version, result),
+      );
     });
 
     return ApiResponseUtils.createResponse(response, res);
   }
 
   /**
-   * Delete model
+   * Delete model. The request carries the version the client read, as the ETag in `If-Match` or as `?version=`; a
+   * stale one is answered with 409 (CONFLICT), or 412 when it came in `If-Match`, and nothing is deleted.
    *
    * @param {Request} req - The incoming request object
    * @param {Response} res - The response object
@@ -1194,7 +1235,8 @@ export class ModelController extends BaseController {
   async delete(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
       const { id } = req.params;
-      await this.modelService.delete(id);
+      const query = matchedData<{ version?: number }>(req, { locations: ['query'] });
+      await this.withExpectedVersion(req, query.version, (version) => this.modelService.delete(id, version));
 
       return ApiResponseUtils.apiOkResponse(200, false, null, 'Model deleted successfully', null);
     });
@@ -1248,6 +1290,7 @@ import { Router } from 'express';
 import {
   newModelValidator,
   updateModelValidator,
+  deleteModelValidator,
 } from '@/presentation/http/validators/{feature}/{model-name}.validator';
 import { container } from '@/app/core/service.container';
 import type { LoginApplicationService } from '@/domain/auth/service/login.application.service';
@@ -1311,6 +1354,7 @@ router.put(
 router.delete(
   '/:id',
   UserValidatorMiddleware(loginApplicationServiceProvider),
+  RequestValidatorMiddleware(deleteModelValidator()),
   (req: AuthenticatedRequest, res: Response) => {
     const controller = container.resolve<ModelController>('modelController');
     controller.delete(req, res);
@@ -2417,22 +2461,25 @@ export class PostService extends BaseDomainService {
    *
    * @param {string} id - Post ID
    * @param {string} authorId - ID of the requesting user
+   * @param {number} [version] - The version of the post the client read; undefined skips the client check
    * @param {TransactionOptions} transactionOptions - Optional transaction session
    * @returns {Promise<Post>} The deleted post
    * @throws {DomainServiceError} NOT_FOUND when the post does not exist, or when the delete itself fails
+   * @throws {DomainServiceError} CONFLICT when `version` is stale, or the post changed before it was deleted
    * @throws {DomainServiceError} USER_PERMISSION_ERROR when the requester is not the author
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
-  async delete(id: string, authorId: string, transactionOptions?: TransactionOptions): Promise<Post> {
+  async delete(id: string, authorId: string, version?: number, transactionOptions?: TransactionOptions): Promise<Post> {
     return this.wrapInfrastructureErrors<Post>(async () => {
       const post = await this.getById(id, transactionOptions);
+      this.assertVersion(post, version, 'Post');
 
       if (post.authorId !== authorId) {
         throw new DomainServiceError('You are not authorized to delete this post', 'USER_PERMISSION_ERROR');
       }
 
-      const deleted = await this.postRepository.delete(id, transactionOptions);
+      const deleted = await this.postRepository.delete(id, post.version, transactionOptions);
       if (!deleted) {
         throw new DomainServiceError('Post could not be deleted', 'NOT_FOUND');
       }
@@ -2474,12 +2521,27 @@ export const newPostValidator = (): Schema => {
   };
 };
 
-export const updatePostValidator = (): Schema => {
+export const deletePostValidator = (): Schema => {
   return {
     version: {
+      in: ['query'],
+      optional: true,
       isInt: { options: { min: 0 } },
       toInt: true,
-      errorMessage: 'version is required: the integer version of the post you read',
+      errorMessage: 'version must be the integer version of the post you read',
+    },
+  };
+};
+
+export const updatePostValidator = (): Schema => {
+  return {
+    // Optional: If-Match can carry the version instead; the controller requires one of the two
+    version: {
+      in: ['body'],
+      optional: true,
+      isInt: { options: { min: 0 } },
+      toInt: true,
+      errorMessage: 'version must be the integer version of the post you read',
     },
     title: {
       optional: true,
@@ -2628,9 +2690,18 @@ export class PostController extends BaseController {
     const response = await this.catchExceptionsWrapper(async () => {
       const { id } = req.params;
       const data = matchedData<Partial<INewPost>>(req);
-      const result = await this.postService.update(id, data, req.user!.id);
+      const result = await this.withExpectedVersion(req, data.version, (version) =>
+        this.postService.update(id, { ...data, version }, req.user!.id),
+      );
 
-      return ApiResponseUtils.apiOkResponse(200, false, null, 'Post updated successfully', result);
+      return ApiResponseUtils.apiOkResponse(
+        200,
+        false,
+        null,
+        'Post updated successfully',
+        result,
+        this.entityTagHeader(result.version, result),
+      );
     });
 
     return ApiResponseUtils.createResponse(response, res);
@@ -2639,7 +2710,10 @@ export class PostController extends BaseController {
   async delete(req: AuthenticatedRequest, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
       const { id } = req.params;
-      await this.postService.delete(id, req.user!.id);
+      const query = matchedData<{ version?: number }>(req, { locations: ['query'] });
+      await this.withExpectedVersion(req, query.version, (version) =>
+        this.postService.delete(id, req.user!.id, version),
+      );
 
       return ApiResponseUtils.apiOkResponse(200, false, null, 'Post deleted successfully', null);
     });
@@ -2658,7 +2732,11 @@ export default PostController;
 ```typescript
 import { Router } from 'express';
 
-import { newPostValidator, updatePostValidator } from '@/presentation/http/validators/blog/post.validator';
+import {
+  newPostValidator,
+  updatePostValidator,
+  deletePostValidator,
+} from '@/presentation/http/validators/blog/post.validator';
 import { container } from '@/app/core/service.container';
 import type { LoginService } from '@/domain/auth/service/login.service';
 
@@ -2750,6 +2828,7 @@ router.put(
 router.delete(
   '/:id',
   UserValidatorMiddleware(loginApplicationServiceProvider),
+  RequestValidatorMiddleware(deletePostValidator()),
   (req: AuthenticatedRequest, res: Response) => {
     const controller = container.resolve<PostController>('postController');
     controller.delete(req, res);
@@ -3032,7 +3111,7 @@ MongoDB driver failures become `PersistanceError` (`DATABASE_ERROR`).
 | `'USER_PERMISSION_ERROR'` | 403         | User not authorized for action                                                                  |
 | `'NOT_FOUND'`             | 404         | Resource doesn't exist                                                                          |
 | `'ALREADY_EXISTS'`        | 400         | Duplicate resource (e.g., email exists) — from the service check or a unique index              |
-| `'CONFLICT'`              | 409         | The record changed since the client read it (stale `version`); reload and retry                 |
+| `'CONFLICT'`              | 409 / 412   | The record changed since the client read it (stale `version`); 412 when it came in `If-Match`   |
 | `'VALIDATION_ERROR'`      | 400         | Business rule validation failed                                                                 |
 | `'INVALID_OPERATION'`     | 400         | Operation not allowed in current state                                                          |
 | `'INCOMPLETE_MODEL'`      | 400         | Required fields missing                                                                         |

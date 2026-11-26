@@ -69,10 +69,13 @@ export const newUserValidator = (): Schema => {
 export const updateUserValidator = (): Schema => {
   return {
     // The version of the user the client read (from a GET); a stale one is rejected with 409 and nothing changes.
+    // Optional here because If-Match can carry it instead; the controller requires one of the two.
     version: {
+      in: ['body'],
+      optional: true,
       isInt: { options: { min: 0 } },
       toInt: true,
-      errorMessage: 'version is required: the integer version of the user you read',
+      errorMessage: 'version must be the integer version of the user you read',
     },
     email: {
       optional: true,
@@ -103,6 +106,25 @@ export const updateUserValidator = (): Schema => {
       notEmpty: true,
       isString: true,
       errorMessage: 'Role id is required',
+    },
+  };
+};
+
+/**
+ * Validate a delete-user request: the `version` the client read, when it is sent as a query parameter instead of in
+ * If-Match.
+ *
+ * @returns {Schema} The express-validator schema.
+ */
+export const deleteUserValidator = (): Schema => {
+  return {
+    // A stale version is rejected with 409 and nothing is deleted; the controller requires this or If-Match.
+    version: {
+      in: ['query'],
+      optional: true,
+      isInt: { options: { min: 0 } },
+      toInt: true,
+      errorMessage: 'version must be the integer version of the user you read',
     },
   };
 };

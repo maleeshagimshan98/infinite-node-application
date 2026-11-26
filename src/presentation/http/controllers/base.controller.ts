@@ -7,6 +7,9 @@ import type { ILogger } from '@/application/interfaces/infrastructure/logger.int
 import { Paginator } from '@/app/core/utils/pagination/paginator';
 import { PaginationException } from '@/app/core/utils/pagination/pagination-exception';
 import { RouteParamException } from '@/app/core/utils/request/route-param-exception';
+import { PreconditionFailedException } from '@/app/core/utils/request/precondition-failed-exception';
+import { VersionParamException } from '@/app/core/utils/request/version-param-exception';
+import { formatEntityTag, parseIfMatch } from '@/app/core/utils/request/entity-tag';
 import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
@@ -168,9 +171,13 @@ class BaseController {
     if (
       exception instanceof PaginationException ||
       exception instanceof RouteParamException ||
+      exception instanceof VersionParamException ||
       exception instanceof DomainEntityError
     ) {
       return ApiResponseUtils.apiErrorResponse(400, exception.message);
+    }
+    if (exception instanceof PreconditionFailedException) {
+      return ApiResponseUtils.apiErrorResponse(412, exception.message);
     }
     if (exception instanceof DomainServiceError) {
       return this.getServiceErrorResponse(exception);
@@ -234,6 +241,63 @@ class BaseController {
       throw new RouteParamException(`Route parameter "${paramName}" is missing or invalid.`);
     }
     return value;
+  }
+
+  /**
+   * Build the `ETag` header of a single-record response, for `ApiResponseUtils.apiOkResponse()`'s headers.
+   *
+   * @param {number} version - The record's version.
+   * @param {unknown} representation - The data sent in the response body for the record.
+   * @returns {Record<string, string>} The `ETag` header.
+   */
+  protected entityTagHeader(version: number, representation: unknown): Record<string, string> {
+    return { ETag: formatEntityTag(version, representation) };
+  }
+
+  /**
+   * Run a versioned write (update or delete) with the version the client read, sent either in `If-Match` (the ETag)
+   * or as `version` (in the body or the query). A stale version reported by the write keeps its 409 (CONFLICT) when it
+   * came as `version`, and becomes a 412 (Precondition Failed) when it came in `If-Match`.
+   *
+   * @param {Pick<Request, 'headers'>} request - The Express request (only its headers are read).
+   * @param {number | undefined} sentVersion - The `version` sent in the body or the query, if any.
+   * @param {(version: number) => Promise<T>} write - The write to run with the version the client read.
+   * @returns {Promise<T>} The value `write` resolves to.
+   * @throws {VersionParamException} When neither `If-Match` nor `version` was sent, or both were sent and disagree.
+   * @throws {PreconditionFailedException} When `If-Match` is not an entity tag this API issues, or the write reports a
+   * CONFLICT for the version it carried.
+   * @throws {unknown} Whatever else `write` throws, unchanged.
+   */
+  protected async withExpectedVersion<T>(
+    request: Pick<Request, 'headers'>,
+    sentVersion: number | undefined,
+    write: (version: number) => Promise<T>,
+  ): Promise<T> {
+    const ifMatchVersion = parseIfMatch(request.headers['if-match']);
+    if (ifMatchVersion !== undefined && sentVersion !== undefined && ifMatchVersion !== sentVersion) {
+      throw new VersionParamException(
+        `If-Match (version ${ifMatchVersion}) and version (${sentVersion}) disagree: send one of them.`,
+      );
+    }
+
+    const version = ifMatchVersion ?? sentVersion;
+    if (version === undefined) {
+      throw new VersionParamException(
+        'version is required: send If-Match with the ETag of the record you read, or the version you read.',
+      );
+    }
+    if (ifMatchVersion === undefined) {
+      return await write(version);
+    }
+
+    try {
+      return await write(version);
+    } catch (e: unknown) {
+      if (e instanceof DomainServiceError && e.type === 'CONFLICT') {
+        throw new PreconditionFailedException(e.message, { cause: e });
+      }
+      throw e;
+    }
   }
 
   //   protected getDataAccessClosure(

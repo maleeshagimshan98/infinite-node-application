@@ -109,6 +109,8 @@ COOKIE_PARTITIONED=false
 # CORS
 CORS_ORIGIN=*
 CORS_METHODS=GET,POST,PUT,DELETE,OPTIONS
+# ETag lets browser clients read the version they send back in If-Match
+CORS_EXPOSED_HEADERS=ETag
 CORS_CREDENTIALS=false
 
 # Rate limiting

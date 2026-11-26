@@ -35,12 +35,25 @@ const getApiOkResponseCode = (code: number, transformedData: APIResponseData): n
   return code === 200 ? get2xxResponseCodeFromData(transformedData) : code;
 };
 
+/**
+ * Builds a success APIResponse, optionally carrying response headers (e.g. a single record's `ETag`). A 200 with no
+ * data becomes a 204.
+ *
+ * @param {number} code - The HTTP status code for the response.
+ * @param {boolean} paginated - Whether the data is one page of a paginated list.
+ * @param {Paginator | null} page - The paginator of a paginated list, otherwise null.
+ * @param {string} message - The human-readable message.
+ * @param {Record<string, unknown>[] | Record<string, unknown> | unknown} [data] - The response data.
+ * @param {Record<string, string>} [headers] - Response headers applied via `APIResponse.applyHeaders()`.
+ * @returns {APIResponse} The constructed success APIResponse.
+ */
 const apiOkResponse = (
   code: number,
   paginated: boolean,
   page: Paginator | null,
   message: string,
   data: Record<string, unknown>[] | Record<string, unknown> | unknown = [],
+  headers: Record<string, string> = {},
 ): APIResponse => {
   const transformedData = transformApiResponseData(data);
   const apiResponse = new APIResponse(
@@ -50,6 +63,7 @@ const apiOkResponse = (
     page,
     message,
     transformedData,
+    headers,
   );
   return apiResponse;
 };

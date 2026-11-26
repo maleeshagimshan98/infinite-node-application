@@ -206,19 +206,25 @@ export class RoleService extends BaseDomainService {
   }
 
   /**
-   * Delete a role by its id.
+   * Delete a role by its id. The delete is conditional on the version read here, so a role made the default (or
+   * otherwise changed) between these checks and the delete is not deleted.
    *
    * @param {string} id - The role id.
+   * @param {number} [version] - The version of the role the caller read. Without a version the delete applies to the
+   * role as it is read here.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<Role>} The deleted role.
    * @throws {DomainServiceError} NOT_FOUND when no role exists with the given id.
+   * @throws {DomainServiceError} CONFLICT when `version` is not the role's current version (checked before anything
+   * else), or the role changed before it was deleted.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed, the role is the default role, or it still has
    * associated users.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
-  async delete(id: string, transactionOptions?: TransactionOptions): Promise<Role> {
+  async delete(id: string, version?: number, transactionOptions?: TransactionOptions): Promise<Role> {
     return this.wrapInfrastructureErrors(async () => {
       const role = await this.getById(id, transactionOptions);
+      this.assertVersion(role, version, 'Role');
 
       if (role.default) {
         throw new DomainServiceError(
@@ -241,7 +247,7 @@ export class RoleService extends BaseDomainService {
         );
       }
 
-      const deletedRole = await this.roleRepository.delete(id, transactionOptions);
+      const deletedRole = await this.roleRepository.delete(id, role.version, transactionOptions);
       if (!deletedRole) {
         throw new DomainServiceError(`The Role with the id equal to ${id} could not be deleted.`, 'NOT_FOUND');
       }

@@ -5,11 +5,13 @@
 import crypto from 'crypto';
 
 import { AccountRecoveryService } from '@/domain/auth/service/account-recovery.service';
+import { LoginService } from '@/domain/auth/service/login.service';
+import { LoginRecord } from '@/domain/auth/models/login-record';
 import { UserService } from '@/domain/user/service/user.service';
 import { User } from '@/domain/user/models/user';
 import { NewPasswordResetCode, PasswordResetCode } from '@/domain/auth/models/password-reset-code';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
-import type { IDatabaseMapper, IEmailService, ILogger } from '@/application/interfaces';
+import type { ICache, IDatabaseMapper, IEmailService, ILogger } from '@/application/interfaces';
 import type {
   IBaseRepository,
   IVersionedEntity,
@@ -17,6 +19,7 @@ import type {
 import type { IPasswordResetCodeRepository } from '@/application/interfaces/repositories/auth/password-reset-code.repository.interface';
 
 import { AccountRecoveryApplicationService } from './account-recovery.application.service';
+import { LoginApplicationService } from './login.application.service';
 
 const USER_ID = '65f1a2b3c4d5e6f708192a3b';
 const EMAIL = 'jane.doe@example.com';
@@ -47,6 +50,7 @@ describe('AccountRecoveryApplicationService', () => {
   let userService: UserService;
   let passwordResetCodeRepository: jest.Mocked<IPasswordResetCodeRepository>;
   let accountRecoveryService: AccountRecoveryService;
+  let loginApplicationService: LoginApplicationService;
   let service: AccountRecoveryApplicationService;
 
   beforeEach(() => {
@@ -81,8 +85,31 @@ describe('AccountRecoveryApplicationService', () => {
     };
     userService = new UserService(mockRepository(), mockRepository(), mockRepository());
     passwordResetCodeRepository = mockRepository();
-    accountRecoveryService = new AccountRecoveryService(userService, passwordResetCodeRepository, mockRepository());
-    service = new AccountRecoveryApplicationService(databaseMapper, accountRecoveryService, emailService, logger);
+    const loginService = new LoginService(mockRepository(), mockRepository());
+    const cache: jest.Mocked<ICache> = {
+      serviceName: jest.fn(() => 'cache' as const),
+      singleton: jest.fn(() => true as const),
+      deferred: jest.fn(() => false as const),
+      getDriver: jest.fn(),
+      get: jest.fn(),
+      set: jest.fn(),
+      delete: jest.fn(),
+      clear: jest.fn(),
+      hSet: jest.fn(),
+      hGet: jest.fn(),
+      hGetAll: jest.fn(),
+      hDel: jest.fn(),
+      hExists: jest.fn(),
+    };
+    accountRecoveryService = new AccountRecoveryService(userService, passwordResetCodeRepository, loginService);
+    loginApplicationService = new LoginApplicationService(databaseMapper, loginService, userService, cache, logger);
+    service = new AccountRecoveryApplicationService(
+      databaseMapper,
+      accountRecoveryService,
+      loginApplicationService,
+      emailService,
+      logger,
+    );
   });
 
   afterEach(() => {
@@ -153,5 +180,48 @@ describe('AccountRecoveryApplicationService', () => {
 
     await expect(service.forgotPassword(EMAIL)).rejects.toMatchObject({ type: 'NOT_FOUND' });
     expect(emailService.enqueueEmail).not.toHaveBeenCalled();
+  });
+
+  it('resets the password in a transaction and evicts the revoked sessions after it commits', async () => {
+    const revoked = [
+      new LoginRecord({
+        id: '65f1a2b3c4d5e6f708192a51',
+        version: 1,
+        user_id: USER_ID,
+        token: 'token-hash-1',
+        refresh_token: 'refresh-hash-1',
+        access_token_valid_till: new Date(),
+        refresh_token_valid_till: new Date(),
+        status: 'revoked',
+      }),
+    ];
+    const order: string[] = [];
+    databaseMapper.transaction.mockImplementation(async (callback) => {
+      const result = await callback({ session: SESSION });
+      order.push('commit');
+      return result;
+    });
+    const reset = jest.spyOn(accountRecoveryService, 'resetPassword').mockResolvedValue(revoked);
+    const evict = jest.spyOn(loginApplicationService, 'evictLoginRecords').mockImplementation(async () => {
+      order.push('evict');
+    });
+
+    await service.resetPassword(EMAIL, 'raw-code', 'new-password');
+
+    expect(reset).toHaveBeenCalledWith(EMAIL, 'raw-code', 'new-password', { session: SESSION });
+    expect(evict).toHaveBeenCalledWith(revoked);
+    expect(order).toEqual(['commit', 'evict']);
+  });
+
+  it('evicts nothing when the reset fails', async () => {
+    jest
+      .spyOn(accountRecoveryService, 'resetPassword')
+      .mockRejectedValue(new DomainServiceError('The reset code has expired.', 'VALIDATION_ERROR'));
+    const evict = jest.spyOn(loginApplicationService, 'evictLoginRecords');
+
+    await expect(service.resetPassword(EMAIL, 'raw-code', 'new-password')).rejects.toMatchObject({
+      type: 'VALIDATION_ERROR',
+    });
+    expect(evict).not.toHaveBeenCalled();
   });
 });

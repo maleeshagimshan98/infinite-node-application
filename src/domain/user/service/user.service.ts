@@ -104,10 +104,9 @@ export class UserService extends BaseDomainService {
     ugId: string,
     transactionOptions?: TransactionOptions,
   ): Promise<void> {
-    const [role, group] = await Promise.all([
-      this.roleRepository.findById(roleId, transactionOptions),
-      this.userGroupRepository.findById(ugId, transactionOptions),
-    ]);
+    // One lookup at a time: parallel operations on one transaction's session are undefined behaviour in Mongoose.
+    const role = await this.roleRepository.findById(roleId, transactionOptions);
+    const group = await this.userGroupRepository.findById(ugId, transactionOptions);
     if (!role) {
       throw new DomainServiceError(`The Role with the id equal to ${roleId} could not be found.`, 'VALIDATION_ERROR');
     }
@@ -207,20 +206,26 @@ export class UserService extends BaseDomainService {
   }
 
   /**
-   * Delete a user by its id.
+   * Delete a user by its id. The delete is conditional on the version read here, so a user changed since is not
+   * deleted.
    *
    * @param {string} id - The user id.
+   * @param {number} [version] - The version of the user the caller read. Without a version the delete applies to the
+   * user as it is read here.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<User>} The deleted user.
    * @throws {DomainServiceError} NOT_FOUND when no user exists with the given id.
+   * @throws {DomainServiceError} CONFLICT when `version` is not the user's current version, or the user changed before
+   * it was deleted.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
-  async delete(id: string, transactionOptions?: TransactionOptions): Promise<User> {
+  async delete(id: string, version?: number, transactionOptions?: TransactionOptions): Promise<User> {
     return this.wrapInfrastructureErrors(async () => {
-      await this.getById(id, transactionOptions);
+      const user = await this.getById(id, transactionOptions);
+      this.assertVersion(user, version, 'User');
 
-      const deletedUser = await this.userRepository.delete(id, transactionOptions);
+      const deletedUser = await this.userRepository.delete(id, user.version, transactionOptions);
       if (!deletedUser) {
         throw new DomainServiceError(`The User with the id equal to ${id} could not be deleted.`, 'NOT_FOUND');
       }

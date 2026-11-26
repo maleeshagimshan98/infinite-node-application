@@ -126,14 +126,17 @@ export interface IBaseRepository<DomainModel extends IVersionedEntity, NewDomain
   update(id: string, item: DomainModel, transactionOptions?: TransactionOptions): Promise<DomainModel | null>;
 
   /**
-   * Delete an entity by ID
+   * Delete an entity by ID, only while the stored version still equals `version`, so a delete decided on a stale read
+   * fails instead of removing an entity that changed since.
    *
    * @param {string} id - Entity identifier
+   * @param {number} version - The version of the entity the caller read and decided to delete
    * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
-   * @returns {Promise<DomainModel | null>} The deleted domain model, or null if not found
-   * @throws {RepositoryError} INVALID_ID when `id` is malformed.
+   * @returns {Promise<DomainModel | null>} The deleted domain model, or null if no entity has the ID
+   * @throws {RepositoryError} VERSION_CONFLICT when the entity was updated after it was read at `version` (a stale
+   * version); INVALID_ID when `id` is malformed.
    * @throws {InfrastructureError} CONNECTION_ERROR when the database cannot be reached; DATABASE_ERROR for any
    * other database failure.
    */
-  delete(id: string, transactionOptions?: TransactionOptions): Promise<DomainModel | null>;
+  delete(id: string, version: number, transactionOptions?: TransactionOptions): Promise<DomainModel | null>;
 }

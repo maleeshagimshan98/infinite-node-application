@@ -4,7 +4,11 @@
 
 import { Router } from 'express';
 
-import { newResourceValidator, updateResourceValidator } from '@/presentation/http/validators/auth/resource.validator';
+import {
+  newResourceValidator,
+  updateResourceValidator,
+  deleteResourceValidator,
+} from '@/presentation/http/validators/auth/resource.validator';
 import { container } from '@/app/core/service.container';
 import type { LoginApplicationService } from '@/application/services/auth/login.application.service';
 import type { AuthenticatedRequest } from '@/app/core/utils/request/authenticated-request';
@@ -57,6 +61,7 @@ router.put(
 router.delete(
   '/:id',
   UserValidatorMiddleware(loginApplicationServiceProvider),
+  RequestValidatorMiddleware(deleteResourceValidator()),
   (req: AuthenticatedRequest, res: Response) => {
     container.resolve<ResourceController>('resourceController').delete(req, res);
   },

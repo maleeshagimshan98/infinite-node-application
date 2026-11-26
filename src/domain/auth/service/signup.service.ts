@@ -72,19 +72,17 @@ export class SignupService extends BaseDomainService {
       {},
       transactionOptions,
     );
-    // TODO: Should use a transaction or bulkWrite
-    await Promise.all(
-      codes.map(async (code) => {
-        code.expire();
-        const updated = await this.emailVerificationCodeRepository.update(code.id, code, transactionOptions);
-        if (!updated) {
-          throw new DomainServiceError(
-            `The Email verification code with the id equal to ${code.id} could not be found.`,
-            'NOT_FOUND',
-          );
-        }
-      }),
-    );
+    // One write at a time: parallel operations on one transaction's session are undefined behaviour in Mongoose.
+    for (const code of codes) {
+      code.expire();
+      const updated = await this.emailVerificationCodeRepository.update(code.id, code, transactionOptions);
+      if (!updated) {
+        throw new DomainServiceError(
+          `The Email verification code with the id equal to ${code.id} could not be found.`,
+          'NOT_FOUND',
+        );
+      }
+    }
   }
 
   /**

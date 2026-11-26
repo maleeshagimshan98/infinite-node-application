@@ -120,8 +120,8 @@ src/
 2. Imports point inward (§2.1).
 3. Every auto-registered class ends with `export default ClassName;` (§4.1).
 4. A schema file exports one root interface, `INew{Model}Schema` (§6.1).
-5. Every uniqueness rule has a unique index, and every update is a conditional write on the entity's `version`
-   (§6.7, §6.8, §7.6).
+5. Every uniqueness rule has a unique index, and every update and delete is a conditional write on the entity's
+   `version` (§6.7, §6.8, §7.6).
 6. Domain services wrap every public method in `wrapInfrastructureErrors()` and throw only `DomainServiceError` (§7.1, §7.3).
 7. All controller logic runs inside `catchExceptionsWrapper()` (§9.2).
 8. `UserValidatorMiddleware` on every route except the listed public ones (§9.5).
@@ -460,13 +460,15 @@ gets `DUPLICATE_KEY` → `ALREADY_EXISTS` (400).
   database name to `connectToTestDB()`, because Jest runs files in parallel and `clearTestDB()` empties every
   collection
 
-### 6.8 Update with the version you read
+### 6.8 Update and delete with the version you read
 
 **Rule:** `BaseRepository.update(id, item: DomainModel)` writes
-`findOneAndUpdate({ _id, __v: item.version }, { $set, $inc: { __v: 1 } })`. Always pass an entity you read and
-changed, never a `New{Model}` built from a payload: `$set` writes every field of `item`.
+`findOneAndUpdate({ _id, __v: item.version }, { $set, $inc: { __v: 1 } })`, and `delete(id, version)` writes
+`findOneAndDelete({ _id, __v: version })`. Always pass an entity you read and changed, never a `New{Model}` built from
+a payload: `$set` writes every field of `item`.
 **Why:** The write succeeds only if nobody changed the document since it was read, so concurrent updates can't
-silently overwrite each other.
+silently overwrite each other, and a delete decided on a stale read (e.g. "this role is not the default") can't remove
+a document that changed since.
 **Use cases:**
 
 - success → the entity at its new version; an unknown id → `null`
@@ -476,7 +478,8 @@ silently overwrite each other.
 - inside a transaction → a concurrent commit raises a `WriteConflict` labelled `TransientTransactionError`, and
   `withTransaction` re-runs the callback with the fresh version: a client-supplied version then fails
   `assertVersion()` with `CONFLICT`, an internal flow succeeds
-- deletes → `delete(id)` doesn't check the version yet (§14)
+- a delete → pass the version of the entity the domain service just read (§7.6); a delete still can't see a change to
+  *another* document between its checks and the write (e.g. a user assigned to the role being deleted)
 
 ---
 
@@ -541,7 +544,8 @@ never on the message.
 
 ### 7.4 Return the deleted entity from `delete()`
 
-**Rule:** `delete()` returns the deleted domain object, never `void`, after the two `NOT_FOUND` checks of §7.2.
+**Rule:** `delete()` returns the deleted domain object, never `void`, after the two `NOT_FOUND` checks of §7.2. It
+deletes at the version it read (§7.6).
 **Why:** Callers and the API response show what was removed.
 
 ### 7.5 Accept `TransactionOptions` and pass it down
@@ -550,17 +554,19 @@ never on the message.
 its last parameter and passes it to every repository and domain-service call it makes.
 **Why:** One missed call runs outside the session and breaks the transaction's atomicity.
 
-### 7.6 Check the version before any side effect in `update()`
+### 7.6 Check the version before any side effect in `update()` and `delete()`
 
 **Rule:** `update(id, data)` takes `version` out of the payload, reads the entity, calls
 `this.assertVersion(entity, version, '{Model}')` before any other check or write, then applies the changes and calls
-the repository's `update()` (§6.8).
+the repository's `update()` (§6.8). `delete(id, version?, transactionOptions?)` reads the entity, calls
+`assertVersion()` first, runs its checks, then calls `repository.delete(id, entity.version, transactionOptions)`.
 **Why:** A stale version fails fast with `CONFLICT` before anything changes; the conditional write then makes the
 check atomic.
 **Use cases:**
 
 - `version` is `undefined` → the check is skipped, for internal callers writing with the version they just read
-- a client update → its validator requires `version` (§9.1), so the check always runs
+- a client update or delete → the controller requires the version, from `If-Match` or the body / query (§9.3), so
+  the check always runs
 
 ```typescript
 async update(id: string, data: Partial<INewResource>, transactionOptions?: TransactionOptions): Promise<Resource> {
@@ -600,6 +606,10 @@ forgot the session. The parameter name is the DI token (§4.2).
   `RoleApplicationService.update()` and `UserGroupApplicationService` (switching the default unsets the old one first)
 - the controller calls the application service for that operation and the domain service for the rest
   (`RoleController`)
+- a write that also changes the cache → change the cache only after the transaction commits:
+  `AccountRecoveryApplicationService.resetPassword()` and `UserApplicationService.update()` (a new password, or a
+  status other than `active`) revoke every session with `LoginService.revokeAllForUser()` inside the transaction, then
+  evict them with `LoginApplicationService.evictLoginRecords()`
 
 **Reference:** `src/application/services/auth/signup.application.service.ts`; one service:
 `src/application/services/auth/role.application.service.ts`
@@ -648,8 +658,9 @@ export const newResourceValidator = (): Schema => ({
 
 **Use cases:**
 
-- an update validator for a root entity → requires the version the client read (§7.6):
-  `version: { isInt: { options: { min: 0 } }, toInt: true, errorMessage: 'version is required: …' }`
+- an update validator for a root entity → the version the client read (§7.6), optional because `If-Match` can carry
+  it instead: `version: { in: ['body'], optional: true, isInt: { options: { min: 0 } }, toInt: true, … }`
+- a delete validator → the same `version` rule with `in: ['query']` (`DELETE …/:id?version=N`)
 
 **Reference:** `src/presentation/http/validators/auth/role.validator.ts`
 
@@ -694,8 +705,14 @@ export default RoleController;
 - a route parameter → `this.getStringParam(req, 'id')` (a missing one is a 400)
 - a paginated list → `count({})` on the injected repository, `this.getPaginator(req, totalCount)`, then the service
   with `paginator.getResultsPerPage()` / `getOffset()`, and `apiOkResponse(200, true, paginator, …)`
-- response headers (`Retry-After`, `WWW-Authenticate`) → the fourth argument of
-  `apiErrorResponse(code, message, data?, headers?)`; `createResponse()` applies them, never call `res.setHeader()`
+- response headers (`Retry-After`, `WWW-Authenticate`, `ETag`) → the last argument of
+  `apiErrorResponse(code, message, data?, headers?)` or `apiOkResponse(code, paginated, page, message, data?,
+  headers?)`; `createResponse()` applies them, never call `res.setHeader()`
+- a single-record response (get by id, create, update) → `this.entityTagHeader(result.version, body)` as its headers;
+  the strong ETag `"<version>-<digest>"` also lets Express answer a matching `If-None-Match` with 304
+- a versioned write (update, delete) → `this.withExpectedVersion(req, sentVersion, (version) => …)`: the version
+  comes from `If-Match` or the body / query `version`, either is enough, both must agree (400), neither is a 400, and
+  a `CONFLICT` for an `If-Match` version becomes 412
 - the authenticated user → `req.user!` in a method taking `AuthenticatedRequest` (pre-approved, §12.6)
 - a response built by hand (e.g. `UserController.toSafeUser()`, `EmailLogController.toSafeEmail()`) → include
   `version`, so the client can send it back on update
@@ -713,7 +730,7 @@ export default RoleController;
 ### 9.5 Authenticate every non-public route
 
 **Rule:** Every route starts with `UserValidatorMiddleware(loginApplicationServiceProvider)`, then
-`RequestValidatorMiddleware(validator())` on create and update routes. The handler resolves the controller from the
+`RequestValidatorMiddleware(validator())` on create, update and delete routes. The handler resolves the controller from the
 container inside the handler. The file exports `export { router as {Feature}Routes };`, mounted in
 `src/presentation/http/routes/index.ts`.
 **Why:** Authentication is opt-out per route, so a missing middleware silently makes the route public.
@@ -764,6 +781,8 @@ role or no loaded resources is a refusal (`User.hasPermission()` → `Role.hasPe
 | Thrown error                                                      | HTTP                                                        | Response message                  |
 | ----------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------- |
 | `PaginationException`, `RouteParamException`, `DomainEntityError` | 400                                                         | The error's message               |
+| `VersionParamException` (no version, or `If-Match` ≠ `version`)   | 400                                                         | The error's message               |
+| `PreconditionFailedException` (stale or unusable `If-Match`)      | 412                                                         | The error's message               |
 | `DomainServiceError`                                              | Per type, below                                             | The error's message, except below |
 | `InfrastructureError` (reached the controller unwrapped)          | 503 for `NETWORK_ERROR` / `CONNECTION_ERROR`, otherwise 500 | Generic                           |
 | Anything else (including an unwrapped `RepositoryError`)          | 500                                                         | Generic                           |
@@ -774,7 +793,7 @@ role or no loaded resources is a refusal (`User.hasPermission()` → `Role.hasPe
 | `USER_PERMISSION_ERROR`   | 403                                                                                           |
 | `NOT_FOUND`               | 404                                                                                           |
 | `ALREADY_EXISTS`          | 400                                                                                           |
-| `CONFLICT`                | 409: the record changed since the client read it (§7.6)                                       |
+| `CONFLICT`                | 409 (412 for an `If-Match` version): the record changed since the client read it (§7.6)       |
 | `VALIDATION_ERROR`        | 400 (response includes `data`)                                                                |
 | `INVALID_OPERATION`       | 400 (response includes `data`)                                                                |
 | `INCOMPLETE_MODEL`        | 400                                                                                           |
@@ -1092,7 +1111,7 @@ throw new InfrastructureError(`Failed: ${error instanceof Error ? error.message 
 ☐ 4  Repository interface in application/interfaces/repositories/ + repository extending BaseRepository (§6.4)
 ☐ 5  Domain service; update() checks the version (§7)
 ☐ 6  Application service, for any operation that needs a database transaction (§8)
-☐ 7  Create and update validators; update requires version (§9.1)
+☐ 7  Create, update and delete validators; update and delete take version (§9.1, §9.3)
 ☐ 8  Controller (§9.2–§9.4)
 ☐ 9  Routes, mounted in routes/index.ts (§9.5, §9.6 when role-limited)
 ☐ 10 A seeded resource when the route needs permissions (§9.6)
@@ -1137,6 +1156,5 @@ Run `npm test` too; a pull request records all of these.
 - **Notification log:** built, not wired; no endpoints yet.
 - **OpenTelemetry:** phases 1–4 built (`src/app/core/telemetry/`); 5–7 not started
   (`Docs/plans/OpenTelemetry_Implementation_Plan.md`).
-- **Versioned deletes:** not started; `delete(id)` does not check the version (§6.8).
 
 Planned work: `Docs/TODO.yml`.

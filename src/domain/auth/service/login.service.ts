@@ -121,6 +121,19 @@ export class LoginService extends BaseDomainService {
   }
 
   /**
+   * Refuse to sign in a suspended user: suspension must stick, so a suspended user can neither log in nor refresh.
+   *
+   * @param {User} user - The user about to be issued a session.
+   * @returns {void}
+   * @throws {DomainServiceError} AUTHENTICATION_ERROR when the user is suspended.
+   */
+  private assertCanSignIn(user: User): void {
+    if (user.status === 'suspended') {
+      throw new DomainServiceError('This account is suspended', 'AUTHENTICATION_ERROR');
+    }
+  }
+
+  /**
    * Hash a raw access token into the value used as both the DB lookup key and the cache key.
    *
    * @param {string} token - The raw JWT access token.
@@ -151,7 +164,8 @@ export class LoginService extends BaseDomainService {
    * @param {string} password - The plain-text password to verify against the stored hash.
    * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
    * @returns {Promise<{ id: string; status: string; accessToken: string; refreshToken: string; loginRecord: LoginRecord }>} The authenticated user's identity plus the new token pair and login record.
-   * @throws {DomainServiceError} AUTHENTICATION_ERROR when the password does not match.
+   * @throws {DomainServiceError} AUTHENTICATION_ERROR when the password does not match, or the user is suspended
+   * (checked only after the password matches, so a wrong password never reveals the account's status).
    * @throws {DomainServiceError} ALREADY_EXISTS when the user already has a session with the same access token: two
    * logins with the same claims in the same second sign identical tokens.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
@@ -168,6 +182,7 @@ export class LoginService extends BaseDomainService {
       if (!isPasswordMatching) {
         throw new DomainServiceError('Invalid credentials', 'AUTHENTICATION_ERROR');
       }
+      this.assertCanSignIn(user);
 
       const { accessToken, refreshToken, loginRecord } = await this.issueTokensAndRecord(
         user.id,
@@ -287,14 +302,49 @@ export class LoginService extends BaseDomainService {
   }
 
   /**
-   * Issue a brand-new active login session for a user, used when rotating tokens on refresh.
+   * Revoke every active login session of a user, e.g. after their password changed or they were suspended. Records
+   * are revoked one at a time: parallel operations on one transaction's session are undefined behaviour in Mongoose.
+   *
+   * @param {string} userId - The user whose sessions end.
+   * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
+   * @returns {Promise<LoginRecord[]>} The revoked login records, so the caller can drop their cached copies once the
+   * revocation is committed.
+   * @throws {DomainServiceError} NOT_FOUND when a login record is deleted while it is being revoked.
+   * @throws {DomainServiceError} CONFLICT when a login record changed while it was being revoked (e.g. a concurrent
+   * refresh expired it).
+   * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
+   */
+  async revokeAllForUser(userId: string, transactionOptions?: TransactionOptions): Promise<LoginRecord[]> {
+    return this.wrapInfrastructureErrors(async () => {
+      const activeRecords = await this.loginRecordRepository.find(
+        { user_id: userId, status: 'active' },
+        undefined,
+        undefined,
+        undefined,
+        transactionOptions,
+      );
+
+      const revoked: LoginRecord[] = [];
+      for (const loginRecord of activeRecords) {
+        await this.revokeLoginRecord(loginRecord, transactionOptions);
+        revoked.push(loginRecord);
+      }
+      return revoked;
+    });
+  }
+
+  /**
+   * Issue a brand-new active login session for a user, used when rotating tokens on refresh. The user is read again,
+   * so a user deleted or suspended since the session began cannot refresh it.
    *
    * @param {string} userId - The user the new session belongs to.
    * @param {string} groups - The user-group ID to embed in the new access token.
    * @param {TransactionOptions} [transactionOptions] - Optional database transaction session.
    * @returns {Promise<{ accessToken: string; refreshToken: string; loginRecord: LoginRecord }>} The new token pair and its persisted login record.
+   * @throws {DomainServiceError} AUTHENTICATION_ERROR when the user no longer exists or is suspended.
    * @throws {DomainServiceError} ALREADY_EXISTS when the user already has a session with the same access token: two
    * sessions with the same claims issued in the same second sign identical tokens.
+   * @throws {DomainServiceError} VALIDATION_ERROR when the user id is malformed.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    * @throws {Error} when the access token cannot be signed (`JWT_PRIVATE_KEY` missing or invalid).
    */
@@ -304,6 +354,11 @@ export class LoginService extends BaseDomainService {
     transactionOptions?: TransactionOptions,
   ): Promise<{ accessToken: string; refreshToken: string; loginRecord: LoginRecord }> {
     return this.wrapInfrastructureErrors(async () => {
+      const user = await this.userRepository.findById(userId, transactionOptions);
+      if (!user) {
+        throw new DomainServiceError('The account of this session no longer exists', 'AUTHENTICATION_ERROR');
+      }
+      this.assertCanSignIn(user);
       return await this.issueTokensAndRecord(userId, groups, transactionOptions);
     });
   }

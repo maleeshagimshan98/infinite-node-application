@@ -213,22 +213,28 @@ export class UserGroupService extends BaseDomainService {
   }
 
   /**
-   * Delete a user group by its ID.
+   * Delete a user group by its ID. The delete is conditional on the version read here, so a group made the default (or
+   * otherwise changed) between these checks and the delete is not deleted.
    *
    * @param {string} id - The ID of the user group to delete.
+   * @param {number} [version] - The version of the user group the caller read. Without a version the delete applies to
+   * the group as it is read here.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<UserGroup>} The deleted user group.
    * @throws {DomainServiceError} NOT_FOUND when no user group exists with the given id.
+   * @throws {DomainServiceError} CONFLICT when `version` is not the group's current version (checked before anything
+   * else), or the group changed before it was deleted.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed, or the group is the default group or has associated users.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
-  async delete(id: string, transactionOptions?: TransactionOptions): Promise<UserGroup> {
+  async delete(id: string, version?: number, transactionOptions?: TransactionOptions): Promise<UserGroup> {
     return this.wrapInfrastructureErrors(async () => {
       const group = await this.getById(id, transactionOptions);
 
       if (!group) {
         throw new DomainServiceError(`The User Group with the id equal to ${id} could not be found.`, 'NOT_FOUND');
       }
+      this.assertVersion(group, version, 'User Group');
 
       if (group.default) {
         throw new DomainServiceError(
@@ -246,7 +252,7 @@ export class UserGroupService extends BaseDomainService {
         );
       }
 
-      const deletedGroup = await this.userGroupRepository.delete(id, transactionOptions);
+      const deletedGroup = await this.userGroupRepository.delete(id, group.version, transactionOptions);
 
       if (!deletedGroup) {
         throw new DomainServiceError(`The User Group with the id equal to ${id} could not be deleted.`, 'NOT_FOUND');

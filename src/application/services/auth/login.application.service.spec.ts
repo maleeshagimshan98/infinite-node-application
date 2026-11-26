@@ -16,6 +16,7 @@ import type {
 } from '@/application/interfaces/repositories/base.repository.interface';
 import type { ILoginRecordRepository } from '@/application/interfaces/repositories/auth/login-record.repository.interface';
 import { RepositoryError } from '@/application/interfaces/errors/repository.error';
+import { InfrastructureError } from '@/application/interfaces/errors/infrastructure.error';
 
 import { LoginApplicationService } from './login.application.service';
 
@@ -169,5 +170,32 @@ describe('LoginApplicationService', () => {
     );
 
     await expect(service.logout(token)).rejects.toMatchObject({ type: 'AUTHENTICATION_ERROR' });
+  });
+
+  it('evicts each revoked login record from the cache by its hashed token', async () => {
+    const first = storedRecord(HOUR_MS);
+    const second = new LoginRecord({
+      id: '65f1a2b3c4d5e6f708192a3d',
+      version: 0,
+      user_id: USER_ID,
+      token: 'other-hash',
+      refresh_token: 'other-refresh-hash',
+      access_token_valid_till: new Date(Date.now() + HOUR_MS),
+      refresh_token_valid_till: new Date(Date.now() + 24 * HOUR_MS),
+      status: 'active',
+    });
+
+    await service.evictLoginRecords([first, second]);
+
+    expect(cache.hDel.mock.calls).toEqual([
+      [LOGIN_RECORDS_HASH, sha256(token)],
+      [LOGIN_RECORDS_HASH, 'other-hash'],
+    ]);
+  });
+
+  it('logs and swallows a cache failure while evicting, so the committed revocation still stands', async () => {
+    cache.hDel.mockRejectedValue(new InfrastructureError('Redis is down', 'CACHE_ERROR'));
+
+    await expect(service.evictLoginRecords([storedRecord(HOUR_MS)])).resolves.toBeUndefined();
   });
 });

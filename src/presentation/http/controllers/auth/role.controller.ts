@@ -26,7 +26,7 @@ export class RoleController extends BaseController {
   }
 
   /**
-   * Create a new role.
+   * Create a new role. The response carries the role's `ETag`.
    *
    * @param {Request} req - The incoming request object.
    * @param {Response} res - The response object.
@@ -37,7 +37,14 @@ export class RoleController extends BaseController {
       const data = matchedData<INewRole>(req);
       const result = await this.roleService.create(data);
 
-      return ApiResponseUtils.apiOkResponse(201, false, null, 'Role created successfully', result);
+      return ApiResponseUtils.apiOkResponse(
+        201,
+        false,
+        null,
+        'Role created successfully',
+        result,
+        this.entityTagHeader(result.version, result),
+      );
     });
     return ApiResponseUtils.createResponse(response, res);
   }
@@ -61,7 +68,8 @@ export class RoleController extends BaseController {
   }
 
   /**
-   * Get a role by its id.
+   * Get a role by its id. The response carries the role's `ETag`, which a later update or delete can send back in
+   * `If-Match`.
    *
    * @param {Request} req - The incoming request object.
    * @param {Response} res - The response object.
@@ -71,15 +79,23 @@ export class RoleController extends BaseController {
     const response = await this.catchExceptionsWrapper(async () => {
       const result = await this.roleService.getById(this.getStringParam(req, 'id'));
 
-      return ApiResponseUtils.apiOkResponse(200, false, null, 'Role retrieved successfully', result);
+      return ApiResponseUtils.apiOkResponse(
+        200,
+        false,
+        null,
+        'Role retrieved successfully',
+        result,
+        this.entityTagHeader(result.version, result),
+      );
     });
     return ApiResponseUtils.createResponse(response, res);
   }
 
   /**
-   * Update a role by its id, in one transaction, so making it the default unsets the old default atomically. The body
-   * carries the `version` of the role the client read: a stale version is answered with 409 (CONFLICT) and nothing
-   * changes, and the response carries the new version. `default: false` on the default role is answered with 400
+   * Update a role by its id, in one transaction, so making it the default unsets the old default atomically. The
+   * request carries the version of the role the client read, as `version` in the body or as the `ETag` in `If-Match`:
+   * a stale version is answered with 409 (CONFLICT), or 412 when it came in `If-Match`, and nothing changes. The
+   * response carries the new version and `ETag`. `default: false` on the default role is answered with 400
    * (INVALID_OPERATION).
    *
    * @param {Request} req - The incoming request object.
@@ -88,16 +104,28 @@ export class RoleController extends BaseController {
    */
   async update(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
+      const id = this.getStringParam(req, 'id');
       const data = matchedData<Partial<INewRole>>(req);
-      const result = await this.roleApplicationService.update(this.getStringParam(req, 'id'), data);
+      const result = await this.withExpectedVersion(req, data.version, (version) =>
+        this.roleApplicationService.update(id, { ...data, version }),
+      );
 
-      return ApiResponseUtils.apiOkResponse(200, false, null, 'Role updated successfully', result);
+      return ApiResponseUtils.apiOkResponse(
+        200,
+        false,
+        null,
+        'Role updated successfully',
+        result,
+        this.entityTagHeader(result.version, result),
+      );
     });
     return ApiResponseUtils.createResponse(response, res);
   }
 
   /**
-   * Delete a role by its id.
+   * Delete a role by its id. The request carries the version of the role the client read, as the `ETag` in
+   * `If-Match` or as `?version=`: a stale version is answered with 409 (CONFLICT), or 412 when it came in `If-Match`,
+   * and nothing is deleted.
    *
    * @param {Request} req - The incoming request object.
    * @param {Response} res - The response object.
@@ -105,7 +133,11 @@ export class RoleController extends BaseController {
    */
   async delete(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
-      const result = await this.roleService.delete(this.getStringParam(req, 'id'));
+      const id = this.getStringParam(req, 'id');
+      const query = matchedData<{ version?: number }>(req, { locations: ['query'] });
+      const result = await this.withExpectedVersion(req, query.version, (version) =>
+        this.roleService.delete(id, version),
+      );
 
       return ApiResponseUtils.apiOkResponse(200, false, null, 'Role deleted successfully', result);
     });

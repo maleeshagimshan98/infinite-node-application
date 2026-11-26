@@ -8,10 +8,10 @@ import { BaseDomainService } from '@/domain/base/service/base.domain.service';
 import { DomainServiceError } from '@/domain/base/service/domain-service.error';
 import { normalizeEmail } from '@/domain/base/normalize-email';
 import type { UserService } from '@/domain/user/service/user.service';
+import type { LoginService } from '@/domain/auth/service/login.service';
 import { NewPasswordResetCode, type PasswordResetCode } from '@/domain/auth/models/password-reset-code';
 import type { LoginRecord } from '@/domain/auth/models/login-record';
 import type { IPasswordResetCodeRepository } from '@/application/interfaces/repositories/auth/password-reset-code.repository.interface';
-import type { ILoginRecordRepository } from '@/application/interfaces/repositories/auth/login-record.repository.interface';
 import type { TransactionOptions } from '@/application/interfaces/infrastructure/database-mapper.interface';
 
 export class AccountRecoveryService extends BaseDomainService {
@@ -30,21 +30,21 @@ export class AccountRecoveryService extends BaseDomainService {
   private readonly passwordResetCodeRepository: IPasswordResetCodeRepository;
 
   /**
-   * Login record repository instance
+   * Login service instance, which ends the user's sessions after a reset
    *
    * @private
    */
-  private readonly loginRecordRepository: ILoginRecordRepository;
+  private readonly loginService: LoginService;
 
   constructor(
     userService: UserService,
     passwordResetCodeRepository: IPasswordResetCodeRepository,
-    loginRecordRepository: ILoginRecordRepository,
+    loginService: LoginService,
   ) {
     super();
     this.userService = userService;
     this.passwordResetCodeRepository = passwordResetCodeRepository;
-    this.loginRecordRepository = loginRecordRepository;
+    this.loginService = loginService;
   }
 
   /**
@@ -66,19 +66,17 @@ export class AccountRecoveryService extends BaseDomainService {
         {},
         transactionOptions,
       );
-      // TODO: Should use a transaction or bulkWrite
-      await Promise.all(
-        resetCodes.map(async (resetCode) => {
-          resetCode.cancel();
-          const updated = await this.passwordResetCodeRepository.update(resetCode.id, resetCode, transactionOptions);
-          if (!updated) {
-            throw new DomainServiceError(
-              `The Password reset code with the id equal to ${resetCode.id} could not be found.`,
-              'NOT_FOUND',
-            );
-          }
-        }),
-      );
+      // One write at a time: parallel operations on one transaction's session are undefined behaviour in Mongoose.
+      for (const resetCode of resetCodes) {
+        resetCode.cancel();
+        const updated = await this.passwordResetCodeRepository.update(resetCode.id, resetCode, transactionOptions);
+        if (!updated) {
+          throw new DomainServiceError(
+            `The Password reset code with the id equal to ${resetCode.id} could not be found.`,
+            'NOT_FOUND',
+          );
+        }
+      }
     });
   }
 
@@ -141,16 +139,20 @@ export class AccountRecoveryService extends BaseDomainService {
   }
 
   /**
-   * Reset user password with verification code
+   * Reset user password with verification code: mark the code used, set the new password and revoke every active
+   * login session of the user. The writes must succeed together, so the caller passes the session of a transaction,
+   * which `AccountRecoveryApplicationService.resetPassword()` opens.
    *
    * @param {string} email - User email
    * @param {string} verificationCode - Password reset verification code
    * @param {string} newPassword - New password
    * @param {TransactionOptions | undefined} transactionOptions - Transaction options for database operations
-   * @returns {Promise<void>}
-   * @throws {DomainServiceError} NOT_FOUND if reset code or user doesn't exist
+   * @returns {Promise<LoginRecord[]>} The revoked login records, so the caller can drop their cached copies once the
+   * transaction commits.
+   * @throws {DomainServiceError} NOT_FOUND if reset code or user doesn't exist, or a login record is deleted while it
+   * is being revoked.
    * @throws {DomainServiceError} VALIDATION_ERROR if the reset code has expired.
-   * @throws {DomainServiceError} CONFLICT if the reset code, the user or the login record changed concurrently (e.g. a concurrent reset with the same code).
+   * @throws {DomainServiceError} CONFLICT if the reset code, the user or a login record changed concurrently (e.g. a concurrent reset with the same code).
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    * @throws {Error} when argon2 cannot hash the new password.
    */
@@ -159,7 +161,7 @@ export class AccountRecoveryService extends BaseDomainService {
     verificationCode: string,
     newPassword: string,
     transactionOptions?: TransactionOptions,
-  ): Promise<void> {
+  ): Promise<LoginRecord[]> {
     return this.wrapInfrastructureErrors(async () => {
       const address = normalizeEmail(email);
       const passwordResetCode = await this.passwordResetCodeRepository.findOne(
@@ -192,7 +194,6 @@ export class AccountRecoveryService extends BaseDomainService {
         throw new DomainServiceError(`The User with the email equal to ${email} could not be found.`, 'NOT_FOUND');
       }
 
-      // TODO: MUST USE A DATABASE TRANSACTION FOR ALL BELOW DATA MUTATIONS
       passwordResetCode.markUsed();
 
       const updatedResetCode = await this.passwordResetCodeRepository.update(
@@ -210,30 +211,7 @@ export class AccountRecoveryService extends BaseDomainService {
       // UserService.update() hashes `password` whenever it's present in the payload.
       await this.userService.update(user.id, { password: newPassword }, transactionOptions);
 
-      // TODO: Find all and modify all of the login records
-      const loginRecord: LoginRecord | null = await this.loginRecordRepository.findOne(
-        {
-          user_id: user.id,
-          status: 'active',
-        },
-        {},
-        transactionOptions,
-      );
-
-      if (loginRecord) {
-        loginRecord.revoke();
-        const updatedLoginRecord = await this.loginRecordRepository.update(
-          loginRecord.id,
-          loginRecord,
-          transactionOptions,
-        );
-        if (!updatedLoginRecord) {
-          throw new DomainServiceError(
-            `The Login record with the id equal to ${loginRecord.id} could not be found.`,
-            'NOT_FOUND',
-          );
-        }
-      }
+      return await this.loginService.revokeAllForUser(user.id, transactionOptions);
     });
   }
 }

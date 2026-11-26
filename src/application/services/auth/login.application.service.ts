@@ -96,13 +96,40 @@ export class LoginApplicationService extends BaseApplicationService {
    * @throws {Error} If the cache call fails with something other than an InfrastructureError (unexpected).
    */
   private async evictLoginRecord(token: string): Promise<void> {
+    await this.evictCacheField(this.cacheKey(token));
+  }
+
+  /**
+   * Remove one field (a hashed access token) from the `login_records` hash. A cache failure is logged and swallowed:
+   * the database stays the source of truth, and `validate()` falls back to it whenever the cache cannot be read.
+   *
+   * @param {string} field - The hashed access token, as stored on the login record's `token` field.
+   * @returns {Promise<void>}
+   * @throws {Error} If the cache call fails with something other than an InfrastructureError (unexpected).
+   */
+  private async evictCacheField(field: string): Promise<void> {
     try {
-      await this.cache.hDel(LOGIN_RECORDS_HASH, this.cacheKey(token));
+      await this.cache.hDel(LOGIN_RECORDS_HASH, field);
     } catch (e: unknown) {
       if (!(e instanceof InfrastructureError)) {
         throw e;
       }
       this.logger.logError('Failed to evict login record from cache; continuing', { error: e.message });
+    }
+  }
+
+  /**
+   * Drop the cached copies of login records that were revoked in the database (e.g. by a password reset or a
+   * suspension), so a cached `active` copy can no longer validate. Call it only after the revocation is committed:
+   * evicting earlier would let a concurrent read re-trust the old row.
+   *
+   * @param {LoginRecord[]} loginRecords - The revoked login records.
+   * @returns {Promise<void>}
+   * @throws {Error} If the cache call fails with something other than an InfrastructureError (unexpected).
+   */
+  async evictLoginRecords(loginRecords: LoginRecord[]): Promise<void> {
+    for (const loginRecord of loginRecords) {
+      await this.evictCacheField(loginRecord.token);
     }
   }
 

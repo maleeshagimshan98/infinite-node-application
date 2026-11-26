@@ -448,7 +448,7 @@ describe('BaseRepository', () => {
           role_id: roleId,
         }),
       );
-      await new RoleRepository().delete(roleId);
+      await new RoleRepository().delete(roleId, 0);
 
       // Act
       const foundUser = await userRepository.findById(createdUser.id);
@@ -574,7 +574,7 @@ describe('BaseRepository', () => {
     it('should return null when the user was deleted after it was read', async () => {
       // Arrange
       const user = await createUser('deleted@example.com');
-      await userRepository.delete(user.id);
+      await userRepository.delete(user.id, user.version);
       user.status = 'active';
 
       // Act & Assert
@@ -676,7 +676,7 @@ describe('BaseRepository', () => {
       const userId = createdUser.id;
 
       // Act
-      const deleted = await userRepository.delete(userId);
+      const deleted = await userRepository.delete(userId, createdUser.version);
 
       // Assert - Returns the deleted domain model
       expect(deleted).not.toBeNull();
@@ -692,7 +692,7 @@ describe('BaseRepository', () => {
       const nonExistentId = '507f1f77bcf86cd799439011';
 
       // Act
-      const deleted = await userRepository.delete(nonExistentId);
+      const deleted = await userRepository.delete(nonExistentId, 0);
 
       // Assert - No throw, resolves to null
       expect(deleted).toBeNull();
@@ -721,7 +721,7 @@ describe('BaseRepository', () => {
       const user2Id = createdUser2.id;
 
       // Act - Delete user1
-      await userRepository.delete(user1Id);
+      await userRepository.delete(user1Id, createdUser1.version);
 
       // Assert
       const deletedUser1 = await userRepository.findById(user1Id);
@@ -730,6 +730,57 @@ describe('BaseRepository', () => {
       expect(deletedUser1).toBeNull();
       expect(existingUser2).toBeDefined();
       expect(existingUser2?.email).toBe('user2@example.com');
+    });
+
+    it('should throw a VERSION_CONFLICT RepositoryError for a stale version and keep the document', async () => {
+      // Arrange - `user` stays at version 0 after an update moves the stored user to version 1
+      const user = await userRepository.create(
+        new NewUser({
+          email: 'stale-delete@example.com',
+          password: 'password123',
+          status: 'pending_verification',
+          ug_id: 'ug-1',
+          role_id: roleId,
+        }),
+      );
+      const [read] = await userRepository.find({ email: 'stale-delete@example.com' });
+      if (!read) {
+        throw new Error('The user was not found');
+      }
+      read.status = 'active';
+      await userRepository.update(read.id, read);
+
+      // Act
+      const thrown = await userRepository.delete(user.id, user.version).catch((e: unknown) => e);
+
+      // Assert
+      expect(thrown).toBeInstanceOf(RepositoryError);
+      expect(thrown).toMatchObject({ type: 'VERSION_CONFLICT' });
+      const stored = await userRepository.findById(user.id);
+      expect(stored?.status).toBe('active');
+      expect(stored?.version).toBe(1);
+    });
+
+    it('should delete at the current version after an update', async () => {
+      // Arrange
+      const user = await userRepository.create(
+        new NewUser({
+          email: 'current-delete@example.com',
+          password: 'password123',
+          status: 'pending_verification',
+          ug_id: 'ug-1',
+          role_id: roleId,
+        }),
+      );
+      user.status = 'active';
+      const updated = await userRepository.update(user.id, user);
+
+      // Act
+      const deleted = await userRepository.delete(user.id, updated?.version ?? -1);
+
+      // Assert
+      expect(deleted?.id).toBe(user.id);
+      expect(await userRepository.findById(user.id)).toBeNull();
     });
   });
 
@@ -763,8 +814,8 @@ describe('BaseRepository', () => {
       const verifyUser = await userRepository.findById(userId);
       expect(verifyUser?.status).toBe('active');
 
-      // Delete
-      await userRepository.delete(userId);
+      // Delete - at the version the update moved it to
+      await userRepository.delete(userId, 1);
 
       // Verify deletion
       const deletedUser = await userRepository.findById(userId);

@@ -24,7 +24,7 @@ export class ResourceController extends BaseController {
   }
 
   /**
-   * Create a new resource.
+   * Create a new resource. The response carries the resource's `ETag`.
    *
    * @param {Request} req - The incoming request object.
    * @param {Response} res - The response object.
@@ -35,7 +35,14 @@ export class ResourceController extends BaseController {
       const data = matchedData<INewResource>(req);
       const result = await this.resourceService.create(data);
 
-      return ApiResponseUtils.apiOkResponse(201, false, null, 'Resource created successfully', result);
+      return ApiResponseUtils.apiOkResponse(
+        201,
+        false,
+        null,
+        'Resource created successfully',
+        result,
+        this.entityTagHeader(result.version, result),
+      );
     });
     return ApiResponseUtils.createResponse(response, res);
   }
@@ -59,7 +66,8 @@ export class ResourceController extends BaseController {
   }
 
   /**
-   * Get a resource by its id.
+   * Get a resource by its id. The response carries the resource's `ETag`, which a later update or delete can send
+   * back in `If-Match`.
    *
    * @param {Request} req - The incoming request object.
    * @param {Response} res - The response object.
@@ -69,14 +77,22 @@ export class ResourceController extends BaseController {
     const response = await this.catchExceptionsWrapper(async () => {
       const result = await this.resourceService.getById(this.getStringParam(req, 'id'));
 
-      return ApiResponseUtils.apiOkResponse(200, false, null, 'Resource retrieved successfully', result);
+      return ApiResponseUtils.apiOkResponse(
+        200,
+        false,
+        null,
+        'Resource retrieved successfully',
+        result,
+        this.entityTagHeader(result.version, result),
+      );
     });
     return ApiResponseUtils.createResponse(response, res);
   }
 
   /**
-   * Update a resource by its id. The body carries the `version` of the resource the client read: a stale version is answered
-   * with 409 (CONFLICT) and nothing changes, and the response carries the new version.
+   * Update a resource by its id. The request carries the version of the resource the client read, as `version` in the
+   * body or as the `ETag` in `If-Match`: a stale version is answered with 409 (CONFLICT), or 412 when it came in
+   * `If-Match`, and nothing changes. The response carries the new version and `ETag`.
    *
    * @param {Request} req - The incoming request object.
    * @param {Response} res - The response object.
@@ -84,16 +100,28 @@ export class ResourceController extends BaseController {
    */
   async update(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
+      const id = this.getStringParam(req, 'id');
       const data = matchedData<Partial<INewResource>>(req);
-      const result = await this.resourceService.update(this.getStringParam(req, 'id'), data);
+      const result = await this.withExpectedVersion(req, data.version, (version) =>
+        this.resourceService.update(id, { ...data, version }),
+      );
 
-      return ApiResponseUtils.apiOkResponse(200, false, null, 'Resource updated successfully', result);
+      return ApiResponseUtils.apiOkResponse(
+        200,
+        false,
+        null,
+        'Resource updated successfully',
+        result,
+        this.entityTagHeader(result.version, result),
+      );
     });
     return ApiResponseUtils.createResponse(response, res);
   }
 
   /**
-   * Delete a resource by its id.
+   * Delete a resource by its id. The request carries the version of the resource the client read, as the `ETag` in
+   * `If-Match` or as `?version=`: a stale version is answered with 409 (CONFLICT), or 412 when it came in
+   * `If-Match`, and nothing is deleted.
    *
    * @param {Request} req - The incoming request object.
    * @param {Response} res - The response object.
@@ -101,7 +129,11 @@ export class ResourceController extends BaseController {
    */
   async delete(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
-      const result = await this.resourceService.delete(this.getStringParam(req, 'id'));
+      const id = this.getStringParam(req, 'id');
+      const query = matchedData<{ version?: number }>(req, { locations: ['query'] });
+      const result = await this.withExpectedVersion(req, query.version, (version) =>
+        this.resourceService.delete(id, version),
+      );
 
       return ApiResponseUtils.apiOkResponse(200, false, null, 'Resource deleted successfully', result);
     });

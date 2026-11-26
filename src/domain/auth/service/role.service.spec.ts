@@ -169,3 +169,61 @@ describe('RoleService.update', () => {
     });
   });
 });
+
+describe('RoleService.delete', () => {
+  let roleRepository: jest.Mocked<IRoleRepository>;
+  let userRepository: jest.Mocked<IUserRepository>;
+  let service: RoleService;
+
+  beforeEach(() => {
+    roleRepository = mockRepository();
+    userRepository = mockRepository();
+    service = new RoleService(roleRepository, mockRepository(), userRepository);
+    userRepository.find.mockResolvedValue([]);
+  });
+
+  it('rejects a stale client version with CONFLICT before any check or write', async () => {
+    roleRepository.findById.mockResolvedValue(role());
+
+    await expect(service.delete(ROLE_ID, 1)).rejects.toMatchObject({ type: 'CONFLICT' });
+    expect(userRepository.find).not.toHaveBeenCalled();
+    expect(roleRepository.delete).not.toHaveBeenCalled();
+  });
+
+  it('deletes only at the version it read, with the caller transaction', async () => {
+    const transactionOptions = { session: 'session-1' };
+    roleRepository.findById.mockResolvedValue(role());
+    roleRepository.delete.mockResolvedValue(role());
+
+    await expect(service.delete(ROLE_ID, 2, transactionOptions)).resolves.toMatchObject({ id: ROLE_ID });
+    expect(roleRepository.delete).toHaveBeenCalledWith(ROLE_ID, 2, transactionOptions);
+  });
+
+  it('deletes without a client version at the version it read', async () => {
+    roleRepository.findById.mockResolvedValue(role());
+    roleRepository.delete.mockResolvedValue(role());
+
+    await service.delete(ROLE_ID);
+
+    expect(roleRepository.delete).toHaveBeenCalledWith(ROLE_ID, 2, undefined);
+  });
+
+  it('turns a role made the default after the checks (a VERSION_CONFLICT) into CONFLICT, so it is not deleted', async () => {
+    roleRepository.findById.mockResolvedValue(role());
+    roleRepository.delete.mockRejectedValue(
+      new RepositoryError(`role.delete failed: version 2 of ${ROLE_ID} is stale`, 'VERSION_CONFLICT'),
+    );
+
+    await expect(service.delete(ROLE_ID, 2)).rejects.toMatchObject({
+      type: 'CONFLICT',
+      message: 'The record was changed by another request. Reload it and try again.',
+    });
+  });
+
+  it('refuses to delete the default role', async () => {
+    roleRepository.findById.mockResolvedValue(role({ default: true }));
+
+    await expect(service.delete(ROLE_ID, 2)).rejects.toMatchObject({ type: 'VALIDATION_ERROR' });
+    expect(roleRepository.delete).not.toHaveBeenCalled();
+  });
+});

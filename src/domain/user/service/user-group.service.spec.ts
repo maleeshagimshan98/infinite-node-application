@@ -10,6 +10,7 @@ import type {
 } from '@/application/interfaces/repositories/base.repository.interface';
 import type { IUserGroupRepository } from '@/application/interfaces/repositories/user-groups/user-group.repository.interface';
 import type { IUserRepository } from '@/application/interfaces/repositories/user/user.repository.interface';
+import { RepositoryError } from '@/application/interfaces/errors/repository.error';
 
 import { UserGroupService } from './user-group.service';
 
@@ -54,11 +55,12 @@ function group(overrides: Partial<IUserGroup> = {}): UserGroup {
 
 describe('UserGroupService', () => {
   let userGroupRepository: jest.Mocked<IUserGroupRepository>;
+  let userRepository: jest.Mocked<IUserRepository>;
   let service: UserGroupService;
 
   beforeEach(() => {
     userGroupRepository = mockRepository();
-    const userRepository: jest.Mocked<IUserRepository> = mockRepository();
+    userRepository = mockRepository();
     service = new UserGroupService(userGroupRepository, userRepository);
     userGroupRepository.update.mockImplementation(async (id, item) =>
       group({ id, name: item.name, default: item.default, version: item.version + 1 }),
@@ -126,6 +128,38 @@ describe('UserGroupService', () => {
 
       await expect(service.setAsDefault(GROUP_ID)).resolves.toEqual({ id: GROUP_ID, name: 'Gold' });
       expect(userGroupRepository.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('delete', () => {
+    beforeEach(() => {
+      userRepository.find.mockResolvedValue([]);
+    });
+
+    it('rejects a stale client version with CONFLICT before any check or write', async () => {
+      userGroupRepository.findById.mockResolvedValue(group());
+
+      await expect(service.delete(GROUP_ID, 1)).rejects.toMatchObject({ type: 'CONFLICT' });
+      expect(userRepository.find).not.toHaveBeenCalled();
+      expect(userGroupRepository.delete).not.toHaveBeenCalled();
+    });
+
+    it('deletes only at the version it read, with the caller transaction', async () => {
+      const transactionOptions = { session: 'session-1' };
+      userGroupRepository.findById.mockResolvedValue(group());
+      userGroupRepository.delete.mockResolvedValue(group());
+
+      await expect(service.delete(GROUP_ID, 2, transactionOptions)).resolves.toMatchObject({ id: GROUP_ID });
+      expect(userGroupRepository.delete).toHaveBeenCalledWith(GROUP_ID, 2, transactionOptions);
+    });
+
+    it('turns a group made the default after the checks (a VERSION_CONFLICT) into CONFLICT', async () => {
+      userGroupRepository.findById.mockResolvedValue(group());
+      userGroupRepository.delete.mockRejectedValue(
+        new RepositoryError(`user-group.delete failed: version 2 of ${GROUP_ID} is stale`, 'VERSION_CONFLICT'),
+      );
+
+      await expect(service.delete(GROUP_ID)).rejects.toMatchObject({ type: 'CONFLICT' });
     });
   });
 });

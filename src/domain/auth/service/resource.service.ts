@@ -144,18 +144,24 @@ export class ResourceService extends BaseDomainService {
   }
 
   /**
-   * Delete a resource by its id.
+   * Delete a resource by its id. The delete is conditional on the version read here, so a resource changed between
+   * these checks and the delete is not deleted.
    *
    * @param {string} id - The resource id.
+   * @param {number} [version] - The version of the resource the caller read. Without a version the delete applies to
+   * the resource as it is read here.
    * @param {TransactionOptions} [transactionOptions] - Optional MongoDB session for transaction support.
    * @returns {Promise<Resource>} The deleted resource.
    * @throws {DomainServiceError} NOT_FOUND when no resource exists with the given id.
+   * @throws {DomainServiceError} CONFLICT when `version` is not the resource's current version (checked before
+   * anything else), or the resource changed before it was deleted.
    * @throws {DomainServiceError} VALIDATION_ERROR when the id is malformed, or the resource is still granted by a role.
    * @throws {DomainServiceError} INFRASTRUCTURE_ERROR when the database fails.
    */
-  async delete(id: string, transactionOptions?: TransactionOptions): Promise<Resource> {
+  async delete(id: string, version?: number, transactionOptions?: TransactionOptions): Promise<Resource> {
     return this.wrapInfrastructureErrors(async () => {
-      await this.getById(id, transactionOptions);
+      const resource = await this.getById(id, transactionOptions);
+      this.assertVersion(resource, version, 'Resource');
 
       const roles = await this.roleRepository.find({}, undefined, undefined, undefined, transactionOptions);
       if (roles.some((role) => role.resource_ids.includes(id))) {
@@ -165,7 +171,7 @@ export class ResourceService extends BaseDomainService {
         );
       }
 
-      const deletedResource = await this.resourceRepository.delete(id, transactionOptions);
+      const deletedResource = await this.resourceRepository.delete(id, resource.version, transactionOptions);
       if (!deletedResource) {
         throw new DomainServiceError(`The Resource with the id equal to ${id} could not be deleted.`, 'NOT_FOUND');
       }

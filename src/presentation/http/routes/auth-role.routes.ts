@@ -4,7 +4,11 @@
 
 import { Router } from 'express';
 
-import { newRoleValidator, updateRoleValidator } from '@/presentation/http/validators/auth/role.validator';
+import {
+  newRoleValidator,
+  updateRoleValidator,
+  deleteRoleValidator,
+} from '@/presentation/http/validators/auth/role.validator';
 import { container } from '@/app/core/service.container';
 import type { LoginApplicationService } from '@/application/services/auth/login.application.service';
 import type { AuthenticatedRequest } from '@/app/core/utils/request/authenticated-request';
@@ -57,6 +61,7 @@ router.put(
 router.delete(
   '/:id',
   UserValidatorMiddleware(loginApplicationServiceProvider),
+  RequestValidatorMiddleware(deleteRoleValidator()),
   (req: AuthenticatedRequest, res: Response) => {
     container.resolve<RoleController>('roleController').delete(req, res);
   },

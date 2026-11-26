@@ -6,6 +6,7 @@ import { matchedData } from 'express-validator';
 
 import ApiResponseUtils from '@/app/core/utils/api-response/api-response-utils';
 import type { UserService } from '@/domain/user/service/user.service';
+import type { UserApplicationService } from '@/application/services/user/user.application.service';
 import type { IUserRepository } from '@/application/interfaces/repositories/user/user.repository.interface';
 import type { User, INewUser } from '@/domain/user/models/user';
 import type { ILogger } from '@/application/interfaces/infrastructure/logger.interface';
@@ -17,6 +18,7 @@ import type { Request, Response } from 'express';
 export class UserController extends BaseController {
   constructor(
     private userService: UserService,
+    private userApplicationService: UserApplicationService, // update() can end the user's sessions, in a transaction
     private userRepository: IUserRepository,
     logger: ILogger,
   ) {
@@ -42,7 +44,7 @@ export class UserController extends BaseController {
   }
 
   /**
-   * Create a new user.
+   * Create a new user. The response carries the user's `ETag`.
    *
    * @param {Request} req - The incoming request object.
    * @param {Response} res - The response object.
@@ -53,7 +55,15 @@ export class UserController extends BaseController {
       const data = matchedData<INewUser>(req);
       const result = await this.userService.create(data);
 
-      return ApiResponseUtils.apiOkResponse(201, false, null, 'User created successfully', this.toSafeUser(result));
+      const safeUser = this.toSafeUser(result);
+      return ApiResponseUtils.apiOkResponse(
+        201,
+        false,
+        null,
+        'User created successfully',
+        safeUser,
+        this.entityTagHeader(result.version, safeUser),
+      );
     });
     return ApiResponseUtils.createResponse(response, res);
   }
@@ -83,7 +93,8 @@ export class UserController extends BaseController {
   }
 
   /**
-   * Get a user by its id.
+   * Get a user by its id. The response carries the user's `ETag`, which a later update or delete can send back in
+   * `If-Match`.
    *
    * @param {Request} req - The incoming request object.
    * @param {Response} res - The response object.
@@ -93,14 +104,24 @@ export class UserController extends BaseController {
     const response = await this.catchExceptionsWrapper(async () => {
       const result = await this.userService.getById(this.getStringParam(req, 'id'));
 
-      return ApiResponseUtils.apiOkResponse(200, false, null, 'User retrieved successfully', this.toSafeUser(result));
+      const safeUser = this.toSafeUser(result);
+      return ApiResponseUtils.apiOkResponse(
+        200,
+        false,
+        null,
+        'User retrieved successfully',
+        safeUser,
+        this.entityTagHeader(result.version, safeUser),
+      );
     });
     return ApiResponseUtils.createResponse(response, res);
   }
 
   /**
-   * Update a user by its id. The body carries the `version` of the user the client read: a stale version is answered
-   * with 409 (CONFLICT) and nothing changes, and the response carries the new version.
+   * Update a user by its id. The request carries the version of the user the client read, as `version` in the body or
+   * as the `ETag` in `If-Match`: a stale version is answered with 409 (CONFLICT), or 412 when it came in
+   * `If-Match`, and nothing changes. The response carries the new version and `ETag`. A new password, or a status
+   * other than `active`, ends every session of the user, including the one that made this request.
    *
    * @param {Request} req - The incoming request object.
    * @param {Response} res - The response object.
@@ -108,16 +129,29 @@ export class UserController extends BaseController {
    */
   async update(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
+      const id = this.getStringParam(req, 'id');
       const data = matchedData<Partial<INewUser>>(req);
-      const result = await this.userService.update(this.getStringParam(req, 'id'), data);
+      const result = await this.withExpectedVersion(req, data.version, (version) =>
+        this.userApplicationService.update(id, { ...data, version }),
+      );
 
-      return ApiResponseUtils.apiOkResponse(200, false, null, 'User updated successfully', this.toSafeUser(result));
+      const safeUser = this.toSafeUser(result);
+      return ApiResponseUtils.apiOkResponse(
+        200,
+        false,
+        null,
+        'User updated successfully',
+        safeUser,
+        this.entityTagHeader(result.version, safeUser),
+      );
     });
     return ApiResponseUtils.createResponse(response, res);
   }
 
   /**
-   * Delete a user by its id.
+   * Delete a user by its id. The request carries the version of the user the client read, as the `ETag` in
+   * `If-Match` or as `?version=`: a stale version is answered with 409 (CONFLICT), or 412 when it came in
+   * `If-Match`, and nothing is deleted.
    *
    * @param {Request} req - The incoming request object.
    * @param {Response} res - The response object.
@@ -125,7 +159,11 @@ export class UserController extends BaseController {
    */
   async delete(req: Request, res: Response): Promise<Response> {
     const response = await this.catchExceptionsWrapper(async () => {
-      const result = await this.userService.delete(this.getStringParam(req, 'id'));
+      const id = this.getStringParam(req, 'id');
+      const query = matchedData<{ version?: number }>(req, { locations: ['query'] });
+      const result = await this.withExpectedVersion(req, query.version, (version) =>
+        this.userService.delete(id, version),
+      );
 
       return ApiResponseUtils.apiOkResponse(200, false, null, 'User deleted successfully', this.toSafeUser(result));
     });

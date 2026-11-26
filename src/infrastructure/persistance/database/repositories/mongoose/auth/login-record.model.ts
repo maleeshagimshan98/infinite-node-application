@@ -33,5 +33,7 @@ export const loginRecordSchema = new Schema<INewLoginRecordSchema>(
 );
 
 loginRecordSchema.index({ token: 1 }, { unique: true });
+// LoginService.revokeAllForUser() looks up a user's active sessions (password reset, password or status change).
+loginRecordSchema.index({ user_id: 1, status: 1 });
 
 export const LoginRecordModel = mongoose.model('login_record', loginRecordSchema);
